@@ -1,0 +1,25 @@
+{
+  "chats": [
+    { "id": 1, "title": "Chat 1" },
+    { "id": 2, "title": "Chat 2" },
+    { "id": 3, "title": "Chat 3" },
+    { "id": 4, "title": "Chat 4" }
+  ],
+  "features": [
+    { "id": 1, "title": "Note Taking assistance", "description": "Responses set to assist with taking notes for selected class", "enabled": true },
+    { "id": 2, "title": "Summarization and restating", "description": "Responses focused on summaries and restatements", "enabled": false },
+    { "id": 3, "title": "Text-to-speech formatting", "description": "Responses expected to supply Text-to-speech features", "enabled": false }
+  ],
+  "classes": [
+    { "id": 1, "role": "student", "name": "Biology 103", "description": "Assist with a guided approach to class material or intent." },
+    { "id": 2, "role": "student", "name": "Computer Science 101", "description": "Assist with a guided approach to class material or intent." },
+    { "id": 3, "role": "student", "name": "CyberSecurity 230", "description": "Assist with a guided approach to class material or intent." },
+    { "id": 4, "role": "instructor", "name": "Biology 103", "description": "Assist with a guided approach with instructor prompts and controls." },
+    { "id": 5, "role": "instructor", "name": "Chemistry 213", "description": "Enable/disable prompt complexity and class-level controls." },
+    { "id": 6, "role": "instructor", "name": "Genetics 330", "description": "Enable/disable class files and upload settings." }
+  ],
+  "notes": [
+    { "id": 1, "class": "Bio", "date": "2026-02-09", "chat": "Chat 3", "content": "System's response . . ." },
+    { "id": 2, "class": "Chem", "date": "2026-02-09", "chat": "Chat 2", "content": "User's prompt . . ." }
+  ]
+}
