@@ -10,6 +10,10 @@ vi.mock('../../src/stores/appStore', () => ({
   })
 }))
 
+vi.mock('vue-router', () => ({
+  useRoute: () => ({ path: '/' })
+}))
+
 import App from '../../src/App.vue'
 
 describe('App.vue', () => {

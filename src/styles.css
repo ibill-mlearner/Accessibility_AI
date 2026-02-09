@@ -45,3 +45,7 @@ input[type='radio'] { width: 42px; height: 42px; }
   .header-bar p { font-size: 14px; }
   .icon-btn { width: 40px; height: 40px; }
 }
+
+.preview-only-layout {
+  padding: 16px;
+}
