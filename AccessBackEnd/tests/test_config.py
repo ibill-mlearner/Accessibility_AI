@@ -1,4 +1,4 @@
-import importlib
+import importlib.util
 import sys
 from datetime import timedelta
 from pathlib import Path
@@ -7,7 +7,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-config = importlib.import_module("AccessBackEnd.app.config")
+CONFIG_PATH = ROOT / "AccessBackEnd" / "app" / "config.py"
+SPEC = importlib.util.spec_from_file_location("backend_config_module", CONFIG_PATH)
+config = importlib.util.module_from_spec(SPEC)
+assert SPEC and SPEC.loader
+SPEC.loader.exec_module(config)
 
 
 def test_base_and_instance_dir():
@@ -24,7 +28,12 @@ def _reload_with_env(monkeypatch, **env):
             monkeypatch.delenv(k, raising=False)
         else:
             monkeypatch.setenv(k, str(v))
-    return importlib.reload(config)
+
+    spec = importlib.util.spec_from_file_location("backend_config_module", CONFIG_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_jwt_section_override(monkeypatch):

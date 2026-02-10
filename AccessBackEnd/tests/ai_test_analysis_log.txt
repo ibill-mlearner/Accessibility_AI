@@ -1,0 +1,10 @@
+[2026-02-10T22:36:56.547703+00:00] session_start cwd=/workspace/Accessibility_AI
+[2026-02-10T22:36:56.715111+00:00] session_finish exitstatus=2
+[2026-02-10T22:37:10.481450+00:00] session_start cwd=/workspace/Accessibility_AI
+test=AccessBackEnd/tests/test_app_factory.py::test_app_factory_registers_extensions_and_blueprints outcome=skipped duration_s=0.0008
+test=AccessBackEnd/tests/test_config.py::test_base_and_instance_dir outcome=passed duration_s=0.0002
+test=AccessBackEnd/tests/test_config.py::test_jwt_section_override outcome=passed duration_s=0.0007
+test=AccessBackEnd/tests/test_config.py::test_logging_section_override outcome=passed duration_s=0.0005
+test=AccessBackEnd/tests/test_config.py::test_ai_section_override outcome=passed duration_s=0.0005
+test=AccessBackEnd/tests/test_config.py::test_get_config_selects_by_app_config outcome=passed duration_s=0.0009
+[2026-02-10T22:37:10.519611+00:00] session_finish exitstatus=0
