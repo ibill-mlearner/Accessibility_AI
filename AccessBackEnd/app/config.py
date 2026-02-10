@@ -75,9 +75,15 @@ class BaseConfig:
     LOG_LEVEL = _env("LOG_LEVEL", "INFO")
     LOG_JSON = _env("LOG_JSON", False, bool)
 
-    AI_PROVIDER = _env("AI_PROVIDER", "local")
+
+    AI_PROVIDER = _env("AI_PROVIDER", "mock_json")
     AI_MODEL_NAME = _env("AI_MODEL_NAME", "default-model")
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
+    AI_LIVE_ENDPOINT = _env("AI_LIVE_ENDPOINT", "")
+    AI_MOCK_RESOURCE_PATH = _env(
+        "AI_MOCK_RESOURCE_PATH",
+        (_BASE_DIR / "resources" / "mock_ai_response.json").as_posix(),
+    )
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
