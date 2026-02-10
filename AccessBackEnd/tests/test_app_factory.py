@@ -3,7 +3,7 @@ import pytest
 
 def test_app_factory_registers_extensions_and_blueprints():
     try:
-        from AccessBackEnd.app import create_app
+        from app import create_app
     except ModuleNotFoundError as exc:
         pytest.skip(f"create_app import unavailable due to missing dependency: {exc}")
 

@@ -1,0 +1,9 @@
+{
+  "name": "accessibility-ai-workspace",
+  "private": true,
+  "scripts": {
+    "setup": "npm --prefix AccessAppFront install",
+    "dev": "npm --prefix AccessAppFront run dev",
+    "mock-api": "npm --prefix AccessAppFront run mock-api"
+  }
+}
