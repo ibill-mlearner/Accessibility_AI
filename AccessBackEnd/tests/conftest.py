@@ -5,11 +5,12 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = REPO_ROOT / "AccessBackEnd"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
-ARTIFACT_PATH = ROOT / "AccessBackEnd" / "tests" / "ai_test_analysis_log.txt"
+ARTIFACT_PATH = BACKEND_ROOT / "tests" / "ai_test_analysis_log.txt"
 
 
 def _append_artifact_line(message: str) -> None:
@@ -38,7 +39,7 @@ def pytest_sessionfinish(session, exitstatus):
 @pytest.fixture()
 def app():
     try:
-        from AccessBackEnd.app import create_app
+        from app import create_app
     except ModuleNotFoundError as exc:
         pytest.skip(f"app fixture unavailable due to missing dependency: {exc}")
 
