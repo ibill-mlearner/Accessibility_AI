@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import LoginView from '../../src/views/LoginView.vue'
 import { useAppStore } from '../../src/stores/appStore'
 
@@ -15,14 +15,34 @@ vi.mock('vue-router', async (importOriginal) => {
 })
 
 describe('LoginView.vue', () => {
-  it('sets role to student and routes home on submit click', async () => {
+  beforeEach(() => {
+    push.mockReset()
+  })
+
+  it('routes home on successful submit', async () => {
     setActivePinia(createPinia())
-    const store = useAppStore()
     const wrapper = mount(LoginView)
 
+    const [userInput, passInput] = wrapper.findAll('input')
+    await userInput.setValue('student')
+    await passInput.setValue('student123')
     await wrapper.find('button.icon-btn').trigger('click')
 
-    expect(store.role).toBe('student')
     expect(push).toHaveBeenCalledWith('/')
+  })
+
+  it('routes to error page when login fails', async () => {
+    setActivePinia(createPinia())
+    const store = useAppStore()
+    const loginSpy = vi.spyOn(store, 'login').mockRejectedValue(new Error('Invalid credentials'))
+    const wrapper = mount(LoginView)
+
+    const [userInput, passInput] = wrapper.findAll('input')
+    await userInput.setValue('student')
+    await passInput.setValue('wrongpass')
+    await wrapper.find('button.icon-btn').trigger('click')
+
+    expect(loginSpy).toHaveBeenCalledWith('student', 'wrongpass')
+    expect(push).toHaveBeenCalledWith('/error')
   })
 })

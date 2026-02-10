@@ -13,8 +13,12 @@ const store = useAppStore()
 const username = ref('')
 const password = ref('')
 
-function doLogin() {
-  store.login()
-  router.push('/')
+async function doLogin() {
+  try {
+    await store.login(username.value, password.value)
+    router.push('/')
+  } catch (error) {
+    router.push('/error')
+  }
 }
 </script>

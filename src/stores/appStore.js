@@ -47,8 +47,19 @@ export const useAppStore = defineStore('app', {
         this.loading = false
       }
     },
-    login() {
-      this.role = 'student'
+    async login(username, password) {
+      const normalizedUsername = username.trim().toLowerCase()
+      const validCredentials = {
+        student: { password: 'student123', role: 'student' },
+        instructor: { password: 'instructor123', role: 'instructor' }
+      }
+
+      const matched = validCredentials[normalizedUsername]
+      if (!matched || matched.password !== password) {
+        throw new Error('Invalid username or password')
+      }
+
+      this.role = matched.role
     },
     logout() {
       this.role = 'guest'
