@@ -1,8 +1,8 @@
 import argparse
 import os
 
-from AccessBackEnd.app import create_app
-from AccessBackEnd.app.extensions import db
+from app import create_app
+from app.extensions import db
 
 
 def _build_parser() -> argparse.ArgumentParser:
