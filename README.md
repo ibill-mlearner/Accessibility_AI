@@ -18,6 +18,15 @@ The backend is frontend-agnostic and follows an app-factory architecture.
 - `json-server` for local mock endpoints
 
 ### Run
+From repository root:
+```bash
+npm install
+npm run setup
+npm run mock-api
+npm run dev
+```
+
+Or run directly inside the frontend folder:
 ```bash
 cd AccessAppFront
 npm install
@@ -68,6 +77,12 @@ npm run dev
   - Logging observer (`LoggingObserver`)
 
 ### Backend Run (local)
+From repository root:
+```bash
+python manage.py
+```
+
+Or from the backend folder:
 ```bash
 cd AccessBackEnd
 python manage.py
@@ -76,7 +91,7 @@ python manage.py
 Default service URL: `http://localhost:5000`
 
 ### Select AI source at startup
-You can choose between the mock JSON AI resource and a live AI agent endpoint from the run file:
+You can choose between the mock JSON AI resource and a live AI agent endpoint:
 
 ```bash
 # Use local mock JSON resource (default)
