@@ -1,0 +1,17 @@
+{
+  "interaction_id": "mock-interaction-001",
+  "agent": "mock-ai-agent",
+  "status": "ok",
+  "response": {
+    "summary": "This is mock AI data used for development and API testing.",
+    "recommendations": [
+      "Enable captions by default for lecture media.",
+      "Provide downloadable notes in accessible formats.",
+      "Offer keyboard navigation guidance in onboarding."
+    ]
+  },
+  "meta": {
+    "source": "local-json-resource",
+    "version": "1.0"
+  }
+}
