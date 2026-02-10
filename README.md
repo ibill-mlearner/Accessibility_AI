@@ -77,6 +77,11 @@ npm run dev
   - Logging observer (`LoggingObserver`)
 
 ### Backend Run (local)
+Install Python dependencies first:
+```bash
+python -m pip install -r AccessBackEnd/requirements.txt
+```
+
 From repository root:
 ```bash
 python manage.py
@@ -85,6 +90,7 @@ python manage.py
 Or from the backend folder:
 ```bash
 cd AccessBackEnd
+python -m pip install -r requirements.txt
 python manage.py
 ```
 
