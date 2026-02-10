@@ -21,3 +21,82 @@ def test_health_endpoint(client):
     body = response.get_json()
     assert body["status"] == "ok"
     assert body["ai_provider"] == "mock_json"
+
+
+def test_resource_endpoints_return_seed_data(client):
+    response = client.get("/api/v1/chats")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert data and data[0]["title"] == "Bio 103 lecture recap"
+    assert {"id", "title", "start", "model", "class", "user"}.issubset(data[0].keys())
+
+
+def test_resource_create_is_passthrough(client):
+    payload = {"id": 99, "title": "Chat 99", "meta": {"tag": "passthrough"}}
+    response = client.post("/api/v1/chats", json=payload)
+    assert response.status_code == 201
+    assert response.get_json() == payload
+
+
+def test_resource_update_replaces_record_without_transform(client):
+    payload = {"id": 1, "title": "Renamed Chat", "extra": ["a", "b"]}
+    response = client.put("/api/v1/chats/1", json=payload)
+    assert response.status_code == 200
+    assert response.get_json() == payload
+
+
+def test_resource_delete_returns_deleted_record(client):
+    response = client.delete("/api/v1/chats/2")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["id"] == 2
+
+
+def test_ai_interaction_accepts_future_growth_fields(client):
+    payload = {
+        "prompt": "hello",
+        "system_prompt": "You are a helpful note assistant",
+        "rag": {"source": "vector_db", "query": "biology 103 chapter 1"},
+        "context": {"class_id": 1},
+    }
+
+    response = client.post("/api/v1/ai/interactions", json=payload)
+    assert response.status_code == 200
+    body = response.get_json()
+    assert "meta" in body
+    assert body["meta"]["prompt_echo"] == "hello"
+
+
+def test_unmatched_route_returns_json_error(client):
+    response = client.get("/api/v1/does-not-exist")
+    assert response.status_code == 404
+    body = response.get_json()
+    assert "error" in body
+    assert body["error"]["code"] == "not_found"
+
+
+def test_messages_resource_has_chat_relationship(client):
+    response = client.get("/api/v1/messages")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert data and data[0]["chat_id"] == 1
+    assert {"id", "chat_id", "message_text", "vote", "note", "help_intent"}.issubset(data[0].keys())
+
+
+def test_resource_not_found_uses_json_error_envelope(client):
+    response = client.get("/api/v1/classes/999")
+    assert response.status_code == 404
+    body = response.get_json()
+    assert body["error"]["code"] == "not_found"
+    assert body["error"]["message"] == "class not found"
+    assert body["error"]["details"]["id"] == 999
+
+
+def test_create_resource_requires_json_object(client):
+    response = client.post("/api/v1/chats", json=[{"id": 7}])
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["error"]["code"] == "bad_request"
+    assert body["error"]["message"] == "json object body required"

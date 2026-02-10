@@ -1,9 +1,47 @@
 {
   "chats": [
-    { "id": 1, "title": "Chat 1" },
-    { "id": 2, "title": "Chat 2" },
-    { "id": 3, "title": "Chat 3" },
-    { "id": 4, "title": "Chat 4" }
+    {
+      "id": 1,
+      "title": "Bio 103 lecture recap",
+      "start": "2026-02-09T09:00:00Z",
+      "model": "gpt-4o-mini",
+      "class": "Biology 103",
+      "user": "student_1"
+    },
+    {
+      "id": 2,
+      "title": "CS 101 study session",
+      "start": "2026-02-09T10:30:00Z",
+      "model": "gpt-4o-mini",
+      "class": "Computer Science 101",
+      "user": "student_2"
+    }
+  ],
+  "messages": [
+    {
+      "id": 1,
+      "chat_id": 1,
+      "message_text": "Can you summarize mitochondria function?",
+      "vote": "good",
+      "note": "yes",
+      "help_intent": "summarization"
+    },
+    {
+      "id": 2,
+      "chat_id": 1,
+      "message_text": "Mitochondria generate ATP for cell energy.",
+      "vote": "good",
+      "note": "no",
+      "help_intent": "note_taking"
+    },
+    {
+      "id": 3,
+      "chat_id": 2,
+      "message_text": "Explain recursion with an example.",
+      "vote": "bad",
+      "note": "yes",
+      "help_intent": "restating"
+    }
   ],
   "features": [
     { "id": 1, "title": "Note Taking assistance", "description": "Responses set to assist with taking notes for selected class", "enabled": true },
