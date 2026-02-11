@@ -1,126 +1,218 @@
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
+import json
+import os
+import secrets
 from dataclasses import dataclass
-from hashlib import sha256
-from secrets import token_urlsafe
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 
 @dataclass(frozen=True)
 class AuthUser:
-    """Serializable auth user representation independent from ORM models."""
+    """Minimal user shape for auth flows.
 
-    id: int
-    email: str
-    role: str = "student"
+    This model is intentionally storage-agnostic so app/auth can be reused in
+    other projects without pulling in ORM models.
+    """
 
-
-class AuthError(ValueError):
-    """Domain-level auth error with API-friendly metadata."""
-
-    def __init__(self, message: str, *, code: str, status_code: int) -> None:
-        super().__init__(message)
-        self.code = code
-        self.status_code = status_code
+    user_id: str
+    identifier: str
+    password_hash: str
+    created_at: datetime
 
 
-class PasswordHasher(Protocol):
-    def hash_password(self, password: str) -> str: ...
-
-    def verify_password(self, password: str, password_hash: str) -> bool: ...
+class AuthError(Exception):
+    """Base auth exception."""
 
 
-class TokenIssuer(Protocol):
-    def issue(self, user: AuthUser) -> str: ...
+class InvalidCredentialsError(AuthError):
+    """Raised when credentials fail validation."""
+
+
+class DuplicateIdentityError(AuthError):
+    """Raised when trying to register an existing identity."""
+
+
+class ValidationError(AuthError):
+    """Raised when request data is incomplete or malformed."""
 
 
 class UserStore(Protocol):
-    def get_by_email(self, email: str) -> dict | None: ...
+    """Persistence adapter contract for auth module."""
 
-    def create_user(self, email: str, password_hash: str, role: str = "student") -> AuthUser: ...
+    def get_by_identifier(self, identifier: str) -> AuthUser | None:
+        ...
+
+    def create_user(self, identifier: str, password_hash: str) -> AuthUser:
+        ...
 
 
-class SHA256PasswordHasher:
-    """Simple hashing strategy suitable for standalone demos/tests."""
+class PasswordHasher(Protocol):
+    """Hasher adapter contract for auth module."""
 
     def hash_password(self, password: str) -> str:
-        return sha256(password.encode("utf-8")).hexdigest()
+        ...
 
-    def verify_password(self, password: str, password_hash: str) -> bool:
-        return self.hash_password(password) == password_hash
+    def verify_password(self, password: str, encoded_hash: str) -> bool:
+        ...
 
 
-class StatelessTokenIssuer:
-    """Opaque token generator with no infrastructure dependency."""
+class PBKDF2PasswordHasher:
+    """Framework-independent password hasher using stdlib primitives."""
 
-    def issue(self, user: AuthUser) -> str:
-        return token_urlsafe(32)
+    algorithm = "sha256"
+
+    def __init__(self, iterations: int = 310_000, salt_length: int = 16) -> None:
+        self.iterations = iterations
+        self.salt_length = salt_length
+
+    def hash_password(self, password: str) -> str:
+        if not password:
+            raise ValidationError("password is required")
+
+        salt = secrets.token_bytes(self.salt_length)
+        digest = hashlib.pbkdf2_hmac(
+            self.algorithm,
+            password.encode("utf-8"),
+            salt,
+            self.iterations,
+        )
+        return "$".join(
+            [
+                "pbkdf2",
+                self.algorithm,
+                str(self.iterations),
+                base64.urlsafe_b64encode(salt).decode("ascii"),
+                base64.urlsafe_b64encode(digest).decode("ascii"),
+            ]
+        )
+
+    def verify_password(self, password: str, encoded_hash: str) -> bool:
+        try:
+            _prefix, algorithm, iterations, salt_b64, digest_b64 = encoded_hash.split("$", maxsplit=4)
+            salt = base64.urlsafe_b64decode(salt_b64.encode("ascii"))
+            expected_digest = base64.urlsafe_b64decode(digest_b64.encode("ascii"))
+            computed_digest = hashlib.pbkdf2_hmac(
+                algorithm,
+                password.encode("utf-8"),
+                salt,
+                int(iterations),
+            )
+        except (ValueError, TypeError):
+            return False
+
+        return hmac.compare_digest(expected_digest, computed_digest)
+
+
+class StatelessTokenManager:
+    """Small signed token manager that is independent from Flask/JWT libs."""
+
+    def __init__(self, secret_key: str, ttl_seconds: int = 3600) -> None:
+        if not secret_key:
+            raise ValidationError("secret_key is required")
+        self.secret_key = secret_key.encode("utf-8")
+        self.ttl_seconds = ttl_seconds
+
+    def issue_token(self, user: AuthUser) -> str:
+        payload = {
+            "sub": user.user_id,
+            "identifier": user.identifier,
+            "exp": int((datetime.now(UTC) + timedelta(seconds=self.ttl_seconds)).timestamp()),
+            "nonce": base64.urlsafe_b64encode(os.urandom(8)).decode("ascii"),
+        }
+        payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        payload_part = base64.urlsafe_b64encode(payload_bytes).decode("ascii")
+        signature = hmac.new(self.secret_key, payload_part.encode("ascii"), hashlib.sha256).digest()
+        signature_part = base64.urlsafe_b64encode(signature).decode("ascii")
+        return f"{payload_part}.{signature_part}"
+
+    def verify_token(self, token: str) -> dict[str, str | int]:
+        if not token or "." not in token:
+            raise InvalidCredentialsError("token is invalid")
+
+        payload_part, signature_part = token.split(".", maxsplit=1)
+        expected_sig = hmac.new(self.secret_key, payload_part.encode("ascii"), hashlib.sha256).digest()
+
+        try:
+            provided_sig = base64.urlsafe_b64decode(signature_part.encode("ascii"))
+            payload = json.loads(base64.urlsafe_b64decode(payload_part.encode("ascii")).decode("utf-8"))
+        except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+            raise InvalidCredentialsError("token is invalid") from None
+
+        if not hmac.compare_digest(expected_sig, provided_sig):
+            raise InvalidCredentialsError("token signature mismatch")
+
+        if int(payload.get("exp", 0)) <= int(datetime.now(UTC).timestamp()):
+            raise InvalidCredentialsError("token expired")
+
+        return payload
 
 
 class InMemoryUserStore:
-    """In-memory store to keep auth portable and framework-agnostic."""
+    """Reference store implementation for local tests and standalone usage."""
 
     def __init__(self) -> None:
-        self._users_by_email: dict[str, dict] = {}
-        self._id_sequence = 1
+        self._users: dict[str, AuthUser] = {}
 
-    def get_by_email(self, email: str) -> dict | None:
-        return self._users_by_email.get(email)
+    def get_by_identifier(self, identifier: str) -> AuthUser | None:
+        return self._users.get(identifier)
 
-    def create_user(self, email: str, password_hash: str, role: str = "student") -> AuthUser:
-        if email in self._users_by_email:
-            raise AuthError("email already registered", code="email_exists", status_code=409)
+    def create_user(self, identifier: str, password_hash: str) -> AuthUser:
+        if identifier in self._users:
+            raise DuplicateIdentityError("identity already exists")
 
-        user = AuthUser(id=self._id_sequence, email=email, role=role)
-        self._id_sequence += 1
-        self._users_by_email[email] = {"user": user, "password_hash": password_hash}
+        user = AuthUser(
+            user_id=str(len(self._users) + 1),
+            identifier=identifier,
+            password_hash=password_hash,
+            created_at=datetime.now(UTC),
+        )
+        self._users[identifier] = user
         return user
 
 
 class AuthService:
-    """Standalone auth service with injectable persistence and token strategies."""
+    """Core auth orchestration with no framework or ORM dependency."""
 
-    def __init__(self, *, user_store: UserStore, password_hasher: PasswordHasher, token_issuer: TokenIssuer) -> None:
-        self._user_store = user_store
-        self._password_hasher = password_hasher
-        self._token_issuer = token_issuer
-        self._active_tokens: dict[str, AuthUser] = {}
+    def __init__(
+        self,
+        user_store: UserStore,
+        password_hasher: PasswordHasher,
+        token_manager: StatelessTokenManager,
+    ) -> None:
+        self.user_store = user_store
+        self.password_hasher = password_hasher
+        self.token_manager = token_manager
+
+    def register(self, identifier: str, password: str) -> AuthUser:
+        normalized_identifier = self._normalize_identifier(identifier)
+        if self.user_store.get_by_identifier(normalized_identifier):
+            raise DuplicateIdentityError("identity already exists")
+
+        password_hash = self.password_hasher.hash_password(password)
+        return self.user_store.create_user(normalized_identifier, password_hash)
+
+    def login(self, identifier: str, password: str) -> tuple[AuthUser, str]:
+        normalized_identifier = self._normalize_identifier(identifier)
+        user = self.user_store.get_by_identifier(normalized_identifier)
+        if user is None:
+            raise InvalidCredentialsError("invalid credentials")
+
+        if not self.password_hasher.verify_password(password, user.password_hash):
+            raise InvalidCredentialsError("invalid credentials")
+
+        return user, self.token_manager.issue_token(user)
+
+    def verify_access_token(self, token: str) -> dict[str, str | int]:
+        return self.token_manager.verify_token(token)
 
     @staticmethod
-    def _normalize_email(email: str) -> str:
-        return email.strip().lower()
-
-    def register(self, *, email: str, password: str, role: str = "student") -> AuthUser:
-        normalized_email = self._normalize_email(email)
-        if not normalized_email or not password:
-            raise AuthError("email and password are required", code="invalid_payload", status_code=400)
-
-        password_hash = self._password_hasher.hash_password(password)
-        return self._user_store.create_user(normalized_email, password_hash, role)
-
-    def authenticate(self, *, email: str, password: str) -> AuthUser:
-        normalized_email = self._normalize_email(email)
-        record = self._user_store.get_by_email(normalized_email)
-        if not record:
-            raise AuthError("invalid credentials", code="invalid_credentials", status_code=401)
-
-        if not self._password_hasher.verify_password(password, record["password_hash"]):
-            raise AuthError("invalid credentials", code="invalid_credentials", status_code=401)
-
-        return record["user"]
-
-    def login(self, *, email: str, password: str) -> tuple[AuthUser, str]:
-        user = self.authenticate(email=email, password=password)
-        token = self._token_issuer.issue(user)
-        self._active_tokens[token] = user
-        return user, token
-
-    def logout(self, token: str | None) -> bool:
-        if not token:
-            return False
-        return self._active_tokens.pop(token, None) is not None
-
-    def validate_token(self, token: str | None) -> AuthUser | None:
-        if not token:
-            return None
-        return self._active_tokens.get(token)
+    def _normalize_identifier(identifier: str) -> str:
+        normalized = (identifier or "").strip().lower()
+        if not normalized:
+            raise ValidationError("identifier is required")
+        return normalized

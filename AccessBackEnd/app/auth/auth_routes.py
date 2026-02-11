@@ -2,58 +2,68 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, request
 
-from .auth_methods import AuthError, AuthService, AuthUser
+from .auth_methods import (
+    AuthService,
+    DuplicateIdentityError,
+    InvalidCredentialsError,
+    ValidationError,
+)
 
 
-def _user_payload(user: AuthUser) -> dict:
-    return {"id": user.id, "email": user.email, "role": user.role}
+def create_auth_blueprint(auth_service: AuthService, url_prefix: str = "/auth") -> Blueprint:
+    """Create a framework adapter around the standalone auth service."""
 
-
-def _bearer_token() -> str | None:
-    header = request.headers.get("Authorization", "")
-    if not header.lower().startswith("bearer "):
-        return None
-    return header.split(" ", 1)[1].strip() or None
-
-
-def create_auth_blueprint(auth_service: AuthService, *, name: str = "auth", url_prefix: str = "/auth") -> Blueprint:
-    """Factory for an auth blueprint that can be mounted in any Flask app."""
-
-    auth_bp = Blueprint(name, __name__, url_prefix=url_prefix)
-
-    @auth_bp.errorhandler(AuthError)
-    def handle_auth_error(exc: AuthError):
-        return jsonify({"error": {"code": exc.code, "message": str(exc)}}), exc.status_code
+    auth_bp = Blueprint("standalone_auth", __name__, url_prefix=url_prefix)
 
     @auth_bp.post("/register")
-    def register():
+    def register() -> tuple[object, int]:
         payload = request.get_json(silent=True) or {}
-        user = auth_service.register(
-            email=payload.get("email", ""),
-            password=payload.get("password", ""),
-            role=payload.get("role", "student"),
+        identifier = payload.get("identifier")
+        password = payload.get("password")
+
+        try:
+            user = auth_service.register(identifier=identifier, password=password)
+        except ValidationError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except DuplicateIdentityError as exc:
+            return jsonify({"error": str(exc)}), 409
+
+        return (
+            jsonify(
+                {
+                    "id": user.user_id,
+                    "identifier": user.identifier,
+                    "created_at": user.created_at.isoformat(),
+                }
+            ),
+            201,
         )
-        return jsonify({"user": _user_payload(user)}), 201
 
     @auth_bp.post("/login")
-    def login():
+    def login() -> tuple[object, int]:
         payload = request.get_json(silent=True) or {}
-        user, token = auth_service.login(
-            email=payload.get("email", ""),
-            password=payload.get("password", ""),
-        )
-        return jsonify({"message": "login successful", "token": token, "user": _user_payload(user)})
+        identifier = payload.get("identifier")
+        password = payload.get("password")
 
-    @auth_bp.post("/logout")
-    def logout():
-        removed = auth_service.logout(_bearer_token())
-        return jsonify({"message": "logout successful", "token_revoked": removed})
+        try:
+            user, token = auth_service.login(identifier=identifier, password=password)
+        except ValidationError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except InvalidCredentialsError as exc:
+            return jsonify({"error": str(exc)}), 401
 
-    @auth_bp.get("/me")
-    def me():
-        user = auth_service.validate_token(_bearer_token())
-        if user is None:
-            raise AuthError("auth token required", code="missing_token", status_code=401)
-        return jsonify({"user": _user_payload(user)})
+        return jsonify({"token": token, "user": {"id": user.user_id, "identifier": user.identifier}}), 200
+
+    @auth_bp.get("/verify")
+    def verify() -> tuple[object, int]:
+        auth_header = request.headers.get("Authorization", "")
+        token = auth_header.replace("Bearer", "", 1).strip() if auth_header else ""
+
+        try:
+            claims = auth_service.verify_access_token(token)
+        except InvalidCredentialsError as exc:
+            return jsonify({"error": str(exc)}), 401
+
+        return jsonify({"claims": claims}), 200
 
     return auth_bp
