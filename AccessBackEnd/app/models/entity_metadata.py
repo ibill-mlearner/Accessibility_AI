@@ -17,6 +17,10 @@ ENTITY_METADATA = {
         "ai_interactions",
         ("id", "prompt", "response_text", "provider"),
     ),
+    "system_prompt": EntityMetadata(
+        "system_prompts",
+        ("id", "key", "content", "provider", "version"),
+    ),
 }
 
 
