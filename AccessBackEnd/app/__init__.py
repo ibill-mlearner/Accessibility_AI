@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Flask
 
 from . import config
+from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
 from .blueprints.auth.routes import auth_bp
 from .extensions import cors, db, jwt, login_manager, migrate
@@ -42,6 +43,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     app.register_blueprint(api_v1_bp)
     app.register_blueprint(auth_bp)
+    register_api_error_handlers(app)
 
     @login_manager.user_loader
     def load_user(user_id: str):
