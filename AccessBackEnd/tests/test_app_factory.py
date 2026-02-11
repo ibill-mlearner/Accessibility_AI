@@ -100,3 +100,12 @@ def test_create_resource_requires_json_object(client):
     body = response.get_json()
     assert body["error"]["code"] == "bad_request"
     assert body["error"]["message"] == "json object body required"
+
+
+def test_api_view_page_renders(client):
+    response = client.get("/api/v1/api_view")
+    assert response.status_code == 200
+    assert "text/html" in response.content_type
+    body = response.get_data(as_text=True)
+    assert "API v1 Test View" in body
+    assert "/api/v1/health" in body

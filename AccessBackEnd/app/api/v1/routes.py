@@ -6,6 +6,7 @@ from typing import Any
 from flask import Blueprint, current_app, jsonify, request
 
 from ..errors import BadRequestError, NotFoundError
+from .api_view import register_api_view_route
 
 from ...logging_config import DomainEvent
 
@@ -46,6 +47,7 @@ def _read_json_object() -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise BadRequestError("json object body required")
     return payload
+
 
 _RESOURCE_STORE: dict[str, list[dict[str, Any]]] = {
     "chats": [
@@ -306,6 +308,8 @@ def create_ai_interaction():
 
     return jsonify(result), 200
 
+
+register_api_view_route(api_v1_bp)
 
 for _resource in ("chats", "messages", "classes", "notes", "features"):
     _register_resource_routes(_resource)
