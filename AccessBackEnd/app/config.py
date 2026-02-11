@@ -75,6 +75,7 @@ class BaseConfig:
     LOG_LEVEL = _env("LOG_LEVEL", "INFO")
     LOG_JSON = _env("LOG_JSON", False, bool)
 
+    DATA_BACKEND_FACTORY = None
 
     AI_PROVIDER = _env("AI_PROVIDER", "mock_json")
     AI_MODEL_NAME = _env("AI_MODEL_NAME", "default-model")

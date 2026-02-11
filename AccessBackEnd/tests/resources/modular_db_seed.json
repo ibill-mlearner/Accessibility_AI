@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "email": "json.user@example.com",
+      "password_hash": "hashed-pass",
+      "role": "student"
+    }
+  ],
+  "ai_interactions": [
+    {
+      "id": 1,
+      "prompt": "What is ATP?",
+      "response_text": "ATP is the energy currency of the cell.",
+      "provider": "mock_json",
+      "chat_id": 11
+    }
+  ]
+}

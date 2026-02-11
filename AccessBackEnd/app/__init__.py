@@ -6,7 +6,7 @@ from . import config
 from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
 from .blueprints.auth.routes import auth_bp
-from .extensions import cors, db, jwt, login_manager, migrate
+from .extensions import cors, db as db_ext, jwt, login_manager, migrate
 from .logging_config import EventBus, LoggingObserver, configure_logging
 from .models import User
 from .services import AIPipelineService
@@ -18,10 +18,13 @@ def create_app(config_name: str | None = None) -> Flask:
     cfg = config.get_config() if config_name is None else config.CONFIG_BY_NAME.get(config_name, config.DevelopmentConfig)
     app.config.from_object(cfg)
 
+    if app.config.get("DATA_BACKEND_FACTORY"):
+        app.extensions["data_backend"] = app.config["DATA_BACKEND_FACTORY"]()
+
     configure_logging(app.config["LOG_LEVEL"])
 
-    db.init_app(app)
-    migrate.init_app(app, db)
+    db_ext.init_app(app)
+    migrate.init_app(app, db_ext)
     jwt.init_app(app)
     cors.init_app(
         app,
