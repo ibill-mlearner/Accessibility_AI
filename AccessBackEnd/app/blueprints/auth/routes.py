@@ -6,9 +6,18 @@ from flask_login import current_user, login_user, logout_user
 from ...extensions import db
 from ...logging_config import DomainEvent
 from ...models import User
+from ..admin import admin_bp
+from ..instructor import instructor_bp
+from ..student import student_bp
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
+
+auth_bp.register_blueprint(student_bp)
+auth_bp.register_blueprint(instructor_bp)
+auth_bp.register_blueprint(admin_bp)
+
+_ALLOWED_ROLES = {"student", "instructor", "admin"}
 
 
 @auth_bp.post("/register")
@@ -16,9 +25,12 @@ def register():
     payload = request.get_json(silent=True) or {}
     email = (payload.get("email") or "").strip().lower()
     password = payload.get("password") or ""
+    role = (payload.get("role") or "student").strip().lower()
 
     if not email or not password:
         return jsonify({"error": "email and password are required"}), 400
+    if role not in _ALLOWED_ROLES:
+        return jsonify({"error": f"role must be one of: {', '.join(sorted(_ALLOWED_ROLES))}"}), 400
 
     existing = User.query.filter_by(email=email).first()
     if existing:
@@ -26,6 +38,7 @@ def register():
 
     user = User(email=email)
     user.set_password(password)
+    user.role = role
     db.session.add(user)
     db.session.commit()
 
