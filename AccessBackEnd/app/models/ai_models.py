@@ -15,6 +15,8 @@ class Feature(Base):
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    instructor_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    class_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class AIModel(Base):
