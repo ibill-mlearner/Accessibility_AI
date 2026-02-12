@@ -1,0 +1,10 @@
+<li>
+  <code>GET|PUT|PATCH|DELETE /api/v1/chats/&lt;id&gt;</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p><strong>GET</strong> returns one chat by numeric id. Returns not_found if id does not exist.</p>
+    <p><strong>PUT/PATCH</strong> replace the full record with the provided JSON object.</p>
+    <p><strong>DELETE</strong> removes the record and returns the deleted object.</p>
+    <pre>{"id":1,"title":"Renamed Chat","extra":["a","b"]}</pre>
+  </details>
+</li>
