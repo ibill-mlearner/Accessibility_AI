@@ -102,6 +102,16 @@ def test_create_resource_requires_json_object(client):
     assert body["error"]["message"] == "json object body required"
 
 
+def test_features_resource_includes_instructor_and_class_associations(client):
+    response = client.get("/api/v1/features")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert isinstance(data, list)
+    assert data and data[0]["instructor_id"] == 4
+    assert data and data[0]["class_id"] == 1
+    assert {"id", "title", "description", "enabled", "instructor_id", "class_id"}.issubset(data[0].keys())
+
+
 def test_api_view_page_renders(client):
     response = client.get("/api/v1/api_view")
     assert response.status_code == 200

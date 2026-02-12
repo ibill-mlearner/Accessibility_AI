@@ -4,13 +4,13 @@
     <summary>Details</summary>
     <p><strong>GET</strong> returns all feature flag/config records.</p>
     <p><strong>POST</strong> creates a feature record from a JSON object body.</p>
-    <pre>{"id":4,"title":"Outline mode","description":"Concise bulleted responses","enabled":true}</pre>
+    <pre>{"id":4,"title":"Outline mode","description":"Concise bulleted responses","enabled":true,"instructor_id":4,"class_id":1}</pre>
     <details class="endpoint-tester-panel">
       <summary>Try this endpoint</summary>
       {% set tester_id = "features-collection" %}
       {% set seed_method = "POST" %}
       {% set seed_path = "/api/v1/features" %}
-      {% set seed_payload = '{"id":4,"title":"Outline mode","description":"Concise bulleted responses","enabled":true}' %}
+      {% set seed_payload = '{"id":4,"title":"Outline mode","description":"Concise bulleted responses","enabled":true,"instructor_id":4,"class_id":1}' %}
       {% include "api_view/components/endpoint_tester.html" %}
     </details>
   </details>
