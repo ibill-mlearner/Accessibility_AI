@@ -6,5 +6,13 @@
     <p><strong>PUT/PATCH</strong> replace the entire note record with your JSON payload.</p>
     <p><strong>DELETE</strong> removes the note and returns the deleted object.</p>
     <pre>{"id":1,"class":"Bio","date":"2026-02-09","chat":"Chat 3","content":"Updated note content"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "notes-item" %}
+      {% set seed_method = "PUT" %}
+      {% set seed_path = "/api/v1/notes/1" %}
+      {% set seed_payload = '{"id":1,"class":"Bio","date":"2026-02-09","chat":"Chat 3","content":"Updated note content"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
   </details>
 </li>

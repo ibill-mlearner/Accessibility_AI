@@ -9,17 +9,20 @@
       code { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 4px; }
       textarea { width: 100%; min-height: 8rem; }
       input, select, button, textarea { margin-top: 0.4rem; margin-bottom: 0.8rem; }
-      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
       pre { background: #111; color: #fff; padding: 1rem; border-radius: 6px; overflow: auto; }
       .hint { color: #555; }
       .endpoint-details { margin-top: 0.2rem; margin-bottom: 0.9rem; color: #333; }
       .endpoint-details summary { cursor: pointer; font-size: 0.92rem; }
       .endpoint-details pre { margin-top: 0.4rem; background: #1a1a1a; }
+      .endpoint-tester-panel { margin-top: 0.5rem; }
+      .endpoint-tester-panel summary { cursor: pointer; font-weight: 600; }
+      .api-tester { margin-top: 0.5rem; padding: 0.7rem; background: #f8f8f8; border: 1px solid #ddd; border-radius: 6px; }
+      .api-tester-output { margin-top: 0.5rem; }
     </style>
   </head>
   <body>
     <h1>Accessibility AI - API v1 Test View</h1>
-    <p class="hint">Use this page to inspect and test the currently implemented API v1 endpoints.</p>
+    <p class="hint">Use this page to inspect endpoint documentation and run seeded API requests per endpoint.</p>
 
     <h2>Available endpoints</h2>
     <ul>
@@ -28,43 +31,17 @@
       {% endfor %}
     </ul>
 
-    <h2>Try an endpoint</h2>
-    <div class="grid">
-      <div>
-        <label for="method">Method</label><br />
-        <select id="method">
-          <option>GET</option>
-          <option>POST</option>
-          <option>PUT</option>
-          <option>PATCH</option>
-          <option>DELETE</option>
-        </select><br />
-
-        <label for="path">Path (starts with /api/v1)</label><br />
-        <input id="path" type="text" value="/api/v1/health" size="60" /><br />
-
-        <label for="payload">JSON body (optional)</label><br />
-        <textarea id="payload">{}</textarea><br />
-
-        <button id="send">Send Request</button>
-      </div>
-
-      <div>
-        <h3>Response</h3>
-        <pre id="output">No request sent yet.</pre>
-      </div>
-    </div>
-
     <script>
-      const methodEl = document.getElementById('method');
-      const pathEl = document.getElementById('path');
-      const payloadEl = document.getElementById('payload');
-      const outputEl = document.getElementById('output');
+      const testers = document.querySelectorAll('.api-tester');
 
-      document.getElementById('send').addEventListener('click', async () => {
+      async function sendSeededRequest(testerEl) {
+        const methodEl = testerEl.querySelector('.api-tester-method');
+        const pathEl = testerEl.querySelector('.api-tester-path');
+        const payloadEl = testerEl.querySelector('.api-tester-payload');
+        const outputEl = testerEl.querySelector('.api-tester-output');
+
         const method = methodEl.value;
         const path = pathEl.value;
-
         const options = { method, headers: { 'Content-Type': 'application/json' } };
 
         if (method !== 'GET' && method !== 'DELETE') {
@@ -94,6 +71,11 @@
         } catch (error) {
           outputEl.textContent = `Request failed: ${error.message}`;
         }
+      }
+
+      testers.forEach((testerEl) => {
+        const sendBtn = testerEl.querySelector('.api-tester-send');
+        sendBtn.addEventListener('click', () => sendSeededRequest(testerEl));
       });
     </script>
   </body>

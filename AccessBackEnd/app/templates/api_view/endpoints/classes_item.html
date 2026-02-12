@@ -6,5 +6,13 @@
     <p><strong>PUT/PATCH</strong> overwrite the record with your provided JSON object.</p>
     <p><strong>DELETE</strong> removes the class and returns the deleted payload.</p>
     <pre>{"id":1,"role":"student","name":"Biology 103","description":"Updated class description"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "classes-item" %}
+      {% set seed_method = "PUT" %}
+      {% set seed_path = "/api/v1/classes/1" %}
+      {% set seed_payload = '{"id":1,"role":"student","name":"Biology 103","description":"Updated class description"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
   </details>
 </li>

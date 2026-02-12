@@ -6,5 +6,13 @@
     <p><strong>PUT/PATCH</strong> replace the targeted message record exactly with your payload.</p>
     <p><strong>DELETE</strong> removes the message and returns the deleted record.</p>
     <pre>{"id":2,"chat_id":1,"message_text":"Updated text","vote":"good","note":"no","help_intent":"note_taking"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "messages-item" %}
+      {% set seed_method = "PUT" %}
+      {% set seed_path = "/api/v1/messages/2" %}
+      {% set seed_payload = '{"id":2,"chat_id":1,"message_text":"Updated text","vote":"good","note":"no","help_intent":"note_taking"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
   </details>
 </li>

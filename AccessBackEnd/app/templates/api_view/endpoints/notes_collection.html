@@ -5,5 +5,13 @@
     <p><strong>GET</strong> returns all saved note records.</p>
     <p><strong>POST</strong> appends a note object exactly as submitted.</p>
     <pre>{"id":3,"class":"Bio","date":"2026-02-10","chat":"Chat 4","content":"Cell respiration summary"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "notes-collection" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/notes" %}
+      {% set seed_payload = '{"id":3,"class":"Bio","date":"2026-02-10","chat":"Chat 4","content":"Cell respiration summary"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
   </details>
 </li>

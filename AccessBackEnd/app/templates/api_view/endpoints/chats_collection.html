@@ -5,5 +5,13 @@
     <p><strong>GET</strong> returns all chat records in the temporary in-memory store.</p>
     <p><strong>POST</strong> accepts a JSON object and stores it as-is (pass-through payload).</p>
     <pre>{"id":99,"title":"Chat 99","meta":{"tag":"passthrough"}}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "chats-collection" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/chats" %}
+      {% set seed_payload = '{"id":99,"title":"Chat 99","meta":{"tag":"passthrough"}}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
   </details>
 </li>
