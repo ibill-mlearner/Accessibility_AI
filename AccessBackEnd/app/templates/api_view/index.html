@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API v1 Test View</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 2rem; line-height: 1.4; }
+      code { background: #f4f4f4; padding: 0.2rem 0.4rem; border-radius: 4px; }
+      textarea { width: 100%; min-height: 8rem; }
+      input, select, button, textarea { margin-top: 0.4rem; margin-bottom: 0.8rem; }
+      pre { background: #111; color: #fff; padding: 1rem; border-radius: 6px; overflow: auto; }
+      .hint { color: #555; }
+      .endpoint-details { margin-top: 0.2rem; margin-bottom: 0.9rem; color: #333; }
+      .endpoint-details summary { cursor: pointer; font-size: 0.92rem; }
+      .endpoint-details pre { margin-top: 0.4rem; background: #1a1a1a; }
+      .endpoint-tester-panel { margin-top: 0.5rem; }
+      .endpoint-tester-panel summary { cursor: pointer; font-weight: 600; }
+      .api-tester { margin-top: 0.5rem; padding: 0.7rem; background: #f8f8f8; border: 1px solid #ddd; border-radius: 6px; }
+      .api-tester-output { margin-top: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Accessibility AI - API v1 Test View</h1>
+    <p class="hint">Use this page to inspect endpoint documentation and run seeded API requests per endpoint.</p>
+
+    <h2>Available endpoints</h2>
+    <ul>
+      {% for endpoint_component in endpoint_components %}
+        {% include endpoint_component %}
+      {% endfor %}
+    </ul>
+
+    <script>
+      const testers = document.querySelectorAll('.api-tester');
+
+      async function sendSeededRequest(testerEl) {
+        const methodEl = testerEl.querySelector('.api-tester-method');
+        const pathEl = testerEl.querySelector('.api-tester-path');
+        const payloadEl = testerEl.querySelector('.api-tester-payload');
+        const outputEl = testerEl.querySelector('.api-tester-output');
+
+        const method = methodEl.value;
+        const path = pathEl.value;
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+
+        if (method !== 'GET' && method !== 'DELETE') {
+          try {
+            options.body = JSON.stringify(JSON.parse(payloadEl.value || '{}'));
+          } catch (error) {
+            outputEl.textContent = `Invalid JSON body: ${error.message}`;
+            return;
+          }
+        }
+
+        try {
+          const response = await fetch(path, options);
+          const text = await response.text();
+          let parsed;
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            parsed = text;
+          }
+
+          outputEl.textContent = JSON.stringify(
+            { status: response.status, ok: response.ok, body: parsed },
+            null,
+            2,
+          );
+        } catch (error) {
+          outputEl.textContent = `Request failed: ${error.message}`;
+        }
+      }
+
+      testers.forEach((testerEl) => {
+        const sendBtn = testerEl.querySelector('.api-tester-send');
+        sendBtn.addEventListener('click', () => sendSeededRequest(testerEl));
+      });
+    </script>
+  </body>
+</html>

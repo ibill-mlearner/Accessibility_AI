@@ -1,0 +1,17 @@
+<div class="api-tester" data-tester-id="{{ tester_id }}">
+  <label for="method-{{ tester_id }}">Method</label><br />
+  <select id="method-{{ tester_id }}" class="api-tester-method">
+    {% for method in ["GET", "POST", "PUT", "PATCH", "DELETE"] %}
+      <option value="{{ method }}" {% if method == seed_method %}selected{% endif %}>{{ method }}</option>
+    {% endfor %}
+  </select><br />
+
+  <label for="path-{{ tester_id }}">Path</label><br />
+  <input id="path-{{ tester_id }}" class="api-tester-path" type="text" value="{{ seed_path }}" size="48" /><br />
+
+  <label for="payload-{{ tester_id }}">JSON body</label><br />
+  <textarea id="payload-{{ tester_id }}" class="api-tester-payload">{{ seed_payload }}</textarea><br />
+
+  <button type="button" class="api-tester-send">Send Request</button>
+  <pre class="api-tester-output">No request sent yet.</pre>
+</div>

@@ -1,0 +1,17 @@
+<li>
+  <code>GET|POST /api/v1/classes</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p><strong>GET</strong> lists all class records (student/instructor role variants).</p>
+    <p><strong>POST</strong> accepts a class JSON object and stores it directly.</p>
+    <pre>{"id":7,"role":"student","name":"Physics 110","description":"Guided support for class material"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "classes-collection" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/classes" %}
+      {% set seed_payload = '{"id":7,"role":"student","name":"Physics 110","description":"Guided support for class material"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>

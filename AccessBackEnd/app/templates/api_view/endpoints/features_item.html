@@ -1,0 +1,18 @@
+<li>
+  <code>GET|PUT|PATCH|DELETE /api/v1/features/&lt;id&gt;</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p><strong>GET</strong> retrieves one feature by id.</p>
+    <p><strong>PUT/PATCH</strong> replace the feature record using your payload.</p>
+    <p><strong>DELETE</strong> deletes the record and returns the removed feature object.</p>
+    <pre>{"id":2,"title":"Summarization and restating","description":"Responses focused on summaries","enabled":false}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "features-item" %}
+      {% set seed_method = "PUT" %}
+      {% set seed_path = "/api/v1/features/2" %}
+      {% set seed_payload = '{"id":2,"title":"Summarization and restating","description":"Responses focused on summaries","enabled":false}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>

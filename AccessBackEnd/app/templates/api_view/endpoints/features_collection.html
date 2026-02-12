@@ -1,0 +1,17 @@
+<li>
+  <code>GET|POST /api/v1/features</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p><strong>GET</strong> returns all feature flag/config records.</p>
+    <p><strong>POST</strong> creates a feature record from a JSON object body.</p>
+    <pre>{"id":4,"title":"Outline mode","description":"Concise bulleted responses","enabled":true}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "features-collection" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/features" %}
+      {% set seed_payload = '{"id":4,"title":"Outline mode","description":"Concise bulleted responses","enabled":true}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>

@@ -1,0 +1,17 @@
+<li>
+  <code>GET|POST /api/v1/messages</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p><strong>GET</strong> returns all message records, including <code>chat_id</code> relationship fields.</p>
+    <p><strong>POST</strong> accepts a JSON object and appends it to the message list without transformation.</p>
+    <pre>{"id":4,"chat_id":1,"message_text":"What is ATP?","vote":"good","note":"yes","help_intent":"summarization"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "messages-collection" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/messages" %}
+      {% set seed_payload = '{"id":4,"chat_id":1,"message_text":"What is ATP?","vote":"good","note":"yes","help_intent":"summarization"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>
