@@ -9,10 +9,8 @@ from .auth_methods import (
     ValidationError,
 )
 
-try:
-    from .auth_routes import create_auth_blueprint
-except ModuleNotFoundError:  # pragma: no cover - optional when Flask isn't installed
-    create_auth_blueprint = None
+from .auth_routes import create_auth_blueprint
+from .standalone_auth import create_standalone_auth
 
 __all__ = [
     "AuthService",
@@ -24,4 +22,5 @@ __all__ = [
     "StatelessTokenManager",
     "ValidationError",
     "create_auth_blueprint",
+    "create_standalone_auth",
 ]
