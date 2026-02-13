@@ -22,7 +22,6 @@ From repository root:
 ```bash
 npm install
 npm run setup
-npm run mock-api
 npm run dev
 ```
 
@@ -30,11 +29,43 @@ Or run directly inside the frontend folder:
 ```bash
 cd AccessAppFront
 npm install
-npm run mock-api
 npm run dev
 ```
 
-- Mock API runs at `http://localhost:3001`
+### Frontend Sprint Integration Plan (Default: Backend `/api/v1`)
+For current sprint testing, the frontend should target the already-exposed backend contracts under `/api/v1` by default.
+
+1. Start the backend (`http://localhost:5000`).
+2. Start the frontend with `VITE_API_BASE_URL` set to the backend v1 base URL.
+
+Repository root example:
+```bash
+python AccessBackEnd/manage.py
+VITE_API_BASE_URL=http://localhost:5000/api/v1 npm run dev
+```
+
+Frontend folder example:
+```bash
+cd AccessAppFront
+VITE_API_BASE_URL=http://localhost:5000/api/v1 npm run dev
+```
+
+CI-like (non-interactive) example:
+```bash
+VITE_API_BASE_URL=http://backend:5000/api/v1 npm run dev
+```
+
+`VITE_API_BASE_URL` is the required environment variable convention for both local and CI-like runs.
+
+### Optional Fallback: Mock API
+Use the mock API only when backend availability is blocked.
+
+```bash
+npm run mock-api
+```
+
+- Backend API v1 default base URL: `http://localhost:5000/api/v1`
+- Mock API fallback runs at `http://localhost:3001`
 - Vite app runs at `http://localhost:5173`
 
 ### Mock Endpoints
@@ -139,3 +170,4 @@ python AccessBackEnd/manage.py --host 0.0.0.0 --port 5000
 ## Notes
 - The AI endpoint currently supports a configurable mock JSON source and a live endpoint pass-through mode.
 - Auth and API layers are designed to evolve independently from the frontend.
+- Sprint note: no backend implementation work is required for this phase; frontend integration uses already-exposed backend contracts only.
