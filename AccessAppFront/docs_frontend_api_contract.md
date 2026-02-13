@@ -14,9 +14,10 @@ Current bootstrap calls should be migrated to the following targets:
 | `/features` | `/api/v1/features` |
 
 ## 2) `src/services/api.js` usage notes
-- Current fallback base URL is `http://localhost:3001`.
-- Runtime expectation: set `VITE_API_BASE_URL` to the active backend host/port (for example `http://localhost:5000`) so requests resolve to backend resources.
-- With this setup, the frontend should call `/api/v1/...` paths via the shared axios client.
+- Default base URL is same-origin (`''`) so app requests flow through the frontend host.
+- In local dev, Vite proxies `/api` to backend target `http://localhost:5000` by default.
+- Runtime override: set `VITE_API_BASE_URL` when targeting a different backend host directly.
+- With this setup, the frontend calls `/api/v1/...` paths via the shared axios client without `json-server`.
 
 ## 3) UX copy plan (backend-neutral)
 Replace mock-specific error wording with backend-neutral language.

@@ -27,4 +27,15 @@ describe('HomeView.vue', () => {
     await loginBtn.trigger('click')
     expect(push).toHaveBeenCalledWith('/login')
   })
+
+  it('does not show login button for authenticated users', () => {
+    setActivePinia(createPinia())
+    const store = useAppStore()
+    store.role = 'student'
+
+    const wrapper = mount(HomeView)
+
+    expect(wrapper.find('button.btn').exists()).toBe(false)
+    expect(wrapper.find('select').exists()).toBe(true)
+  })
 })

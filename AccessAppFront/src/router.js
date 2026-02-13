@@ -25,6 +25,7 @@ const routes = [
   { path: '/login', name: 'login', component: LoginView },
   { path: '/logout', name: 'logout', component: LogoutView },
   { path: '/error', name: 'error', component: ErrorView },
+  { path: '/:pathMatch(.*)*', name: 'not-found', redirect: '/error' },
   { path: '/component-previews/header-bar', name: 'preview-header-bar', component: HeaderBarPreview },
   { path: '/component-previews/sidebar-nav', name: 'preview-sidebar-nav', component: SidebarNavPreview },
   { path: '/component-previews/login-form-card', name: 'preview-login-form-card', component: LoginFormCardPreview },
