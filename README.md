@@ -15,7 +15,7 @@ The backend is frontend-agnostic and follows an app-factory architecture.
 - Vue 3 + Vite
 - Pinia for state
 - Axios for API calls
-- `json-server` for local mock endpoints
+- Vite dev proxy to backend API (`/api` -> backend target)
 
 ### Run
 From repository root:
@@ -33,29 +33,35 @@ npm run dev
 ```
 
 ### Frontend Sprint Integration Plan (Default: Backend `/api/v1`)
-For current sprint testing, the frontend should target the already-exposed backend contracts under `/api/v1` by default.
+For current sprint testing, the frontend targets backend contracts under `/api/v1` by default.
 
 1. Start the backend (`http://localhost:5000`).
-2. Start the frontend with `VITE_API_BASE_URL` set to the backend v1 base URL.
+2. Start the frontend (Vite dev server proxies `/api` calls to backend by default).
 
 Repository root example:
 ```bash
 python AccessBackEnd/manage.py
-VITE_API_BASE_URL=http://localhost:5000/api/v1 npm run dev
+npm run dev
 ```
 
 Frontend folder example:
 ```bash
 cd AccessAppFront
-VITE_API_BASE_URL=http://localhost:5000/api/v1 npm run dev
+npm run dev
 ```
 
-CI-like (non-interactive) example:
+Optional override examples:
 ```bash
-VITE_API_BASE_URL=http://backend:5000/api/v1 npm run dev
+# Direct host override (skip same-origin/proxy)
+VITE_API_BASE_URL=http://localhost:5000 npm run dev
+
+# Dev proxy target override
+VITE_DEV_BACKEND_TARGET=http://localhost:5001 npm run dev
 ```
 
-`VITE_API_BASE_URL` is the required environment variable convention for both local and CI-like runs.
+Environment variable notes:
+- `VITE_API_BASE_URL` is optional and overrides axios base URL when provided.
+- `VITE_DEV_BACKEND_TARGET` is optional and changes the Vite dev proxy target.
 
 ### Optional Fallback: Mock API
 Use the mock API only when backend availability is blocked.
@@ -64,7 +70,7 @@ Use the mock API only when backend availability is blocked.
 npm run mock-api
 ```
 
-- Backend API v1 default base URL: `http://localhost:5000/api/v1`
+- Backend API v1 default path: `/api/v1/*` (served from backend host)
 - Mock API fallback runs at `http://localhost:3001`
 - Vite app runs at `http://localhost:5173`
 
