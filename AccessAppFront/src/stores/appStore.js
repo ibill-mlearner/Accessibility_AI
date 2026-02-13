@@ -78,14 +78,23 @@ export const useAppStore = defineStore('app', {
     classes: [],
     notes: [],
     features: [],
+    actionStatus: {},
     loading: false,
     error: ''
   }),
   getters: {
-    topHeader(state) {
-      return state.role === 'guest'
-        ? 'Not logged in, current chat does not save'
-        : 'Model Selected     Class selected'
+    selectedClass(state) {
+      return state.classes.find((item) => item.id === state.selectedClassId) || null
+    },
+    hasActiveChat(state) {
+      return state.selectedChatId !== null && state.chats.some((chat) => chat.id === state.selectedChatId)
+    },
+    hasHeaderContext() {
+      return Boolean(this.selectedModel && this.hasActiveChat && this.selectedClass)
+    },
+    topHeader() {
+      if (!this.hasHeaderContext) return ''
+      return `${this.selectedModel}     ${this.selectedClass.name}`
     },
     roleClasses(state) {
       if (state.role === 'guest') return []
@@ -93,21 +102,252 @@ export const useAppStore = defineStore('app', {
     }
   },
   actions: {
+    // ---------------------------------------------------------------------
+    // Store-wide utilities
+    // Shared helpers used across chat/class/note/feature workflows.
+    // ---------------------------------------------------------------------
+    setActionStatus(actionKey, patch) {
+      this.actionStatus[actionKey] = {
+        loading: false,
+        error: '',
+        rollbackToken: null,
+        ...(this.actionStatus[actionKey] || {}),
+        ...patch
+      }
+    },
+    setActionError(actionKey, message) {
+      this.setActionStatus(actionKey, { loading: false, error: message })
+    },
+    sortedByStableKey(items) {
+      return [...items].sort((a, b) => {
+        const aKey = a.createdAt || a.start || a.id || Number.MAX_SAFE_INTEGER
+        const bKey = b.createdAt || b.start || b.id || Number.MAX_SAFE_INTEGER
+        if (aKey < bKey) return -1
+        if (aKey > bKey) return 1
+        return 0
+      })
+    },
+    deriveSelectedId(previousId, items) {
+      if (!items.length) return null
+      if (previousId !== null && items.some((item) => item.id === previousId)) {
+        return previousId
+      }
+      return this.sortedByStableKey(items)[0]?.id ?? items[0]?.id ?? null
+    },
+    // ---------------------------------------------------------------------
+    // Chat + AI interaction resource actions
+    // Includes list loading and optimistic CRUD behavior for active sessions.
+    // ---------------------------------------------------------------------
+    async fetchChats() {
+      const actionKey = 'fetchChats'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.get('/api/v1/chats')
+        this.chats = response.data
+        this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to load chats.')
+        throw new Error('Unable to load chats.')
+      }
+    },
+    async fetchClasses() {
+      const actionKey = 'fetchClasses'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.get('/api/v1/classes')
+        this.classes = response.data
+        this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to load classes.')
+        throw new Error('Unable to load classes.')
+      }
+    },
+    async fetchNotes() {
+      const actionKey = 'fetchNotes'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.get('/api/v1/notes')
+        this.notes = response.data
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to load notes.')
+        throw new Error('Unable to load notes.')
+      }
+    },
+    async fetchFeatures() {
+      const actionKey = 'fetchFeatures'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.get('/api/v1/features')
+        this.features = response.data
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to load features.')
+        throw new Error('Unable to load features.')
+      }
+    },
+    async createChat(payload) {
+      const tempId = `temp-${Date.now()}`
+      const optimisticChat = { ...payload, id: tempId }
+      const actionKey = `createChat:${tempId}`
+      this.chats = [...this.chats, optimisticChat]
+      this.selectedChatId = tempId
+      this.setActionStatus(actionKey, { loading: true, error: '', rollbackToken: tempId })
+      try {
+        const response = await api.post('/api/v1/chats', payload)
+        this.chats = this.chats.map((chat) => (chat.id === tempId ? response.data : chat))
+        this.selectedChatId = response.data.id
+        this.setActionStatus(actionKey, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.chats = this.chats.filter((chat) => chat.id !== tempId)
+        this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
+        this.setActionError(actionKey, 'Unable to create chat.')
+      }
+    },
+    async updateChat(chatId, patch) {
+      const actionKey = `updateChat:${chatId}`
+      const snapshot = [...this.chats]
+      this.chats = this.chats.map((chat) => (chat.id === chatId ? { ...chat, ...patch } : chat))
+      this.setActionStatus(actionKey, { loading: true, error: '', rollbackToken: chatId })
+      try {
+        const current = this.chats.find((chat) => chat.id === chatId)
+        await api.put(`/api/v1/chats/${chatId}`, current)
+        this.setActionStatus(actionKey, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.chats = snapshot
+        this.setActionError(actionKey, 'Unable to update chat.')
+      }
+    },
+    async deleteChat(chatId) {
+      const actionKey = `deleteChat:${chatId}`
+      const snapshot = [...this.chats]
+      this.chats = this.chats.filter((chat) => chat.id !== chatId)
+      this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
+      this.setActionStatus(actionKey, { loading: true, error: '', rollbackToken: chatId })
+      try {
+        await api.delete(`/api/v1/chats/${chatId}`)
+        this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
+        this.setActionStatus(actionKey, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.chats = snapshot
+        this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
+        this.setActionError(actionKey, 'Unable to delete chat.')
+      }
+    },
+    // ---------------------------------------------------------------------
+    // Class management actions
+    // Scoped to role-aware class visibility and pessimistic server confirmation.
+    // ---------------------------------------------------------------------
+    async createClass(payload) {
+      const actionKey = 'createClass'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/classes', payload)
+        this.classes = [...this.classes, response.data]
+        this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to create class.')
+      }
+    },
+    async updateClass(classId, patch) {
+      const actionKey = `updateClass:${classId}`
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const previous = this.classes.find((item) => item.id === classId) || {}
+        const response = await api.put(`/api/v1/classes/${classId}`, { ...previous, ...patch })
+        this.classes = this.classes.map((item) => (item.id === classId ? response.data : item))
+        this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to update class.')
+      }
+    },
+    async deleteClass(classId) {
+      const actionKey = `deleteClass:${classId}`
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        await api.delete(`/api/v1/classes/${classId}`)
+        this.classes = this.classes.filter((item) => item.id !== classId)
+        this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to delete class.')
+      }
+    },
+    // ---------------------------------------------------------------------
+    // Notes actions
+    // Optimized for editing speed with rollback support on API failure.
+    // ---------------------------------------------------------------------
+    async createNote(payload) {
+      const tempId = `temp-${Date.now()}`
+      const optimisticNote = { ...payload, id: tempId }
+      const actionKey = `createNote:${tempId}`
+      this.notes = [...this.notes, optimisticNote]
+      this.setActionStatus(actionKey, { loading: true, error: '', rollbackToken: tempId })
+      try {
+        const response = await api.post('/api/v1/notes', payload)
+        this.notes = this.notes.map((note) => (note.id === tempId ? response.data : note))
+        this.setActionStatus(actionKey, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.notes = this.notes.filter((note) => note.id !== tempId)
+        this.setActionError(actionKey, 'Unable to create note.')
+      }
+    },
+    async updateNote(noteId, patch) {
+      const actionKey = `updateNote:${noteId}`
+      const snapshot = [...this.notes]
+      this.notes = this.notes.map((note) => (note.id === noteId ? { ...note, ...patch } : note))
+      this.setActionStatus(actionKey, { loading: true, error: '', rollbackToken: noteId })
+      try {
+        const current = this.notes.find((note) => note.id === noteId)
+        await api.put(`/api/v1/notes/${noteId}`, current)
+        this.setActionStatus(actionKey, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.notes = snapshot
+        this.setActionError(actionKey, 'Unable to update note.')
+      }
+    },
+    async deleteNote(noteId) {
+      const actionKey = `deleteNote:${noteId}`
+      const snapshot = [...this.notes]
+      this.notes = this.notes.filter((note) => note.id !== noteId)
+      this.setActionStatus(actionKey, { loading: true, error: '', rollbackToken: noteId })
+      try {
+        await api.delete(`/api/v1/notes/${noteId}`)
+        this.setActionStatus(actionKey, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.notes = snapshot
+        this.setActionError(actionKey, 'Unable to delete note.')
+      }
+    },
+    // ---------------------------------------------------------------------
+    // Feature controls
+    // Kept pessimistic while feature-gating side effects are still evolving.
+    // ---------------------------------------------------------------------
+    async updateFeature(featureId, patch) {
+      const actionKey = `updateFeature:${featureId}`
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const previous = this.features.find((item) => item.id === featureId) || {}
+        const response = await api.put(`/api/v1/features/${featureId}`, { ...previous, ...patch })
+        this.features = this.features.map((item) => (item.id === featureId ? response.data : item))
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+      } catch {
+        this.setActionError(actionKey, 'Unable to update feature.')
+      }
+    },
+    // ---------------------------------------------------------------------
+    // App lifecycle + session role actions
+    // bootstrap orchestrates resource fetches without owning resource logic.
+    // ---------------------------------------------------------------------
     async bootstrap() {
       this.loading = true
       this.error = ''
       try {
-        const [chats, classes, notes, features] = await Promise.all([
-          api.get('/api/v1/chats'),
-          api.get('/api/v1/classes'),
-          api.get('/api/v1/notes'),
-          api.get('/api/v1/features')
-        ])
-        this.chats = chats.data
-        this.classes = classes.data
-        this.notes = notes.data
-        this.features = features.data
-        this.selectedChatId = this.chats[0]?.id || null
+        await Promise.all([this.fetchChats(), this.fetchClasses(), this.fetchNotes(), this.fetchFeatures()])
       } catch (error) {
         this.error = 'Unable to load data from the backend service. Please try again.'
       } finally {
@@ -124,6 +364,7 @@ export const useAppStore = defineStore('app', {
     setRole(role) {
       this.role = role
       this.selectedClassId = null
+      this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
     }
   }
 })
