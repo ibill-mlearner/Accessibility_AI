@@ -83,10 +83,18 @@ export const useAppStore = defineStore('app', {
     error: ''
   }),
   getters: {
-    topHeader(state) {
-      return state.role === 'guest'
-        ? 'Not logged in, current chat does not save'
-        : 'Model Selected     Class selected'
+    selectedClass(state) {
+      return state.classes.find((item) => item.id === state.selectedClassId) || null
+    },
+    hasActiveChat(state) {
+      return state.selectedChatId !== null && state.chats.some((chat) => chat.id === state.selectedChatId)
+    },
+    hasHeaderContext() {
+      return Boolean(this.selectedModel && this.hasActiveChat && this.selectedClass)
+    },
+    topHeader() {
+      if (!this.hasHeaderContext) return ''
+      return `${this.selectedModel}     ${this.selectedClass.name}`
     },
     roleClasses(state) {
       if (state.role === 'guest') return []
