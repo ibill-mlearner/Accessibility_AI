@@ -31,10 +31,10 @@ export const useAppStore = defineStore('app', {
       this.error = ''
       try {
         const [chats, classes, notes, features] = await Promise.all([
-          api.get('/chats'),
-          api.get('/classes'),
-          api.get('/notes'),
-          api.get('/features')
+          api.get('/api/v1/chats'),
+          api.get('/api/v1/classes'),
+          api.get('/api/v1/notes'),
+          api.get('/api/v1/features')
         ])
         this.chats = chats.data
         this.classes = classes.data
@@ -42,7 +42,7 @@ export const useAppStore = defineStore('app', {
         this.features = features.data
         this.selectedChatId = this.chats[0]?.id || null
       } catch (error) {
-        this.error = 'Unable to load mock API data. Is json-server running?'
+        this.error = 'Unable to load data from the backend service. Please try again.'
       } finally {
         this.loading = false
       }
