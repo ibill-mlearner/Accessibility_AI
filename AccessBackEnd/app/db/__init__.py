@@ -17,7 +17,7 @@ def create_standalone_db(
 ):
     """Create an app-agnostic DB runtime with repositories and schema bound."""
 
-    resolved_url = database_url or resolve_database_url()
+    resolved_url = database_url or "sqlite:///:memory:"
     runtime = StandaloneDatabase(DatabaseConfig(database_url=resolved_url, echo=echo))
     runtime.bind_schema(get_schema_bundle)
     if create_schema:
@@ -39,6 +39,7 @@ def init_standalone_schema(runtime: StandaloneDatabase) -> None:
 def init_flask_database(app: Flask) -> None:
     """Explicitly create Flask-SQLAlchemy tables for the configured app DB."""
 
+    from .. import models  # noqa: F401  # ensure model metadata is registered
     from ..extensions import db
 
     with app.app_context():

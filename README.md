@@ -1,179 +1,85 @@
 # Accessibility AI
 
-Accessibility AI includes a Vue frontend and a standalone Flask backend.
-The backend is frontend-agnostic and follows an app-factory architecture.
+Accessibility AI includes a Vue frontend and a Flask backend.
 
 ## Repository Structure
-- `AccessAppFront/` — Vue 3 + Vite frontend prototype.
-- `AccessBackEnd/` — Flask backend (app factory, SQLite, auth, API, observer-based logging).
+- `AccessBackEnd/` — Flask backend.
+- `AccessAppFront/` — Vue 3 + Vite frontend.
 
----
+## Backend (Flask)
 
-## Frontend (Vue + Vite)
-
-### Stack
-- Vue 3 + Vite
-- Pinia for state
-- Axios for API calls
-- Vite dev proxy to backend API (`/api` -> backend target)
-
-### Run
-From repository root:
+### 1) Create virtual environment and install dependencies
 ```bash
-npm install
-npm run setup
-npm run dev
-```
-
-Or run directly inside the frontend folder:
-```bash
-cd AccessAppFront
-npm install
-npm run dev
-```
-
-### Frontend Sprint Integration Plan (Default: Backend `/api/v1`)
-For current sprint testing, the frontend targets backend contracts under `/api/v1` by default.
-
-1. Start the backend (`http://localhost:5000`).
-2. Start the frontend (Vite dev server proxies `/api` calls to backend by default).
-
-Repository root example:
-```bash
-python AccessBackEnd/manage.py
-npm run dev
-```
-
-Frontend folder example:
-```bash
-cd AccessAppFront
-npm run dev
-```
-
-Optional override examples:
-```bash
-# Direct host override (skip same-origin/proxy)
-VITE_API_BASE_URL=http://localhost:5000 npm run dev
-
-# Dev proxy target override
-VITE_DEV_BACKEND_TARGET=http://localhost:5001 npm run dev
-```
-
-Environment variable notes:
-- `VITE_API_BASE_URL` is optional and overrides axios base URL when provided.
-- `VITE_DEV_BACKEND_TARGET` is optional and changes the Vite dev proxy target.
-
-### Optional Fallback: Mock API
-Use the mock API only when backend availability is blocked.
-
-```bash
-npm run mock-api
-```
-
-- Backend API v1 default path: `/api/v1/*` (served from backend host)
-- Mock API fallback runs at `http://localhost:3001`
-- Vite app runs at `http://localhost:5173`
-
-### Mock Endpoints
-- `GET /chats`
-- `GET /features`
-- `GET /classes`
-- `GET /notes`
-
----
-
-## Backend (Flask App Factory)
-
-### Current Status
-- The backend is actively used by the frontend contract layer and exposes stable v1 endpoints.
-- API resources (`chats`, `messages`, `classes`, `notes`, `features`) currently use in-memory pass-through storage for endpoint validation and integration work.
-- Authentication (register/login/logout) is implemented with persisted users in SQLite.
-- **Important:** the full AI pipeline (prompt orchestration, RAG flow, policy routing, etc.) is **not implemented yet**. The current AI service is a lightweight gateway that returns mock JSON or forwards a prompt to a configured live endpoint.
-
-### Backend Architecture
-- **App factory**: `create_app()` in `AccessBackEnd/app/__init__.py`
-- **Config profiles**: development, testing, production (`AccessBackEnd/app/config.py`)
-- **Extensions** (`AccessBackEnd/app/extensions.py`):
-  - `SQLAlchemy`
-  - `Flask-Migrate`
-  - `Flask-JWT-Extended`
-  - `Flask-CORS`
-  - `Flask-Login`
-- **Event-driven logging** (`AccessBackEnd/app/logging_config.py`):
-  - `DomainEvent` + `EventBus`
-  - `LoggingObserver` subscriber
-- **AI gateway service** (`AccessBackEnd/app/services/ai_pipeline_service.py`):
-  - `mock_json` provider reads `app/resources/mock_ai_response.json`
-  - `live_agent` provider forwards prompt payload to an external HTTP endpoint
-
-### Implemented API Endpoints
-Base API prefix: `/api/v1`
-
-- `GET /api/v1/health`
-- `POST /api/v1/ai/interactions`
-- `GET /api/v1/api_view` (built-in HTML tester for v1 routes)
-- Resource CRUD:
-  - `GET, POST /api/v1/chats`
-  - `GET, PUT, PATCH, DELETE /api/v1/chats/<id>`
-  - `GET, POST /api/v1/messages`
-  - `GET, PUT, PATCH, DELETE /api/v1/messages/<id>`
-  - `GET, POST /api/v1/classes`
-  - `GET, PUT, PATCH, DELETE /api/v1/classes/<id>`
-  - `GET, POST /api/v1/notes`
-  - `GET, PUT, PATCH, DELETE /api/v1/notes/<id>`
-  - `GET, POST /api/v1/features`
-  - `GET, PUT, PATCH, DELETE /api/v1/features/<id>`
-
-Auth prefix: `/auth`
-
-- `POST /auth/register`
-- `POST /auth/login`
-- `POST /auth/logout`
-
-### Run Backend Locally
-Install dependencies:
-```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -r AccessBackEnd/requirements.txt
 ```
 
-Run from repository root:
+### 2) Initialize database schema (required once per local database)
+The development database is file-backed SQLite and is created under:
+
+- `AccessBackEnd/instance/accessibility_ai.db`
+
+Initialize schema:
+```bash
+cd AccessBackEnd
+flask --app 'app:create_app' init-db
+```
+
+### 3) Run backend
+From repo root:
 ```bash
 python AccessBackEnd/manage.py
 ```
 
-Or run inside backend folder:
+Or from backend directory:
 ```bash
 cd AccessBackEnd
-python -m pip install -r requirements.txt
 python manage.py
 ```
 
-Default URL: `http://localhost:5000`
+Default backend URL: `http://localhost:5000`
 
-### Runtime Options
-Choose config profile and AI gateway mode at startup:
-
+### Runtime options
 ```bash
-# Default mock provider
-python AccessBackEnd/manage.py --config development --ai-provider mock_json
+# Select config profile
+python AccessBackEnd/manage.py --config development
 
-# Forward interactions to a live endpoint
+# Use live AI endpoint (endpoint is required for live_agent)
 python AccessBackEnd/manage.py --ai-provider live_agent --ai-endpoint http://localhost:8001/ai
 
-# Custom bind
-python AccessBackEnd/manage.py --host 0.0.0.0 --port 5000
+# Initialize DB before server startup
+python AccessBackEnd/manage.py --init-db
 ```
 
-### AI Behavior Right Now (Pre-Pipeline)
-`POST /api/v1/ai/interactions` currently accepts a JSON payload and reads `prompt` for processing.
+### Backend tests
+```bash
+pytest AccessBackEnd/tests
+```
 
-- `system_prompt` and `rag` keys are accepted for forward compatibility, but are not yet executed through a real pipeline.
-- Response shaping is intentionally minimal while backend contracts are being finalized.
-- Once the AI pipeline is implemented, this endpoint will route through multi-step processing instead of direct provider pass-through.
+## Frontend (Vue + Vite)
 
----
+### Install dependencies
+```bash
+cd AccessAppFront
+npm install
+```
 
-## Notes
-- The AI endpoint currently supports a configurable mock JSON source and a live endpoint pass-through mode.
-- Auth and API layers are designed to evolve independently from the frontend.
-- Sprint note: no backend implementation work is required for this phase; frontend integration uses already-exposed backend contracts only.
+### Run frontend unit tests
+```bash
+npm run test
+```
+
+### Start frontend dev server
+```bash
+npm run dev
+```
+
+Default frontend URL: `http://localhost:5173`
+
+## Notes on configuration
+- Flask app creation uses `create_app()` in `AccessBackEnd/app/__init__.py`.
+- Importing modules does not parse CLI arguments or mutate environment variables.
+- Instance overrides can be placed in `AccessBackEnd/instance/config.py`.
+- Tests default to in-memory SQLite (`sqlite:///:memory:`), while development defaults to persistent instance SQLite.
