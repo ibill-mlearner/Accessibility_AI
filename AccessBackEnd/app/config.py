@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from app.db.settings import resolve_database_url
+
 _BASE_DIR = Path(__file__).resolve().parent # expect AccessBackEnd\app
 _INSTANCE_DIR = _BASE_DIR.parent / "app"
 
@@ -39,10 +41,7 @@ class BaseConfig:
     API_V1_PREFIX = _env("API_V1_PREFIX", "/api/v1")
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_DATABASE_URI = _env(
-        "DATABASE_URL",
-        f"sqlite:///{(_INSTANCE_DIR / 'aiaccess.db').as_posix()}",
-    )
+    SQLALCHEMY_DATABASE_URI = resolve_database_url()
 
     MIGRATIONS_DIR = _env("MIGRATIONS_DIR", "migrations")
 
