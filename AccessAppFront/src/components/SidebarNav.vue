@@ -14,11 +14,13 @@
       </RouterLink>
     </nav>
 
-    <section class="chat-list">
+    <section v-if="store.role !== 'guest'" class="chat-list">
       <h3>Chats</h3>
       <ul>
         <li v-for="chat in store.chats" :key="chat.id" :class="{ active: chat.id === store.selectedChatId }">
-          {{ chat.title }}
+          <button class="chat-item" type="button" @click="store.selectedChatId = chat.id">
+            {{ chat.title }}
+          </button>
         </li>
       </ul>
     </section>
