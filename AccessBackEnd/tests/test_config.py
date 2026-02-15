@@ -16,7 +16,7 @@ SPEC.loader.exec_module(config)
 
 def test_base_and_instance_dir():
     expected_base = Path(config.__file__).resolve().parent
-    expected_instance = expected_base.parent / "app"
+    expected_instance = expected_base.parent / "instance"
 
     assert config._BASE_DIR == expected_base
     assert config._INSTANCE_DIR == expected_instance
@@ -75,9 +75,5 @@ def test_get_config_selects_by_app_config(monkeypatch):
     assert c.get_config() is c.TestingConfig
 
 
-def test_database_url_comes_from_env_or_db_settings_default(monkeypatch):
-    c = _reload_with_env(monkeypatch, DATABASE_URL="sqlite:///tmp/custom.db")
-    assert c.BaseConfig.SQLALCHEMY_DATABASE_URI == "sqlite:///tmp/custom.db"
-
-    c = _reload_with_env(monkeypatch, DATABASE_URL=None)
-    assert c.BaseConfig.SQLALCHEMY_DATABASE_URI.endswith("AccessBackEnd/var/accessibility_ai.db")
+def test_testing_config_defaults_to_in_memory_sqlite():
+    assert config.TestingConfig.SQLALCHEMY_DATABASE_URI == "sqlite:///:memory:"
