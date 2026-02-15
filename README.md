@@ -35,20 +35,29 @@ python -m pip install -r AccessBackEnd/requirements.txt
 Development DB is persistent and stored at:
 - `AccessBackEnd/instance/accessibility_ai.db`
 
-Run **one** of these equivalent commands:
+Run **one** of these commands (they depend on current directory):
 
 From repo root:
 ```bash
 python -m flask --app AccessBackEnd.app:create_app init-db
 ```
 
-From backend directory:
+From backend directory (**must already be inside `AccessBackEnd/`**):
 ```bash
 cd AccessBackEnd
 python -m flask --app app:create_app init-db
 ```
 
+PowerShell one-liner alternative:
+```powershell
+cd AccessBackEnd; python -m flask --app app:create_app init-db
+```
+
+> `--app app:create_app` only works when your current directory is `AccessBackEnd/`.
+
 ### 3) Run backend
+
+Backend runtime entrypoint is **only** `AccessBackEnd/manage.py`.
 
 From repo root:
 ```bash
