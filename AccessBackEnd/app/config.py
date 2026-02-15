@@ -82,6 +82,7 @@ class BaseConfig:
         "AI_MOCK_RESOURCE_PATH",
         (_BASE_DIR / "resources" / "mock_ai_response.json").as_posix(),
     )
+    DB_LOG_DIRECTORY = _env("DB_LOG_DIRECTORY")
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True

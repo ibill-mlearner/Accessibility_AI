@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from flask import Flask
 
 from . import config
@@ -12,6 +14,7 @@ from .extensions import cors, db as db_ext, jwt, login_manager, migrate
 from .logging_config import EventBus, LoggingObserver, configure_logging
 from .models import User
 from .services import AIPipelineConfig, AIPipelineService
+from .services.db_logger import InteractionLoggingService, RotatingTextLogWriter
 
 
 def _register_cli_commands(app: Flask) -> None:
@@ -40,7 +43,11 @@ def build_ai_service(app: Flask) -> AIPipelineService:
 
 
 def create_app(config_name: str | None = None) -> Flask:
-    app = Flask(__name__, instance_relative_config=True)
+    app = Flask(
+        __name__,
+        instance_relative_config=True,
+        instance_path=config._INSTANCE_DIR.as_posix(),
+    )
 
     cfg = config.get_config() if config_name is None else config.CONFIG_BY_NAME.get(config_name, config.DevelopmentConfig)
     app.config.from_object(cfg)
@@ -70,7 +77,12 @@ def create_app(config_name: str | None = None) -> Flask:
     event_bus.subscribe(LoggingObserver())
     app.extensions["event_bus"] = event_bus
 
-    app.extensions["ai_service"] = build_ai_service(app)
+    ai_service = build_ai_service(app)
+    db_log_directory = app.config.get("DB_LOG_DIRECTORY") or (Path(app.root_path) / "instance").as_posix()
+    app.extensions["ai_service"] = InteractionLoggingService(
+        wrapped=ai_service,
+        writer=RotatingTextLogWriter(log_dir=Path(db_log_directory)),
+    )
 
     app.register_blueprint(api_v1_bp)
     app.register_blueprint(auth_bp)

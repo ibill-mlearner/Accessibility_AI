@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 
@@ -119,3 +121,15 @@ def test_api_view_page_renders(client):
     body = response.get_data(as_text=True)
     assert "API v1 Test View" in body
     assert "/api/v1/health" in body
+
+
+def test_create_app_uses_backend_instance_directory():
+    try:
+        from app import create_app
+        from app import config as app_config
+    except ModuleNotFoundError as exc:
+        pytest.skip(f"create_app import unavailable due to missing dependency: {exc}")
+
+    app = create_app("testing")
+
+    assert Path(app.instance_path) == app_config._INSTANCE_DIR
