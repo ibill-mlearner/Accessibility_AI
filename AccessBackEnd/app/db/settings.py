@@ -3,7 +3,27 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from sqlalchemy.engine import make_url
+
 DEFAULT_SQLITE_FILENAME = "accessibility_ai.db"
+
+
+def _normalize_sqlite_url(configured: str, *, instance_path: str) -> str:
+    parsed = make_url(configured)
+    if not parsed.drivername.startswith("sqlite"):
+        return configured
+
+    sqlite_path = parsed.database
+    if not sqlite_path or sqlite_path == ":memory:" or sqlite_path.startswith("file:"):
+        return configured
+
+    normalized = Path(sqlite_path).expanduser()
+    if not normalized.is_absolute():
+        normalized = Path(instance_path) / normalized
+
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    resolved = normalized.resolve().as_posix()
+    return parsed.set(database=resolved).render_as_string(hide_password=False)
 
 
 def resolve_database_url(
@@ -22,13 +42,7 @@ def resolve_database_url(
 
     configured = os.getenv(env_var) or configured_url
     if configured:
-        if configured.startswith("sqlite:///") and not configured.startswith("sqlite:////"):
-            sqlite_path = configured[len("sqlite:///") :]
-            if sqlite_path and sqlite_path != ":memory:":
-                normalized = Path(instance_path) / sqlite_path
-                normalized.parent.mkdir(parents=True, exist_ok=True)
-                return f"sqlite:///{normalized.resolve().as_posix()}"
-        return configured
+        return _normalize_sqlite_url(configured, instance_path=instance_path)
 
     default_sqlite = Path(instance_path) / DEFAULT_SQLITE_FILENAME
     default_sqlite.parent.mkdir(parents=True, exist_ok=True)

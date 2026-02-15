@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
+from flask_login import current_user
 
 from ..errors import BadRequestError, NotFoundError
 from .api_view import register_api_view_route
@@ -305,8 +306,20 @@ def create_ai_interaction():
         },
     )
 
+    initiated_by = "anonymous"
+    if getattr(current_user, "is_authenticated", False):
+        initiated_by = str(current_user.get_id() or getattr(current_user, "email", "authenticated_user"))
+    elif payload.get("user"):
+        initiated_by = str(payload["user"])
+    elif payload.get("user_id"):
+        initiated_by = str(payload["user_id"])
+
     try:
-        result = current_app.extensions["ai_service"].run_interaction(prompt=prompt)
+        result = current_app.extensions["ai_service"].run_interaction(
+            prompt=prompt,
+            context=payload.get("context"),
+            initiated_by=initiated_by,
+        )
     except (FileNotFoundError, ValueError) as exc:
         raise BadRequestError(str(exc)) from exc
     except RuntimeError as exc:
