@@ -8,7 +8,11 @@ Accessibility AI includes a Vue frontend and a Flask backend.
 
 ## Backend (Flask)
 
-### 1) Create virtual environment and install dependencies
+### 1) Create and activate virtualenv (do this first)
+
+From repo root:
+
+**macOS/Linux (bash/zsh):**
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -16,24 +20,42 @@ python -m pip install --upgrade pip
 python -m pip install -r AccessBackEnd/requirements.txt
 ```
 
-### 2) Initialize database schema (required once per local database)
-The development database is file-backed SQLite and is created under:
+**Windows PowerShell:**
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r AccessBackEnd/requirements.txt
+```
 
+> `source .venv/bin/activate` is Unix-only. In PowerShell use `\.venv\Scripts\Activate.ps1`.
+
+### 2) Initialize database schema (required once per local database)
+
+Development DB is persistent and stored at:
 - `AccessBackEnd/instance/accessibility_ai.db`
 
-Initialize schema:
+Run **one** of these equivalent commands:
+
+From repo root:
+```bash
+python -m flask --app AccessBackEnd.app:create_app init-db
+```
+
+From backend directory:
 ```bash
 cd AccessBackEnd
-flask --app 'app:create_app' init-db
+python -m flask --app app:create_app init-db
 ```
 
 ### 3) Run backend
+
 From repo root:
 ```bash
 python AccessBackEnd/manage.py
 ```
 
-Or from backend directory:
+From backend directory:
 ```bash
 cd AccessBackEnd
 python manage.py
@@ -43,13 +65,9 @@ Default backend URL: `http://localhost:5000`
 
 ### Runtime options
 ```bash
-# Select config profile
+# From repo root
 python AccessBackEnd/manage.py --config development
-
-# Use live AI endpoint (endpoint is required for live_agent)
 python AccessBackEnd/manage.py --ai-provider live_agent --ai-endpoint http://localhost:8001/ai
-
-# Initialize DB before server startup
 python AccessBackEnd/manage.py --init-db
 ```
 
@@ -61,18 +79,32 @@ pytest AccessBackEnd/tests
 ## Frontend (Vue + Vite)
 
 ### Install dependencies
+From repo root:
+```bash
+npm install --prefix AccessAppFront
+```
+
+Or:
 ```bash
 cd AccessAppFront
 npm install
 ```
 
 ### Run frontend unit tests
+From repo root:
 ```bash
+npm test --prefix AccessAppFront
+```
+
+Or inside frontend directory:
+```bash
+cd AccessAppFront
 npm run test
 ```
 
 ### Start frontend dev server
 ```bash
+cd AccessAppFront
 npm run dev
 ```
 
