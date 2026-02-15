@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from sqlalchemy import text
+
 from app import create_app
 from app import config as app_config
 from app.db import create_json_backed_db, create_standalone_db
@@ -82,3 +84,21 @@ def test_create_app_can_mount_external_data_backend_in_two_lines(monkeypatch):
     assert user is not None
 
     monkeypatch.setattr(app_config.TestingConfig, "DATA_BACKEND_FACTORY", None)
+
+
+def test_create_standalone_db_creates_missing_sqlite_file_and_schema(tmp_path):
+    db_path = tmp_path / "runtime" / "bootstrap.db"
+
+    assert not db_path.exists()
+
+    runtime, _repositories = create_standalone_db(
+        database_url=f"sqlite+pysqlite:///{db_path.as_posix()}"
+    )
+
+    assert db_path.exists()
+    with runtime.session_scope() as session:
+        users_table = session.execute(
+            text("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        ).scalar_one_or_none()
+
+    assert users_table == "users"
