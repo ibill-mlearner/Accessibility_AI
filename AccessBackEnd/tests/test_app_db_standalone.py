@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from app import create_app
 from app import config as app_config
-from app.db import create_json_backed_db, create_standalone_db
+from app.db import create_json_backed_db, create_standalone_db, init_standalone_schema
 from app.models.entity_metadata import get_entity_metadata_bundle
 
 
@@ -20,6 +20,7 @@ def test_create_standalone_db_binds_schema_and_repositories():
 
 def test_standalone_db_user_and_interaction_roundtrip():
     runtime, repositories = create_standalone_db()
+    init_standalone_schema(runtime)
 
     with runtime.session_scope() as session:
         user = repositories["users"].create(
@@ -92,7 +93,8 @@ def test_create_standalone_db_creates_missing_sqlite_file_and_schema(tmp_path):
     assert not db_path.exists()
 
     runtime, _repositories = create_standalone_db(
-        database_url=f"sqlite+pysqlite:///{db_path.as_posix()}"
+        database_url=f"sqlite+pysqlite:///{db_path.as_posix()}",
+        create_schema=True,
     )
 
     assert db_path.exists()

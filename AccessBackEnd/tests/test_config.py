@@ -73,3 +73,11 @@ def test_ai_section_override(monkeypatch):
 def test_get_config_selects_by_app_config(monkeypatch):
     c = _reload_with_env(monkeypatch, APP_CONFIG="testing")
     assert c.get_config() is c.TestingConfig
+
+
+def test_database_url_comes_from_env_or_db_settings_default(monkeypatch):
+    c = _reload_with_env(monkeypatch, DATABASE_URL="sqlite:///tmp/custom.db")
+    assert c.BaseConfig.SQLALCHEMY_DATABASE_URI == "sqlite:///tmp/custom.db"
+
+    c = _reload_with_env(monkeypatch, DATABASE_URL=None)
+    assert c.BaseConfig.SQLALCHEMY_DATABASE_URI.endswith("AccessBackEnd/var/accessibility_ai.db")

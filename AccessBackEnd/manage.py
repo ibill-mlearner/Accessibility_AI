@@ -2,6 +2,7 @@ import argparse
 import os
 
 from app import create_app
+from app.db import init_flask_database
 from app.extensions import db
 
 
@@ -16,6 +17,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ai-endpoint", help="Live AI endpoint URL (used when --ai-provider=live_agent)")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
+    parser.add_argument("--init-db", action="store_true", help="Initialize database tables before starting the server")
     return parser
 
 
@@ -36,6 +38,9 @@ def _create_runtime_app():
 
 
 app, runtime_args = _create_runtime_app()
+
+if runtime_args.init_db:
+    init_flask_database(app)
 
 
 @app.shell_context_processor
