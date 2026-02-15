@@ -9,7 +9,7 @@
       <ChatBubbleCard :text="note.content" />
       <div class="button-row">
         <button class="btn">Read Aloud</button>
-        <button class="btn">Save as Note</button>
+        <button class="btn" @click="$emit('delete', note.id)">Delete Note</button>
       </div>
     </div>
   </article>
@@ -24,4 +24,6 @@ defineProps({
     required: true
   }
 })
+
+defineEmits(['delete'])
 </script>
