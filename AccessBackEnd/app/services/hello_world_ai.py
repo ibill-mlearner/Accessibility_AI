@@ -1,7 +1,7 @@
 """Standalone demo script for the AI pipeline package.
 
 Run from the backend folder:
-    python "app/services/hello world ai.py"
+    python app/services/hello_world_ai.py
 """
 
 from __future__ import annotations
