@@ -21,8 +21,8 @@ describe('HomeView.vue', () => {
     store.role = 'guest'
 
     const wrapper = mount(HomeView)
-    const loginBtn = wrapper.find('button.btn')
-    expect(loginBtn.exists()).toBe(true)
+    const loginBtn = wrapper.findAll('button').find((button) => button.text() === 'Login')
+    expect(loginBtn).toBeTruthy()
 
     await loginBtn.trigger('click')
     expect(push).toHaveBeenCalledWith('/login')
@@ -35,7 +35,8 @@ describe('HomeView.vue', () => {
 
     const wrapper = mount(HomeView)
 
-    expect(wrapper.find('button.btn').exists()).toBe(false)
+    const loginBtn = wrapper.findAll('button').find((button) => button.text() === 'Login')
+    expect(loginBtn).toBeUndefined()
     expect(wrapper.find('select').exists()).toBe(true)
   })
 })

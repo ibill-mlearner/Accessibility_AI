@@ -2,8 +2,8 @@
   <article class="chat-bubble-card panel" :class="variantClass">
     <slot>{{ text }}</slot>
     <div v-if="showActions" class="button-row">
-      <button class="btn">Read Aloud</button>
-      <button class="btn">Save as Note</button>
+      <button class="btn" @click="$emit('read-aloud')">Read Aloud</button>
+      <button class="btn" @click="$emit('save-note')">Save as Note</button>
     </div>
   </article>
 </template>
@@ -16,6 +16,8 @@ const props = defineProps({
   variant: { type: String, default: 'system' },
   showActions: { type: Boolean, default: false }
 })
+
+defineEmits(['read-aloud', 'save-note'])
 
 const variantClass = computed(() => `chat-bubble-card--${props.variant}`)
 </script>
