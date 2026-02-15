@@ -9,7 +9,7 @@ from .blueprints.auth.routes import auth_bp
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
 from .logging_config import EventBus, LoggingObserver, configure_logging
 from .models import User
-from .services import AIPipelineService
+from .services import AIPipelineConfig, AIPipelineService
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -38,10 +38,13 @@ def create_app(config_name: str | None = None) -> Flask:
     app.extensions["event_bus"] = event_bus
 
     app.extensions["ai_service"] = AIPipelineService(
-        provider=app.config["AI_PROVIDER"],
-        mock_resource_path=app.config["AI_MOCK_RESOURCE_PATH"],
-        live_endpoint=app.config["AI_LIVE_ENDPOINT"],
-        timeout_seconds=app.config["AI_TIMEOUT_SECONDS"],
+        AIPipelineConfig(
+            provider=app.config["AI_PROVIDER"],
+            mock_resource_path=app.config["AI_MOCK_RESOURCE_PATH"],
+            live_endpoint=app.config["AI_LIVE_ENDPOINT"],
+            timeout_seconds=app.config["AI_TIMEOUT_SECONDS"],
+            huggingface_model_id=app.config["AI_MODEL_NAME"],
+        )
     )
 
     app.register_blueprint(api_v1_bp)
