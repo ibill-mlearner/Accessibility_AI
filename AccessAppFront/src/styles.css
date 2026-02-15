@@ -13,8 +13,17 @@ body { margin: 0; background: #ececec; }
 .menu-item.router-link-active { background: #b6a4c4; }
 .chat-list { padding: 10px; flex: 1; }
 .chat-list h3 { margin: 0 0 10px; font-size: 38px; }
-.chat-list li { font-size: 40px; margin: 6px 0; list-style: disc; }
+.chat-list li { font-size: 40px; margin: 6px 0; list-style: none; }
 .chat-list li.active { background: #b6a4c4; }
+.chat-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
 .content { display: flex; flex-direction: column; gap: 20px; }
 .header-bar { text-align: center; background: #ddd; min-height: 86px; display: flex; align-items: center; }
 .header-bar h1 { margin: 0; font-size: 58px; font-weight: 400; color: #666; text-align: left; padding-left: 24px; }
@@ -32,7 +41,20 @@ input[type='radio'] { width: 42px; height: 42px; }
 .saved-note { padding: 12px; display: grid; grid-template-columns: 300px 1fr; gap: 12px; }
 .saved-note aside p { font-size: 30px; margin: 4px 0; }
 .button-row { display: flex; justify-content: space-between; }
-.auth-card { max-width: 700px; padding: 16px; display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+.auth-card {
+  max-width: 700px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'username password'
+    'submit submit';
+  gap: 10px;
+  align-items: center;
+}
+.auth-card input:first-of-type { grid-area: username; }
+.auth-card input:last-of-type { grid-area: password; }
+.auth-card .icon-btn { grid-area: submit; justify-self: start; }
 .logout-card { padding: 20px; text-align: center; }
 .role-picker { display: flex; gap: 10px; }
 .error-page { text-align: center; padding-top: 80px; }

@@ -1,7 +1,9 @@
 <template>
   <section>
-    <ChatBubbleCard text="System's response . . ." variant="system" />
-    <ChatBubbleCard text="User's prompt . . ." variant="user" />
+    <template v-if="store.role !== 'guest'">
+      <ChatBubbleCard text="System's response . . ." variant="system" />
+      <ChatBubbleCard text="User's prompt . . ." variant="user" />
+    </template>
     <ComposerBar
       v-model="prompt"
       :selected-model="store.selectedModel"
