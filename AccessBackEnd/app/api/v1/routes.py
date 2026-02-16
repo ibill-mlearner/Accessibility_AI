@@ -338,6 +338,7 @@ def health():
 
 
 @api_v1_bp.post("/ai/interactions")
+@login_required
 def create_ai_interaction():
     """Run a single AI interaction.
 

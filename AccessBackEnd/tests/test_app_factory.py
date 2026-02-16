@@ -85,7 +85,17 @@ def test_resource_delete_returns_deleted_record(app, client):
     assert body["id"] == 2
 
 
+def test_ai_interaction_requires_authentication(client):
+    response = client.post("/api/v1/ai/interactions", json={"prompt": "hello"})
+    assert response.status_code == 401
+    body = response.get_json()
+    assert body["error"]["code"] == "unauthorized"
+    assert body["error"]["message"] == "authentication required"
+
+
 def test_ai_interaction_accepts_future_growth_fields(app, client):
+    _authenticate_api_client(app, client)
+
     payload = {
         "prompt": "hello",
         "system_prompt": "You are a helpful note assistant",
@@ -105,6 +115,8 @@ def test_ai_interaction_accepts_future_growth_fields(app, client):
 
 
 def test_ai_interaction_persists_record(app, client):
+    _authenticate_api_client(app, client)
+
     from app.db import init_flask_database
     from app.extensions import db
     from app.models import AIInteraction
@@ -128,6 +140,8 @@ def test_ai_interaction_persists_record(app, client):
 
 
 def test_ai_interaction_returns_structured_error_when_persistence_fails(app, client, monkeypatch):
+    _authenticate_api_client(app, client)
+
     from app.db import init_flask_database
     from app.extensions import db
 
