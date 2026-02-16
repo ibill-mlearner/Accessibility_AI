@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..models.entity_metadata import EntityMetadata
+from ..models.identity_defaults import build_transitional_identity_defaults
 
 
 MetadataProvider = Callable[[], dict[str, EntityMetadata]]
@@ -90,13 +91,8 @@ class JsonUserRepository:
             "role": role,
             "created_at": now_iso,
             "updated_at": now_iso,
-            "last_login_at": None,
             "is_active": True,
-            "email_confirmed": False,
-            "lockout_end": None,
-            "access_failed_count": 0,
-            "lockout_enabled": True,
-            "security_stamp": "",
+            **build_transitional_identity_defaults(normalized_email),
         }
         records.append(record)
         return self.user_model(**record)

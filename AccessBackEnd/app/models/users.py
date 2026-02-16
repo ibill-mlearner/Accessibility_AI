@@ -8,6 +8,7 @@ from sqlalchemy.sql import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
+from .identity_defaults import build_transitional_security_stamp
 
 
 class User(db.Model, UserMixin):
@@ -31,7 +32,10 @@ class User(db.Model, UserMixin):
     lockout_end = db.Column(db.DateTime(timezone=True), nullable=True)
     access_failed_count = db.Column(db.Integer, nullable=False, default=0, server_default="0")
     lockout_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
-    security_stamp = db.Column(db.String(64), nullable=False, default="")
+    # Transitional placeholder until full identity policy enforcement is implemented.
+    security_stamp = db.Column(
+        db.String(64), nullable=False, default=lambda: build_transitional_security_stamp(None)
+    )
 
     @staticmethod
     def _normalize_email(email: str) -> str:

@@ -13,6 +13,7 @@ from .api_view import register_api_view_route
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
 from ...models import AIInteraction, Chat, CourseClass, Message, User
+from ...models.identity_defaults import build_transitional_identity_defaults
 from ...services.chat_access_service import ChatAccessService
 from ...services.logging import DomainEvent
 
@@ -148,7 +149,7 @@ def register_auth_user():
             409,
         )
 
-    user = User(email=email, role=role)
+    user = User(email=email, role=role, **build_transitional_identity_defaults(email))
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
