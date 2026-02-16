@@ -17,7 +17,7 @@ def test_http_provider_requires_endpoint() -> None:
 
 
 def test_http_provider_parses_json_and_sets_meta(monkeypatch: pytest.MonkeyPatch) -> None:
-    provider = HTTPEndpointProvider(endpoint="https://example.test/ai")
+    provider = HTTPEndpointProvider(endpoint="https://example.test/ai", model_name="gpt-4o-mini")
 
     class _Response:
         def __enter__(self):
@@ -29,12 +29,20 @@ def test_http_provider_parses_json_and_sets_meta(monkeypatch: pytest.MonkeyPatch
         def read(self) -> bytes:
             return json.dumps({"result": "ok"}).encode("utf-8")
 
-    monkeypatch.setattr("app.services.ai_pipeline.providers.urlopen", lambda *_args, **_kwargs: _Response())
+    captured = {}
+
+    def _fake_urlopen(req, *_args, **_kwargs):  # noqa: ANN001
+        captured["request_body"] = json.loads(req.data.decode("utf-8"))
+        return _Response()
+
+    monkeypatch.setattr("app.services.ai_pipeline.providers.urlopen", _fake_urlopen)
 
     payload = provider.invoke(PipelineRequest(prompt="hello", context={"level": 1}))
 
+    assert captured["request_body"]["model"] == "gpt-4o-mini"
     assert payload["result"] == "ok"
     assert payload["meta"]["provider"] == "http"
+    assert payload["meta"]["model"] == "gpt-4o-mini"
 
 
 def test_huggingface_provider_parse_json_handles_embedded_object() -> None:
