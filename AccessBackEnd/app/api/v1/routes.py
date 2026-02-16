@@ -1,61 +1,30 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
-from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..errors import BadRequestError, NotFoundError
+from ..errors import BadRequestError
 from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import (
-    AIInteraction,
-    Chat,
-    CourseClass,
-    Feature,
-    Message,
-    Note,
-    UserClassEnrollment,
-)
-from ...services.chat_access_service import ChatAccessService
+from ...models import AIInteraction
 from ...services.logging import DomainEvent
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
 
-# ---------------------------------------------------------------------------
-# Temporary pass-through storage for endpoint-validation sprint.
-# Logic intent:
-# - Keep response shapes stable while frontend/backend contracts are wired.
-# - Store records as submitted without API-level transformation.
-# - Replace this with repository/database integration in a later sprint.
-# ---------------------------------------------------------------------------
-
-_RESOURCE_SINGULAR_NAME: dict[str, str] = {
-    "chats": "chat",
-    "messages": "message",
-    "classes": "class",
-    "notes": "note",
-    "features": "feature",
-}
-
-
-def _resource_not_found(resource_name: str, record_id: int):
-    """Raise standardized 404 for missing resource records."""
-    raise NotFoundError(
-        f"{_RESOURCE_SINGULAR_NAME.get(resource_name, 'resource')} not found",
-        details={"resource": resource_name, "id": record_id},
-    )
+def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
+    """Publish a domain event for endpoint observability."""
+    current_app.extensions["event_bus"].publish(DomainEvent(event_name, payload or {}))
 
 
 def _read_json_object() -> dict[str, Any]:
-    """Read request JSON body and require object payloads for CRUD routes."""
+    """Read request JSON body and require object payloads for route stubs."""
     payload = request.get_json(silent=True)
     if payload is None:
         raise BadRequestError("json body required")
@@ -64,127 +33,161 @@ def _read_json_object() -> dict[str, Any]:
     return payload
 
 
-_RESOURCE_MODEL_MAP: dict[str, type] = {
-    "chats": Chat,
-    "messages": Message,
-    "classes": CourseClass,
-    "notes": Note,
-    "features": Feature,
-}
-
-_RESOURCE_API_TO_MODEL_FIELDS: dict[str, dict[str, str]] = {
-    "chats": {"start": "started_at", "class": "class_id", "user": "user_id"},
-    "notes": {"date": "noted_on", "class": "class_id"},
-}
-
-_RESOURCE_MODEL_TO_API_FIELDS: dict[str, dict[str, str]] = {
-    name: {model_field: api_field for api_field, model_field in field_map.items()}
-    for name, field_map in _RESOURCE_API_TO_MODEL_FIELDS.items()
-}
-
-
-def _coerce_field_value(resource_name: str, model_field: str, value: Any) -> Any:
-    if value is None:
-        return None
-
-    if (
-        resource_name == "chats"
-        and model_field == "started_at"
-        and isinstance(value, str)
-    ):
-        normalized = value.replace("Z", "+00:00")
-        try:
-            return datetime.fromisoformat(normalized)
-        except ValueError as exc:
-            raise BadRequestError("invalid datetime format for start") from exc
-
-    if (
-        resource_name == "notes"
-        and model_field == "noted_on"
-        and isinstance(value, str)
-    ):
-        try:
-            return date.fromisoformat(value)
-        except ValueError as exc:
-            raise BadRequestError("invalid date format for date") from exc
-
-    return value
-
-
-def _resource_model(resource_name: str):
-    return _RESOURCE_MODEL_MAP[resource_name]
-
-
-def _deserialize_payload(resource_name: str, payload: dict[str, Any]) -> dict[str, Any]:
-    model = _resource_model(resource_name)
-    valid_model_fields = {column.name for column in model.__table__.columns}
-    field_map = _RESOURCE_API_TO_MODEL_FIELDS.get(resource_name, {})
-
-    transformed: dict[str, Any] = {}
-    for api_field, value in payload.items():
-        model_field = field_map.get(api_field, api_field)
-        if model_field not in valid_model_fields:
-            raise BadRequestError(f"unknown field: {api_field}")
-        transformed[model_field] = _coerce_field_value(
-            resource_name, model_field, value
-        )
-    return transformed
-
-
-def _serialize_record(resource_name: str, record: Any) -> dict[str, Any]:
-    model_to_api = _RESOURCE_MODEL_TO_API_FIELDS.get(resource_name, {})
-    payload: dict[str, Any] = {}
-
-    for column in record.__table__.columns:
-        model_field = column.name
-        api_field = model_to_api.get(model_field, model_field)
-        value = getattr(record, model_field)
-        if isinstance(value, (datetime, date)):
-            value = value.isoformat()
-        payload[api_field] = value
-
-    if resource_name == "classes":
-        payload["instructor"] = {
-            "id": record.instructor.id,
-            "email": record.instructor.email,
-            "role": record.instructor.role,
-        }
-        payload["section"] = {
-            "term": payload.get("term"),
-            "section_code": payload.get("section_code"),
-            "external_class_key": payload.get("external_class_key"),
-        }
-
-    return payload
-
-
-def _chat_accessible_query():
-    """Base query scoped to chats accessible by the current user."""
-    user_id = int(current_user.get_id())
+def _todo_response(
+    *,
+    endpoint: str,
+    next_steps: list[str],
+    payload: dict[str, Any] | None = None,
+    status_code: int = 501,
+):
+    """Return explicit placeholder output for handlers that are intentionally unimplemented."""
     return (
-        db.session.query(Chat)
-        .join(CourseClass, Chat.class_id == CourseClass.id)
-        .outerjoin(
-            UserClassEnrollment,
-            and_(
-                UserClassEnrollment.class_id == CourseClass.id,
-                UserClassEnrollment.user_id == user_id,
-                UserClassEnrollment.dropped_at.is_(None),
-            ),
-        )
-        .filter(
-            or_(
-                Chat.user_id == user_id,
-                CourseClass.instructor_id == user_id,
-                UserClassEnrollment.id.is_not(None),
-            )
-        )
+        jsonify(
+            {
+                "message": "TODO: implement",
+                "endpoint": endpoint,
+                "next_steps": next_steps,
+                "payload": payload or {},
+            }
+        ),
+        status_code,
     )
 
 
-def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
-    """Publish a domain event for endpoint observability."""
-    current_app.extensions["event_bus"].publish(DomainEvent(event_name, payload or {}))
+@api_v1_bp.post("/auth/register")
+def register_auth_user():
+    """Placeholder for API-v1 user registration flow."""
+    payload = _read_json_object()
+
+    # TODO(register):
+    # 1) Validate request contract (required fields, email format, password policy).
+    # 2) Authorize registration path (invite-only checks / tenant constraints as needed).
+    # 3) Persist user credentials/profile via auth domain services and emit audit events.
+    # 4) Return normalized auth tokens + user envelope.
+    return _todo_response(
+        endpoint="POST /api/v1/auth/register",
+        next_steps=[
+            "validate_register_payload",
+            "authorize_registration_context",
+            "persist_user_and_issue_tokens",
+        ],
+        payload={"received_keys": sorted(payload.keys())},
+    )
+
+
+@api_v1_bp.post("/auth/login")
+def login_auth_user():
+    """Placeholder for API-v1 login flow."""
+    payload = _read_json_object()
+
+    # TODO(login):
+    # 1) Validate login payload (identifier/password shape, required fields).
+    # 2) Authorize login attempt (account status, lockouts, MFA preconditions).
+    # 3) Persist session/token metadata and security audit log entries.
+    # 4) Return auth/session envelope expected by frontend.
+    return _todo_response(
+        endpoint="POST /api/v1/auth/login",
+        next_steps=[
+            "validate_login_payload",
+            "authorize_login_attempt",
+            "persist_session_and_audit",
+        ],
+        payload={"received_keys": sorted(payload.keys())},
+    )
+
+
+@api_v1_bp.get("/chats")
+@login_required
+def list_chats():
+    """Placeholder for listing chats accessible to the current user."""
+    # TODO(chats.list):
+    # 1) Validate query contract (pagination/cursor/filter fields).
+    # 2) Authorize user scope (owner, instructor, enrollment visibility).
+    # 3) Persist/read sequence: fetch chat summaries from repository with stable ordering.
+    # 4) Return paginated chat collection envelope.
+    return _todo_response(
+        endpoint="GET /api/v1/chats",
+        next_steps=[
+            "validate_chat_list_query",
+            "authorize_chat_list_scope",
+            "read_chat_collection",
+        ],
+        payload={"user_id": current_user.get_id()},
+    )
+
+
+@api_v1_bp.post("/chats")
+@login_required
+def create_chat():
+    """Placeholder for creating a chat within class/user scope."""
+    payload = _read_json_object()
+
+    # TODO(chats.create):
+    # 1) Validate payload contract (class_id/title/model and defaults).
+    # 2) Authorize creation scope (owner self-write + enrollment/instructor permissions).
+    # 3) Persist chat row and creation metadata inside transaction boundaries.
+    # 4) Return created chat response envelope.
+    return _todo_response(
+        endpoint="POST /api/v1/chats",
+        next_steps=[
+            "validate_chat_create_payload",
+            "authorize_chat_create_scope",
+            "persist_chat_record",
+        ],
+        payload={"received_keys": sorted(payload.keys())},
+    )
+
+
+@api_v1_bp.get("/chats/<int:chat_id>/messages")
+@login_required
+def list_chat_messages(chat_id: int):
+    """Placeholder for listing messages in a chat visible to the current user."""
+    # TODO(messages.list):
+    # 1) Validate query contract (pagination, ordering, optional role filters).
+    # 2) Authorize chat visibility (owner/instructor/enrollment checks against chat).
+    # 3) Persist/read sequence: fetch ordered messages for chat_id from repository.
+    # 4) Return message collection envelope with pagination metadata.
+    return _todo_response(
+        endpoint="GET /api/v1/chats/<chat_id>/messages",
+        next_steps=[
+            "validate_message_list_query",
+            "authorize_message_list_scope",
+            "read_message_collection",
+        ],
+        payload={"chat_id": chat_id, "user_id": current_user.get_id()},
+    )
+
+
+@api_v1_bp.post("/chats/<int:chat_id>/messages")
+@login_required
+def create_chat_message(chat_id: int):
+    """Placeholder for creating a message in a chat."""
+    payload = _read_json_object()
+
+    # TODO(messages.create):
+    # 1) Validate payload contract (message body/role/metadata fields).
+    # 2) Authorize write scope (owner/instructor/enrollment checks for chat_id).
+    # 3) Persist message row + optional side effects (intent/vote/note links) transactionally.
+    # 4) Return created message envelope.
+    return _todo_response(
+        endpoint="POST /api/v1/chats/<chat_id>/messages",
+        next_steps=[
+            "validate_message_create_payload",
+            "authorize_message_create_scope",
+            "persist_message_record",
+        ],
+        payload={"chat_id": chat_id, "received_keys": sorted(payload.keys())},
+    )
+
+
+@api_v1_bp.get("/health")
+@login_required
+def health():
+    """Service heartbeat endpoint for deployment/readiness checks."""
+    _publish("api.health_checked")
+    return jsonify(
+        {"status": "ok", "ai_provider": current_app.config.get("AI_PROVIDER")}
+    )
 
 
 def _extract_response_text(result: Any) -> str:
@@ -278,167 +281,10 @@ def _persist_ai_interaction(
     return None
 
 
-def _list_resource(resource_name: str):
-    """Return all records for a resource from ORM-backed storage."""
-    model = _resource_model(resource_name)
-    if resource_name == "chats":
-        records = _chat_accessible_query().all()
-    else:
-        records = db.session.query(model).all()
-    _publish(f"api.{resource_name}.listed", {"count": len(records)})
-    return (
-        jsonify([_serialize_record(resource_name, record) for record in records]),
-        200,
-    )
-
-
-def _get_resource(resource_name: str, record_id: int):
-    """Return a single ORM record by primary key."""
-    model = _resource_model(resource_name)
-    record = db.session.get(model, record_id)
-    if record is None:
-        _resource_not_found(resource_name, record_id)
-    if resource_name == "chats":
-        ChatAccessService.assert_can_access_chat(record)
-
-    _publish(f"api.{resource_name}.retrieved", {"id": record_id})
-    return jsonify(_serialize_record(resource_name, record)), 200
-
-
-def _create_resource(resource_name: str):
-    """Create and persist a resource record from API payload fields."""
-    payload = _read_json_object()
-    model = _resource_model(resource_name)
-    transformed_payload = _deserialize_payload(resource_name, payload)
-
-    if resource_name == "chats":
-        class_id = transformed_payload.get("class_id")
-        if class_id is None:
-            raise BadRequestError("class is required")
-
-        course_class = db.session.get(CourseClass, class_id)
-        if course_class is None:
-            raise BadRequestError("class not found")
-
-        transformed_payload["user_id"] = ChatAccessService.assert_can_create_chat(
-            class_record=course_class,
-            requested_user_id=transformed_payload.get("user_id"),
-        )
-
-    record = model(**transformed_payload)
-    db.session.add(record)
-    db.session.commit()
-    _publish(f"api.{resource_name}.created", {"has_id": "id" in payload})
-    return jsonify(_serialize_record(resource_name, record)), 201
-
-
-def _update_resource(resource_name: str, record_id: int):
-    """Update an existing ORM-backed resource from API payload fields."""
-    payload = _read_json_object()
-    model = _resource_model(resource_name)
-    record = db.session.get(model, record_id)
-    if record is None:
-        _resource_not_found(resource_name, record_id)
-
-    transformed_payload = _deserialize_payload(resource_name, payload)
-    for field_name, value in transformed_payload.items():
-        setattr(record, field_name, value)
-
-    db.session.commit()
-    _publish(f"api.{resource_name}.updated", {"id": record_id})
-    return jsonify(_serialize_record(resource_name, record)), 200
-
-
-def _delete_resource(resource_name: str, record_id: int):
-    """Delete a persisted resource by id and return the deleted payload."""
-    model = _resource_model(resource_name)
-    record = db.session.get(model, record_id)
-    if record is None:
-        _resource_not_found(resource_name, record_id)
-
-    deleted_payload = _serialize_record(resource_name, record)
-    db.session.delete(record)
-    db.session.commit()
-    _publish(f"api.{resource_name}.deleted", {"id": record_id})
-    return jsonify(deleted_payload), 200
-
-
-def _register_resource_routes(resource_name: str) -> None:
-    """Register standard CRUD endpoints for a top-level API resource."""
-
-    @login_required
-    def list_handler() -> tuple[Any, int]:
-        return _list_resource(resource_name)
-
-    @login_required
-    def create_handler() -> tuple[Any, int]:
-        return _create_resource(resource_name)
-
-    @login_required
-    def get_handler(record_id: int) -> tuple[Any, int]:
-        return _get_resource(resource_name, record_id)
-
-    @login_required
-    def update_handler(record_id: int) -> tuple[Any, int]:
-        return _update_resource(resource_name, record_id)
-
-    @login_required
-    def delete_handler(record_id: int) -> tuple[Any, int]:
-        return _delete_resource(resource_name, record_id)
-
-    api_v1_bp.add_url_rule(
-        f"/{resource_name}",
-        endpoint=f"list_{resource_name}",
-        view_func=list_handler,
-        methods=["GET"],
-    )
-    api_v1_bp.add_url_rule(
-        f"/{resource_name}",
-        endpoint=f"create_{resource_name}",
-        view_func=create_handler,
-        methods=["POST"],
-    )
-    api_v1_bp.add_url_rule(
-        f"/{resource_name}/<int:record_id>",
-        endpoint=f"get_{resource_name}_item",
-        view_func=get_handler,
-        methods=["GET"],
-    )
-    api_v1_bp.add_url_rule(
-        f"/{resource_name}/<int:record_id>",
-        endpoint=f"update_{resource_name}_item",
-        view_func=update_handler,
-        methods=["PUT", "PATCH"],
-    )
-    api_v1_bp.add_url_rule(
-        f"/{resource_name}/<int:record_id>",
-        endpoint=f"delete_{resource_name}_item",
-        view_func=delete_handler,
-        methods=["DELETE"],
-    )
-
-
-@api_v1_bp.get("/health")
-@login_required
-def health():
-    """Service heartbeat endpoint for deployment/readiness checks."""
-    _publish("api.health_checked")
-    return jsonify(
-        {"status": "ok", "ai_provider": current_app.config.get("AI_PROVIDER")}
-    )
-
-
 @api_v1_bp.post("/ai/interactions")
 @login_required
 def create_ai_interaction():
-    """Run a single AI interaction.
-
-    Logic intent:
-    - Accept client payload in a pass-through shape.
-    - Support future growth keys (``system_prompt`` and ``rag``) without blocking requests.
-    - Forward only currently supported fields to the AI service for this sprint.
-    - Return provider output without API-level reshaping.
-    """
+    """Run a single AI interaction."""
     payload = request.get_json(silent=True) or {}
     prompt = payload.get("prompt") or ""
 
@@ -483,6 +329,3 @@ def create_ai_interaction():
 
 
 register_api_view_route(api_v1_bp)
-
-for _resource in ("chats", "messages", "classes", "notes", "features"):
-    _register_resource_routes(_resource)

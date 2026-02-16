@@ -1,76 +1,93 @@
 from __future__ import annotations
 
-from flask_login import current_user
-
-from ..api.errors import BadRequestError
 from ..models import Chat, CourseClass, UserClassEnrollment
 
 
 class ChatAccessService:
-    """Authorization helpers for chat reads and writes."""
+    """Placeholder access-service contract for chat-flow authorization checks.
+
+    This module intentionally exposes method signatures and sequencing intent only.
+    Endpoint handlers should call these methods once implementation work begins.
+    """
 
     @staticmethod
-    def _current_user_id() -> int:
-        user_id = current_user.get_id()
-        if user_id is None:
-            raise BadRequestError("authenticated user id is required")
-        return int(user_id)
+    def get_authenticated_user_id() -> int:
+        """Return the authenticated user id used by chat access checks.
+
+        TODO sequence:
+        1) Resolve principal from auth/session context.
+        2) Validate principal identity is present and castable to int.
+        3) Return normalized user id for downstream checks.
+        """
+        raise NotImplementedError("TODO: implement authenticated user id resolution")
 
     @classmethod
-    def assert_can_access_chat(cls, chat: Chat) -> None:
-        """Ensure the current user can read the requested chat."""
-        user_id = cls._current_user_id()
-        if chat.user_id == user_id:
-            return
+    def assert_chat_owner(cls, *, chat: Chat, user_id: int) -> None:
+        """Ensure the given user is the owner of ``chat``.
 
-        if chat.course_class.instructor_id == user_id:
-            return
+        TODO sequence:
+        1) Validate chat/user inputs.
+        2) Compare chat.user_id with user_id.
+        3) Raise authorization error when ownership check fails.
+        """
+        raise NotImplementedError("TODO: implement chat owner authorization check")
 
-        enrollment = next(
-            (
-                item
-                for item in chat.course_class.enrollments
-                if item.user_id == user_id and item.dropped_at is None
-            ),
-            None,
-        )
-        if enrollment is not None:
-            return
+    @classmethod
+    def assert_class_instructor(cls, *, class_record: CourseClass, user_id: int) -> None:
+        """Ensure the given user is the instructor for ``class_record``.
 
-        raise BadRequestError("user is not authorized for this chat", status_code=403)
+        TODO sequence:
+        1) Validate class/user inputs.
+        2) Compare class_record.instructor_id with user_id.
+        3) Raise authorization error when instructor check fails.
+        """
+        raise NotImplementedError("TODO: implement class instructor authorization check")
+
+    @classmethod
+    def assert_active_enrollment(
+        cls,
+        *,
+        enrollments: list[UserClassEnrollment],
+        user_id: int,
+        allowed_roles: set[str] | None = None,
+    ) -> UserClassEnrollment:
+        """Ensure user has active class enrollment and optional role membership.
+
+        TODO sequence:
+        1) Locate enrollment where ``enrollment.user_id == user_id`` and not dropped.
+        2) Validate role membership when ``allowed_roles`` is provided.
+        3) Return matched enrollment or raise authorization error.
+        """
+        raise NotImplementedError("TODO: implement active enrollment authorization check")
+
+    @classmethod
+    def assert_can_access_chat(cls, *, chat: Chat, user_id: int) -> None:
+        """Authorize chat read access via owner, instructor, or enrollment checks.
+
+        TODO sequence:
+        1) Allow owner access via ``assert_chat_owner``.
+        2) Allow instructor access via ``assert_class_instructor``.
+        3) Allow enrolled users via ``assert_active_enrollment``.
+        4) Raise authorization error when no access path applies.
+        """
+        raise NotImplementedError("TODO: implement chat access authorization policy")
 
     @classmethod
     def assert_can_create_chat(
-        cls, *, class_record: CourseClass, requested_user_id: int | None
+        cls,
+        *,
+        class_record: CourseClass,
+        actor_user_id: int,
+        requested_user_id: int | None,
     ) -> int:
-        """Ensure current user can create chats for the given class context."""
-        user_id = cls._current_user_id()
+        """Authorize chat creation and return normalized owner id.
 
-        if requested_user_id is not None and requested_user_id != user_id:
-            raise BadRequestError(
-                "chat user must match authenticated user", status_code=403
-            )
-
-        if class_record.instructor_id == user_id:
-            return user_id
-
-        enrollment = next(
-            (
-                item
-                for item in class_record.enrollments
-                if item.user_id == user_id and item.dropped_at is None
-            ),
-            None,
-        )
-        if enrollment is None:
-            raise BadRequestError(
-                "user is not enrolled in this class", status_code=403
-            )
-
-        if enrollment.role not in {"student", "ta"}:
-            raise BadRequestError("unsupported enrollment role", status_code=403)
-
-        return user_id
+        TODO sequence:
+        1) Validate requested ownership semantics for actor/requested user ids.
+        2) Authorize through instructor or active enrollment checks.
+        3) Return persisted owner id for chat creation.
+        """
+        raise NotImplementedError("TODO: implement chat create authorization policy")
 
 
 __all__ = ["ChatAccessService"]
