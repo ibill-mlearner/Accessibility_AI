@@ -3,6 +3,8 @@ from __future__ import annotations
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from ...models.identity_defaults import build_transitional_identity_defaults
+
 
 class UserRepository:
     """Persistence helpers for standalone DB user records."""
@@ -17,6 +19,7 @@ class UserRepository:
             normalized_email=normalized_email,
             password_hash=password_hash,
             role=role,
+            **build_transitional_identity_defaults(normalized_email),
         )
         session.add(user)
         session.flush()

@@ -14,8 +14,10 @@ INSERT INTO users (
   role,
   created_at,
   updated_at,
+  last_login_at,
   is_active,
   email_confirmed,
+  lockout_end,
   access_failed_count,
   lockout_enabled,
   security_stamp
@@ -28,11 +30,13 @@ VALUES
     'admin',
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
-    1,
+    NULL,
     1,
     0,
+    NULL,
+    0,
     1,
-    ''
+    'transitional-03f1ced2575577e88ce106f0c860438e'
   ),
   (
     'instructor.seed@example.com',
@@ -41,11 +45,13 @@ VALUES
     'instructor',
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
-    1,
+    NULL,
     1,
     0,
+    NULL,
+    0,
     1,
-    ''
+    'transitional-ec92c8f17b92a85cfdf801aea88c92e0'
   ),
   (
     'student.seed@example.com',
@@ -54,11 +60,13 @@ VALUES
     'student',
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
-    1,
+    NULL,
     1,
     0,
+    NULL,
+    0,
     1,
-    ''
+    'transitional-e4abacc32e3c064c5d626779a3193d6a'
   ),
   (
     'general.seed@example.com',
@@ -67,11 +75,13 @@ VALUES
     'student',
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP,
-    1,
+    NULL,
     1,
     0,
+    NULL,
+    0,
     1,
-    ''
+    'transitional-237aa909aa970c55fe6ce68b070ee239'
   )
 ON CONFLICT(email) DO UPDATE SET
   normalized_email = excluded.normalized_email,
@@ -80,6 +90,7 @@ ON CONFLICT(email) DO UPDATE SET
   updated_at = CURRENT_TIMESTAMP,
   is_active = excluded.is_active,
   email_confirmed = excluded.email_confirmed,
+  lockout_end = excluded.lockout_end,
   access_failed_count = excluded.access_failed_count,
   lockout_enabled = excluded.lockout_enabled,
   security_stamp = excluded.security_stamp;

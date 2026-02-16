@@ -12,6 +12,7 @@ from .ai_models import AIModel, Feature
 from .audit_log import AuditLog
 from .base import Base
 from .chats import Chat, CourseClass, Message, Note, UserClassEnrollment
+from .identity_defaults import build_transitional_security_stamp
 from .role import Role
 from .session import UserSession
 
@@ -43,7 +44,10 @@ class DBUser(Base):
     lockout_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     access_failed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     lockout_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
-    security_stamp: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    # Transitional placeholder until full identity policy enforcement is implemented.
+    security_stamp: Mapped[str] = mapped_column(
+        String(64), nullable=False, default=lambda: build_transitional_security_stamp(None)
+    )
 
     chats: Mapped[list[Chat]] = relationship(back_populates="user", cascade="all, delete-orphan")
     taught_classes: Mapped[list[CourseClass]] = relationship(

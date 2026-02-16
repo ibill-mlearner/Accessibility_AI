@@ -13,6 +13,7 @@ from flask_login import login_user, logout_user
 
 from ....extensions import db
 from ....models import User
+from ....models.identity_defaults import build_transitional_identity_defaults
 from ....services.logging import DomainEvent
 
 
@@ -67,7 +68,7 @@ def register() -> tuple[Response, int]:
     if existing is not None:
         return jsonify({"error": "email already registered"}), 409
 
-    user = User(email=email)
+    user = User(email=email, **build_transitional_identity_defaults(email))
     user.set_password(password)
     user.role = role
     db.session.add(user)
