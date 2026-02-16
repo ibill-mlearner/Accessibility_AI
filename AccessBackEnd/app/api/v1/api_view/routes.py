@@ -3,11 +3,15 @@ from __future__ import annotations
 from flask import Blueprint, Response, current_app, jsonify, render_template, request, session
 from flask_login import login_user
 
+from ....extensions import db
 from ....logging_config import DomainEvent
 from ....models import User
 
 
+_ALLOWED_ROLES = {"student", "instructor", "admin"}
+
 _ENDPOINT_COMPONENTS: list[str] = [
+    "api_view/endpoints/register.html",
     "api_view/endpoints/login.html",
     "api_view/endpoints/health.html",
     "api_view/endpoints/ai_interactions.html",
@@ -31,6 +35,45 @@ def _current_session_token() -> str | None:
     if serializer is None:
         return None
     return serializer.dumps(dict(session))
+
+
+def register() -> tuple[Response, int]:
+    """Create a new user account for API-view testing and return the session token."""
+    payload = request.get_json(silent=True) or {}
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
+    role = (payload.get("role") or "student").strip().lower()
+
+    if not email or not password:
+        return jsonify({"error": "email and password are required"}), 400
+    if role not in _ALLOWED_ROLES:
+        return jsonify({"error": f"role must be one of: {', '.join(sorted(_ALLOWED_ROLES))}"}), 400
+
+    existing = User.query.filter_by(email=email).first()
+    if existing is not None:
+        return jsonify({"error": "email already registered"}), 409
+
+    user = User(email=email)
+    user.set_password(password)
+    user.role = role
+    db.session.add(user)
+    db.session.commit()
+
+    login_user(user)
+    session_token = _current_session_token()
+
+    current_app.extensions["event_bus"].publish(DomainEvent("api.view_register_succeeded", {"user_id": user.id, "email": user.email}))
+
+    return (
+        jsonify(
+            {
+                "message": "registration successful",
+                "user": {"id": user.id, "email": user.email, "role": user.role},
+                "session_token": session_token,
+            }
+        ),
+        201,
+    )
 
 
 def login() -> tuple[Response, int]:
@@ -71,4 +114,5 @@ def api_view() -> Response:
 def register_api_view_route(api_v1_bp: Blueprint) -> None:
     """Attach the standalone API view route to the v1 blueprint."""
     api_v1_bp.add_url_rule("/api_view", endpoint="api_view", view_func=api_view, methods=["GET"])
+    api_v1_bp.add_url_rule("/api_view/register", endpoint="api_view_register", view_func=register, methods=["POST"])
     api_v1_bp.add_url_rule("/api_view/login", endpoint="api_view_login", view_func=login, methods=["POST"])

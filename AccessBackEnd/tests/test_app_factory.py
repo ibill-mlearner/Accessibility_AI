@@ -121,7 +121,28 @@ def test_api_view_page_renders(client):
     body = response.get_data(as_text=True)
     assert "API v1 Test View" in body
     assert "/api/v1/health" in body
+    assert "/api/v1/api_view/register" in body
     assert "/api/v1/api_view/login" in body
+
+
+def test_api_view_register_creates_user_and_returns_session_token(app, client):
+    from app.extensions import db
+
+    with app.app_context():
+        db.create_all()
+
+    response = client.post(
+        "/api/v1/api_view/register",
+        json={"email": "newstudent@example.com", "password": "password123", "role": "student"},
+    )
+
+    assert response.status_code == 201
+    body = response.get_json()
+    assert body["message"] == "registration successful"
+    assert body["user"]["email"] == "newstudent@example.com"
+    assert body["user"]["role"] == "student"
+    assert isinstance(body["session_token"], str)
+    assert body["session_token"]
 
 
 def test_api_view_login_returns_session_token(app, client):

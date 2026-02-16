@@ -1,0 +1,16 @@
+<li>
+  <code>POST /api/v1/api_view/register</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p>Creates a new user for API view testing and returns the signed Flask session token.</p>
+    <pre>{"message":"registration successful","user":{"id":1,"email":"newstudent@example.com","role":"student"},"session_token":"&lt;signed-token&gt;"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "api-view-register" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/api_view/register" %}
+      {% set seed_payload = '{"email":"newstudent@example.com","password":"password123","role":"student"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>
