@@ -12,6 +12,22 @@
   <label for="payload-{{ tester_id }}">JSON body</label><br />
   <textarea id="payload-{{ tester_id }}" class="api-tester-payload">{{ seed_payload }}</textarea><br />
 
+  <label>
+    <input type="checkbox" class="api-tester-use-auth" />
+    Include Authorization header
+  </label><br />
+
+  <label for="auth-token-{{ tester_id }}">Auth token (optional)</label><br />
+  <input
+    id="auth-token-{{ tester_id }}"
+    class="api-tester-auth-token"
+    type="text"
+    placeholder="Paste session token or click Use Saved Token"
+    size="48"
+  /><br />
+
+  <button type="button" class="api-tester-use-saved-token">Use Saved Token</button>
+
   <button type="button" class="api-tester-send">Send Request</button>
   <pre class="api-tester-output">No request sent yet.</pre>
 </div>
