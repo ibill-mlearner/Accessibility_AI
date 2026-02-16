@@ -1,64 +1,74 @@
-"""Resource payload shapes for API v1 pass-through endpoints."""
+"""Chat/message payload contract placeholders for API v1 endpoints."""
 
 from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
-# ``class`` uses functional TypedDict form to avoid keyword collision.
-ChatRecord = TypedDict(
-    "ChatRecord",
-    {
-        "id": int,
-        "title": str,
-        "start": str,
-        "model": str,
-        "class": str,
-        "user": str,
-    },
-    total=False,
-)
+
+class ChatCreateRequest(TypedDict, total=False):
+    """Placeholder payload for ``POST /api/v1/chats``."""
+
+    class_id: int
+    title: str
+    model: str
+    user_id: int
 
 
-
-
-class ClassRecord(TypedDict, total=False):
-    """Class resource payload contract with ownership and section metadata."""
+class ChatRecord(TypedDict, total=False):
+    """Placeholder chat item returned in list/create responses."""
 
     id: int
-    role: str
-    name: str
-    description: str
-    instructor_id: int
-    term: str | None
-    section_code: str | None
-    external_class_key: str | None
-    instructor: dict[str, Any]
-    section: dict[str, str | None]
+    class_id: int
+    user_id: int
+    title: str
+    model: str
+    started_at: str
+
+
+class ChatListResponse(TypedDict, total=False):
+    """Placeholder response for ``GET /api/v1/chats``."""
+
+    items: list[ChatRecord]
+    next_cursor: str | None
+
+
+class MessageCreateRequest(TypedDict, total=False):
+    """Placeholder payload for ``POST /api/v1/chats/<chat_id>/messages``."""
+
+    message_text: str
+    role: Literal["user", "assistant", "system"]
+    vote: Literal["good", "bad"]
+    note: Literal["yes", "no"]
+    help_intent: str
+    metadata: dict[str, Any]
 
 
 class MessageRecord(TypedDict, total=False):
-    """Pass-through message record contract.
-
-    Logic intent:
-    - Keep message data in a separate collection from chats.
-    - Preserve metadata flags for future analytics and intent workflows.
-    """
+    """Placeholder message item returned in list/create responses."""
 
     id: int
     chat_id: int
+    role: str
     message_text: str
     vote: Literal["good", "bad"]
     note: Literal["yes", "no"]
     help_intent: str
+    created_at: str
+    metadata: dict[str, Any]
 
 
-class ResourceRecord(TypedDict, total=False):
-    """Generic record fallback for resources with non-finalized structure."""
+class MessageListResponse(TypedDict, total=False):
+    """Placeholder response for ``GET /api/v1/chats/<chat_id>/messages``."""
 
-    id: int | str
+    chat_id: int
+    items: list[MessageRecord]
+    next_cursor: str | None
 
 
-class ResourceEnvelope(TypedDict):
-    """Simple list response wrapper."""
+class PlaceholderTodoResponse(TypedDict, total=False):
+    """Explicit TODO response contract returned by stub handlers."""
 
-    items: list[dict[str, Any]]
+    message: str
+    endpoint: str
+    next_steps: list[str]
+    payload: dict[str, Any]
