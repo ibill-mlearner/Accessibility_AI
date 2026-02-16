@@ -39,6 +39,7 @@ def build_runtime_app(args: argparse.Namespace):
     app.extensions["ai_service"] = build_ai_service(app)
 
     if args.init_db:
+        print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
         init_flask_database(app)
 
     return app
