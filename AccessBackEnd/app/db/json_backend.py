@@ -4,6 +4,7 @@ import json
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from ..models.entity_metadata import EntityMetadata
@@ -16,8 +17,18 @@ MetadataProvider = Callable[[], dict[str, EntityMetadata]]
 class JsonUser:
     id: int
     email: str
+    normalized_email: str
     password_hash: str
     role: str
+    created_at: str
+    updated_at: str
+    last_login_at: str | None
+    is_active: bool
+    email_confirmed: bool
+    lockout_end: str | None
+    access_failed_count: int
+    lockout_enabled: bool
+    security_stamp: str
 
 
 @dataclass
@@ -69,11 +80,23 @@ class JsonUserRepository:
     def create(self, session: JsonDatabaseRuntime, *, email: str, password_hash: str, role: str = "student"):
         records = session._records["user"]
         next_id = max((record["id"] for record in records), default=0) + 1
+        normalized_email = email.lower().strip()
+        now_iso = datetime.now(timezone.utc).isoformat()
         record = {
             "id": next_id,
-            "email": email.lower().strip(),
+            "email": normalized_email,
+            "normalized_email": normalized_email,
             "password_hash": password_hash,
             "role": role,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+            "last_login_at": None,
+            "is_active": True,
+            "email_confirmed": False,
+            "lockout_end": None,
+            "access_failed_count": 0,
+            "lockout_enabled": True,
+            "security_stamp": "",
         }
         records.append(record)
         return self.user_model(**record)
@@ -87,7 +110,7 @@ class JsonUserRepository:
     def get_by_email(self, session: JsonDatabaseRuntime, email: str):
         normalized = email.lower().strip()
         for record in session._records["user"]:
-            if record["email"] == normalized:
+            if record.get("normalized_email") == normalized or record["email"] == normalized:
                 return self.user_model(**record)
         return None
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 
@@ -11,7 +11,13 @@ class UserRepository:
         self.user_model = user_model
 
     def create(self, session: Session, *, email: str, password_hash: str, role: str = "student"):
-        user = self.user_model(email=email.lower().strip(), password_hash=password_hash, role=role)
+        normalized_email = email.lower().strip()
+        user = self.user_model(
+            email=normalized_email,
+            normalized_email=normalized_email,
+            password_hash=password_hash,
+            role=role,
+        )
         session.add(user)
         session.flush()
         return user
@@ -20,5 +26,11 @@ class UserRepository:
         return session.get(self.user_model, user_id)
 
     def get_by_email(self, session: Session, email: str):
-        statement = select(self.user_model).where(self.user_model.email == email.lower().strip())
+        normalized_email = email.lower().strip()
+        statement = select(self.user_model).where(
+            or_(
+                self.user_model.normalized_email == normalized_email,
+                self.user_model.email == normalized_email,
+            )
+        )
         return session.scalars(statement).first()

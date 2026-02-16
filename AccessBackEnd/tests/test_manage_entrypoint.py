@@ -36,7 +36,7 @@ def test_seed_users_from_sql_inserts_rows(tmp_path):
 
     with sqlite3.connect(db_path.as_posix()) as conn:
         conn.execute(
-            "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL)"
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, normalized_email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, last_login_at TEXT, is_active INTEGER NOT NULL DEFAULT 1, email_confirmed INTEGER NOT NULL DEFAULT 0, lockout_end TEXT, access_failed_count INTEGER NOT NULL DEFAULT 0, lockout_enabled INTEGER NOT NULL DEFAULT 1, security_stamp TEXT NOT NULL DEFAULT '')"
         )
         conn.execute(
             "CREATE TABLE classes (id INTEGER PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL)"
