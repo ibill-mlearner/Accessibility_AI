@@ -6,13 +6,35 @@ Run from the backend folder:
 
 from __future__ import annotations
 
-from pathlib import Path
 import json
+from pathlib import Path
 import sys
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
-if str(BACKEND_ROOT) not in sys.path:
-    sys.path.insert(0, str(BACKEND_ROOT))
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+
+
+def _configure_import_path() -> None:
+    """Ensure standalone execution resolves stdlib modules before local packages.
+
+    Running this file directly adds ``app/services`` to ``sys.path[0]`` which can
+    accidentally shadow Python's standard-library ``logging`` module with
+    ``app/services/logging``. That collision breaks Flask/Werkzeug imports.
+
+    This keeps backend-root imports available while removing the script directory
+    from import resolution precedence.
+    """
+
+    script_dir = str(SCRIPT_DIRECTORY)
+    while script_dir in sys.path:
+        sys.path.remove(script_dir)
+
+    backend_root = str(BACKEND_ROOT)
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+
+
+_configure_import_path()
 
 from app.services.ai_pipeline import AIPipelineConfig, AIPipelineService
 
