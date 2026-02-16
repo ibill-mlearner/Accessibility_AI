@@ -1,17 +1,19 @@
 <template>
   <section class="chat-thread">
-    <p v-if="interactionError" class="chat-error-banner">{{ interactionError }}</p>
-    <p v-if="interactionLoading" class="chat-loading-banner">Sending…</p>
-    <template v-if="store.role !== 'guest'">
-      <ChatBubbleCard
-        v-for="message in conversationMessages"
-        :key="message.id"
-        :text="message.text"
-        :variant="messageVariantMap[message.role] || message.role"
-        :show-actions="message.role === 'assistant'"
-        @save-note="saveCurrentChatAsNote"
-      />
-    </template>
+    <div ref="messageListRef" class="chat-thread__messages" aria-live="polite">
+      <p v-if="interactionError" class="chat-error-banner">{{ interactionError }}</p>
+      <p v-if="interactionLoading" class="chat-loading-banner">Sending…</p>
+      <template v-if="store.role !== 'guest'">
+        <ChatBubbleCard
+          v-for="message in conversationMessages"
+          :key="message.id"
+          :text="message.text"
+          :variant="messageVariantMap[message.role] || message.role"
+          :show-actions="message.role === 'assistant'"
+          @save-note="saveCurrentChatAsNote"
+        />
+      </template>
+    </div>
     <ComposerBar
       v-model="prompt"
       :selected-model="store.selectedModel"
@@ -24,7 +26,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/appStore'
 import ChatBubbleCard from '../components/chat/ChatBubbleCard.vue'
@@ -36,6 +38,7 @@ const prompt = ref('')
 const interactionLoading = ref(false)
 const interactionError = ref('')
 const timelineMessages = ref([])
+const messageListRef = ref(null)
 
 const selectedChat = computed(() => store.chats.find((chat) => chat.id === store.selectedChatId) || null)
 const activeChatText = computed(() => {
@@ -134,6 +137,7 @@ async function sendPrompt() {
       })
     )
     timelineMessages.value.push({ id: userMessage.id, role: 'user', text: userMessage.message_text })
+    await scrollToLatestTurn()
 
     let aiResponse
     try {
@@ -151,6 +155,7 @@ async function sendPrompt() {
     const assistantText = readAssistantText(aiResponse)
     const pendingAssistantId = `assistant-unsaved-${createId()}`
     timelineMessages.value.push({ id: pendingAssistantId, role: 'assistant', text: assistantText, unsaved: true })
+    await scrollToLatestTurn()
 
     const savedAssistantMessage = await withSingleRetry(() =>
       store.createMessage({
@@ -166,6 +171,7 @@ async function sendPrompt() {
         ? { id: savedAssistantMessage.id, role: 'assistant', text: savedAssistantMessage.message_text }
         : message
     )
+    await scrollToLatestTurn()
 
     prompt.value = ''
   } catch (error) {
@@ -185,6 +191,12 @@ async function sendPrompt() {
   } finally {
     interactionLoading.value = false
   }
+}
+
+async function scrollToLatestTurn() {
+  await nextTick()
+  if (!messageListRef.value) return
+  messageListRef.value.scrollTop = messageListRef.value.scrollHeight
 }
 
 async function saveCurrentChatAsNote() {
@@ -209,4 +221,3 @@ async function saveCurrentChatAsNote() {
   await store.createNote(payload)
 }
 </script>
-
