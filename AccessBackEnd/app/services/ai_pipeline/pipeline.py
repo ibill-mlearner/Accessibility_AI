@@ -16,7 +16,7 @@ class AIPipelineConfig:
     # - Allow this package to be imported by a hello-world script with minimal setup.
     """
 
-    provider: str = "mock_json"
+    provider: str = "ollama"
     mock_resource_path: str = ""
     live_endpoint: str = ""
     timeout_seconds: int = 60
@@ -76,7 +76,7 @@ class AIPipelineService:
         if provider in {"mock", "mock_json", "json"}:
             return MockJSONProvider(mock_resource_path=config.mock_resource_path)
 
-        if provider in {"live", "live_agent", "http"}:
+        if provider in {"live", "live_agent", "http", "ollama"}:
             return HTTPEndpointProvider(endpoint=config.live_endpoint, timeout_seconds=config.timeout_seconds)
 
         if provider in {"hf", "huggingface", "langchain_hf"}:

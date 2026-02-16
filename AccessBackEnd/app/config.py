@@ -74,10 +74,14 @@ class BaseConfig:
 
     DATA_BACKEND_FACTORY = None
 
-    AI_PROVIDER = _env("AI_PROVIDER", "mock_json")
-    AI_MODEL_NAME = _env("AI_MODEL_NAME", "default-model")
+    AI_PROVIDER = _env("AI_PROVIDER", "ollama")
+    AI_MODEL_NAME = _env("AI_MODEL_NAME", "llama3:8b")
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
-    AI_LIVE_ENDPOINT = _env("AI_LIVE_ENDPOINT", "")
+    AI_OLLAMA_ENDPOINT = _env(
+        "AI_OLLAMA_ENDPOINT",
+        "http://localhost:11434/api/generate",
+    )
+    AI_LIVE_ENDPOINT = _env("AI_LIVE_ENDPOINT", AI_OLLAMA_ENDPOINT)
     AI_MOCK_RESOURCE_PATH = _env(
         "AI_MOCK_RESOURCE_PATH",
         (_BASE_DIR / "resources" / "mock_ai_response.json").as_posix(),
@@ -91,6 +95,7 @@ class DevelopmentConfig(BaseConfig):
 class TestingConfig(BaseConfig):
     TESTING = True
     DEBUG = False
+    AI_PROVIDER = _env("TEST_AI_PROVIDER", "mock_json")
     SQLALCHEMY_DATABASE_URI = _env("TEST_DATABASE_URL", "sqlite:///:memory:")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(minutes=10)
