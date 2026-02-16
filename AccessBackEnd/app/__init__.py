@@ -29,24 +29,23 @@ def _register_cli_commands(app: Flask) -> None:
 
 def build_ai_service(app: Flask) -> AIPipelineService:
     provider = app.config["AI_PROVIDER"]
-    if provider in {"live", "live_agent", "http", "ollama"} and not (
-        app.config.get("AI_OLLAMA_ENDPOINT") or app.config.get("AI_LIVE_ENDPOINT")
-    ):
-        raise ValueError(
-            "AI_OLLAMA_ENDPOINT (or AI_LIVE_ENDPOINT) must be configured for live AI providers"
-        )
+    ollama_endpoint = app.config.get("AI_OLLAMA_ENDPOINT")
+    live_endpoint = app.config.get("AI_LIVE_ENDPOINT")
 
-    live_endpoint = (
-        app.config.get("AI_OLLAMA_ENDPOINT")
-        if provider == "ollama"
-        else app.config.get("AI_LIVE_ENDPOINT")
-    )
+    if provider in {"ollama", "ollama_local"} and not ollama_endpoint:
+        raise ValueError("AI_OLLAMA_ENDPOINT must be configured when AI_PROVIDER=ollama")
+
+    if provider in {"live", "live_agent", "http"} and not live_endpoint:
+        raise ValueError("AI_LIVE_ENDPOINT must be configured for live endpoint providers")
 
     return AIPipelineService(
         AIPipelineConfig(
             provider=provider,
             mock_resource_path=app.config["AI_MOCK_RESOURCE_PATH"],
-            live_endpoint=live_endpoint,
+            live_endpoint=live_endpoint or "",
+            ollama_endpoint=ollama_endpoint or "",
+            ollama_model_id=app.config.get("AI_OLLAMA_MODEL", app.config.get("AI_MODEL_NAME", "")),
+            ollama_options=app.config.get("AI_OLLAMA_OPTIONS"),
             timeout_seconds=app.config["AI_TIMEOUT_SECONDS"],
             huggingface_model_id=app.config["AI_MODEL_NAME"],
         )

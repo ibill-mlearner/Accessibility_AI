@@ -337,3 +337,32 @@ def test_init_db_cli_reports_resolved_database_uri(tmp_path):
     assert "Resolved SQLALCHEMY_DATABASE_URI:" in result.output
     assert db_path.as_posix() in result.output
     assert "Database schema initialized." in result.output
+
+
+def test_build_ai_service_requires_ollama_endpoint_when_provider_is_ollama():
+    from app import build_ai_service, create_app
+
+    app = create_app("testing")
+    app.config["AI_PROVIDER"] = "ollama"
+    app.config["AI_OLLAMA_ENDPOINT"] = ""
+
+    with pytest.raises(ValueError, match="AI_OLLAMA_ENDPOINT"):
+        build_ai_service(app)
+
+
+def test_build_ai_service_maps_explicit_ollama_config_fields():
+    from app import build_ai_service, create_app
+
+    app = create_app("testing")
+    app.config.update(
+        AI_PROVIDER="ollama",
+        AI_OLLAMA_ENDPOINT="http://localhost:11434/api/chat",
+        AI_OLLAMA_MODEL="llama3.2:3b",
+        AI_OLLAMA_OPTIONS={"temperature": 0.05},
+    )
+
+    service = build_ai_service(app)
+
+    assert service.config.ollama_endpoint == "http://localhost:11434/api/chat"
+    assert service.config.ollama_model_id == "llama3.2:3b"
+    assert service.config.ollama_options == {"temperature": 0.05}

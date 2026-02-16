@@ -83,11 +83,19 @@ class HTTPEndpointProvider:
 class OllamaProvider:
     """Provider for local/remote Ollama HTTP APIs."""
 
-    def __init__(self, *, endpoint: str, model_id: str, timeout_seconds: int = 60) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str,
+        model_id: str,
+        options: dict | None = None,
+        timeout_seconds: int = 60,
+    ) -> None:
         # Logic intent:
         # - Keep Ollama endpoint/model configuration explicit at service startup.
         self.endpoint = endpoint
         self.model_id = model_id
+        self.options = options or {}
         self.timeout_seconds = timeout_seconds
 
     def invoke(self, request: PipelineRequest) -> dict:
@@ -105,6 +113,7 @@ class OllamaProvider:
             body_payload = {
                 "model": self.model_id,
                 "stream": False,
+                "options": self.options,
                 "messages": [
                     {
                         "role": "user",
@@ -116,6 +125,7 @@ class OllamaProvider:
             body_payload = {
                 "model": self.model_id,
                 "stream": False,
+                "options": self.options,
                 "prompt": self._compose_prompt(request),
             }
 

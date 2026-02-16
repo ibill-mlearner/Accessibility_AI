@@ -19,9 +19,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ai-provider",
         choices=["mock_json", "live_agent", "ollama"],
-        help="AI provider mode. Use mock JSON for local testing or live agent endpoint.",
+        help="AI provider mode. Defaults to Ollama runtime; use mock_json for fixtures or live_agent for external HTTP providers.",
     )
-    parser.add_argument("--ai-endpoint", help="Live AI endpoint URL (required when --ai-provider=live_agent)")
+    parser.add_argument("--ai-endpoint", help="AI endpoint URL override (required for --ai-provider=ollama or --ai-provider=live_agent)")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--init-db", action="store_true", help="Initialize database tables before starting the server")
@@ -30,7 +30,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _validate_args(args: argparse.Namespace) -> None:
     if args.ai_provider in {"live_agent", "ollama"} and not args.ai_endpoint:
-        raise SystemExit("--ai-endpoint is required when --ai-provider is a live endpoint provider")
+        raise SystemExit("--ai-endpoint is required when --ai-provider is ollama or live_agent")
+
+    if args.ai_provider == "mock_json" and args.ai_endpoint:
+        raise SystemExit("--ai-endpoint cannot be used with --ai-provider=mock_json")
 
 
 def _sqlite_database_path(database_uri: str) -> Path | None:
@@ -84,8 +87,10 @@ def build_runtime_app(args: argparse.Namespace):
     if args.ai_provider:
         app.config["AI_PROVIDER"] = args.ai_provider
     if args.ai_endpoint:
-        app.config["AI_LIVE_ENDPOINT"] = args.ai_endpoint
-        app.config["AI_OLLAMA_ENDPOINT"] = args.ai_endpoint
+        if app.config["AI_PROVIDER"] in {"ollama", "ollama_local"}:
+            app.config["AI_OLLAMA_ENDPOINT"] = args.ai_endpoint
+        elif app.config["AI_PROVIDER"] in {"live", "live_agent", "http"}:
+            app.config["AI_LIVE_ENDPOINT"] = args.ai_endpoint
 
     # Rebuild service with runtime overrides from parsed args.
     app.extensions["ai_service"] = build_ai_service(app)

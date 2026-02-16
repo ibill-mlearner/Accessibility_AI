@@ -62,11 +62,15 @@ def test_ai_section_override(monkeypatch):
         AI_PROVIDER="live_agent",
         AI_TIMEOUT_SECONDS="12",
         AI_LIVE_ENDPOINT="http://localhost:9999/agent",
+        AI_OLLAMA_MODEL="llama3.1:8b",
+        AI_OLLAMA_OPTIONS='{"temperature": 0.2}',
         AI_MOCK_RESOURCE_PATH="/tmp/mock.json",
     )
     assert c.BaseConfig.AI_PROVIDER == "live_agent"
     assert c.BaseConfig.AI_TIMEOUT_SECONDS == 12
     assert c.BaseConfig.AI_LIVE_ENDPOINT == "http://localhost:9999/agent"
+    assert c.BaseConfig.AI_OLLAMA_MODEL == "llama3.1:8b"
+    assert c.BaseConfig.AI_OLLAMA_OPTIONS == {"temperature": 0.2}
     assert c.BaseConfig.AI_MOCK_RESOURCE_PATH == "/tmp/mock.json"
 
 
