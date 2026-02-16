@@ -17,7 +17,7 @@ Source templates: `AccessBackEnd/app/templates/api_view/endpoints/`.
 
 | Resource | Method | Path | Request body shape (from template) | Response shape example (from template) | Pass-through / replacement behavior |
 |---|---|---|---|---|---|
-| health | GET | `/api/v1/health` | _None_ | `{"status":"ok","ai_provider":"mock_json"}` | No |
+| health | GET | `/api/v1/health` | _None_ | `{"status":"ok","ai_provider":"ollama"}` | No |
 | ai/interactions | POST | `/api/v1/ai/interactions` | `{"prompt":"hello","system_prompt":"optional","rag":{"source":"optional"}}` | Provider-backed AI response metadata (template text; no concrete response JSON shown). | No explicit pass-through note |
 | chats (collection) | GET | `/api/v1/chats` | _None_ | `{"id":99,"title":"Chat 99","meta":{"tag":"passthrough"}}` | N/A |
 | chats (collection) | POST | `/api/v1/chats` | `{"id":99,"title":"Chat 99","meta":{"tag":"passthrough"}}` | `{"id":99,"title":"Chat 99","meta":{"tag":"passthrough"}}` | **Yes**: stores JSON object as-is |

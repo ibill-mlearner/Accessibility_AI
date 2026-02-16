@@ -76,9 +76,13 @@ Default backend URL: `http://localhost:5000`
 ```bash
 # From repo root
 python AccessBackEnd/manage.py --config development
-python AccessBackEnd/manage.py --ai-provider live_agent --ai-endpoint http://localhost:8001/ai
+python AccessBackEnd/manage.py --ai-provider ollama --ai-endpoint http://localhost:11434/api/generate
+python AccessBackEnd/manage.py --ai-provider mock_json
 python AccessBackEnd/manage.py --init-db
 ```
+
+By default the backend runs with the Ollama provider path (`AI_PROVIDER=ollama`).
+Use `--ai-provider mock_json` only when you explicitly want fixture-based offline responses for isolated testing.
 
 ### Backend tests
 ```bash

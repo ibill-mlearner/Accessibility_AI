@@ -16,6 +16,27 @@ def _authenticate_api_client(app, client, email: str = "apitester@example.com") 
     assert response.status_code == 201
 
 
+def _stub_ollama_provider(app, monkeypatch, *, result: str = "ok") -> None:
+    """Patch AI provider invoke with deterministic Ollama-shaped payload."""
+
+    app.config["AI_PROVIDER"] = "ollama"
+
+    def _invoke(request):  # noqa: ANN001
+        return {
+            "result": result,
+            "meta": {
+                "provider": "ollama",
+                "model_id": app.config.get("AI_OLLAMA_MODEL"),
+                "endpoint": app.config.get("AI_OLLAMA_ENDPOINT"),
+            },
+        }
+
+    ai_service = app.extensions["ai_service"]
+    wrapped_service = getattr(ai_service, "_wrapped", ai_service)
+    wrapped_service.config.provider = "ollama"
+    monkeypatch.setattr(wrapped_service._provider, "invoke", _invoke)
+
+
 def test_app_factory_registers_extensions_and_blueprints():
     try:
         from app import create_app
@@ -61,13 +82,14 @@ def test_health_endpoint_requires_authentication(client):
 
 
 def test_health_endpoint(app, client):
+    app.config["AI_PROVIDER"] = "ollama"
     _authenticate_api_client(app, client)
 
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     body = response.get_json()
     assert body["status"] == "ok"
-    assert body["ai_provider"] == "mock_json"
+    assert body["ai_provider"] == "ollama"
 
 
 def test_resource_endpoints_return_seed_data(app, client):
@@ -116,7 +138,8 @@ def test_ai_interaction_requires_authentication(client):
     assert body["error"]["message"] == "authentication required"
 
 
-def test_ai_interaction_accepts_future_growth_fields(app, client):
+def test_ai_interaction_accepts_future_growth_fields(app, client, monkeypatch):
+    _stub_ollama_provider(app, monkeypatch, result="hello")
     _authenticate_api_client(app, client)
 
     payload = {
@@ -134,10 +157,15 @@ def test_ai_interaction_accepts_future_growth_fields(app, client):
     assert response.status_code == 200
     body = response.get_json()
     assert "meta" in body
-    assert body["meta"]["prompt_echo"] == "hello"
+    assert body["meta"]["provider"] == "ollama"
+    assert body["meta"]["model_id"] == app.config["AI_OLLAMA_MODEL"]
+    assert body["meta"]["endpoint"] == app.config["AI_OLLAMA_ENDPOINT"]
+    assert body["meta"]["pipeline"] == "app.services.ai_pipeline"
+    assert body["meta"]["selected_provider"] == "ollama"
 
 
-def test_ai_interaction_persists_record(app, client):
+def test_ai_interaction_persists_record(app, client, monkeypatch):
+    _stub_ollama_provider(app, monkeypatch, result="persisted")
     _authenticate_api_client(app, client)
 
     from app.db import init_flask_database
@@ -158,11 +186,12 @@ def test_ai_interaction_persists_record(app, client):
         interactions = db.session.query(AIInteraction).all()
         assert len(interactions) == 1
         assert interactions[0].prompt == payload["prompt"]
-        assert interactions[0].provider == "mock_json"
+        assert interactions[0].provider == "ollama"
         assert interactions[0].response_text
 
 
 def test_ai_interaction_returns_structured_error_when_persistence_fails(app, client, monkeypatch):
+    _stub_ollama_provider(app, monkeypatch, result="hello")
     _authenticate_api_client(app, client)
 
     from app.db import init_flask_database

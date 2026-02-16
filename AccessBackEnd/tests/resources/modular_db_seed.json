@@ -12,7 +12,7 @@
       "id": 1,
       "prompt": "What is ATP?",
       "response_text": "ATP is the energy currency of the cell.",
-      "provider": "mock_json",
+      "provider": "ollama",
       "chat_id": 11
     }
   ]
