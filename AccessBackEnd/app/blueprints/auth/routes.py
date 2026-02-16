@@ -36,7 +36,7 @@ def register():
             400,
         )
 
-    existing = User.query.filter_by(email=email).first()
+    existing = User.query.filter_by(normalized_email=email).first()
     if existing:
         return jsonify({"error": "email already registered"}), 409
 
@@ -59,11 +59,13 @@ def login():
     email = (payload.get("email") or "").strip().lower()
     password = payload.get("password") or ""
 
-    user = User.query.filter_by(email=email).first()
+    user = User.query.filter_by(normalized_email=email).first()
     if user is None or not user.check_password(password):
         return jsonify({"error": "invalid credentials"}), 401
 
+    user.mark_login_success()
     login_user(user)
+    db.session.commit()
     current_app.extensions["event_bus"].publish(
         DomainEvent("auth.user_logged_in", {"user_id": user.id, "email": user.email})
     )

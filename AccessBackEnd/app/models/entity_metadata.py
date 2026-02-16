@@ -12,7 +12,23 @@ class EntityMetadata:
 
 
 ENTITY_METADATA = {
-    "user": EntityMetadata("users", ("id", "email", "password_hash", "role")),
+    "user": EntityMetadata(
+        "users",
+        (
+            "id",
+            "email",
+            "normalized_email",
+            "password_hash",
+            "role",
+            "created_at",
+            "updated_at",
+            "is_active",
+            "email_confirmed",
+            "access_failed_count",
+            "lockout_enabled",
+            "security_stamp",
+        ),
+    ),
     "ai_interaction": EntityMetadata(
         "ai_interactions",
         ("id", "prompt", "response_text", "provider"),

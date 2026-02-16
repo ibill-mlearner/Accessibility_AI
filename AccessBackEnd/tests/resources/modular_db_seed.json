@@ -3,8 +3,18 @@
     {
       "id": 1,
       "email": "json.user@example.com",
+      "normalized_email": "json.user@example.com",
       "password_hash": "hashed-pass",
-      "role": "student"
+      "role": "student",
+      "created_at": "2025-01-01T00:00:00+00:00",
+      "updated_at": "2025-01-01T00:00:00+00:00",
+      "last_login_at": null,
+      "is_active": true,
+      "email_confirmed": false,
+      "lockout_end": null,
+      "access_failed_count": 0,
+      "lockout_enabled": true,
+      "security_stamp": ""
     }
   ],
   "ai_interactions": [
