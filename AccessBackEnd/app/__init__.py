@@ -12,10 +12,15 @@ from .blueprints.auth.routes import auth_bp
 from .db import init_flask_database
 from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
-from .logging_config import EventBus, LoggingObserver, configure_logging
+from .services.logging import (
+    EventBus,
+    InteractionLoggingService,
+    LoggingObserver,
+    RotatingTextLogWriter,
+    configure_logging,
+)
 from .models import User
 from .services import AIPipelineConfig, AIPipelineService
-from .services.db_logger import InteractionLoggingService, RotatingTextLogWriter
 
 
 def _register_cli_commands(app: Flask) -> None:
@@ -23,15 +28,21 @@ def _register_cli_commands(app: Flask) -> None:
     def init_db_command() -> None:
         """Create all configured database tables for the current app profile."""
 
-        print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        print(
+            f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}"
+        )
         init_flask_database(app)
         print("Database schema initialized.")
 
 
 def build_ai_service(app: Flask) -> AIPipelineService:
     provider = app.config["AI_PROVIDER"]
-    if provider in {"live", "live_agent", "http"} and not app.config.get("AI_LIVE_ENDPOINT"):
-        raise ValueError("AI_LIVE_ENDPOINT must be configured when AI_PROVIDER=live_agent")
+    if provider in {"live", "live_agent", "http"} and not app.config.get(
+        "AI_LIVE_ENDPOINT"
+    ):
+        raise ValueError(
+            "AI_LIVE_ENDPOINT must be configured when AI_PROVIDER=live_agent"
+        )
 
     return AIPipelineService(
         AIPipelineConfig(
@@ -51,7 +62,11 @@ def create_app(config_name: str | None = None) -> Flask:
         instance_path=config._INSTANCE_DIR.as_posix(),
     )
 
-    cfg = config.get_config() if config_name is None else config.CONFIG_BY_NAME.get(config_name, config.DevelopmentConfig)
+    cfg = (
+        config.get_config()
+        if config_name is None
+        else config.CONFIG_BY_NAME.get(config_name, config.DevelopmentConfig)
+    )
     app.config.from_object(cfg)
     app.config.from_pyfile("config.py", silent=True)
 
@@ -77,14 +92,28 @@ def create_app(config_name: str | None = None) -> Flask:
 
     @login_manager.unauthorized_handler
     def _unauthorized_response():
-        return jsonify({"error": {"code": "unauthorized", "message": "authentication required", "details": {}}}), 401
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "unauthorized",
+                        "message": "authentication required",
+                        "details": {},
+                    }
+                }
+            ),
+            401,
+        )
 
     event_bus = EventBus()
     event_bus.subscribe(LoggingObserver())
     app.extensions["event_bus"] = event_bus
 
     ai_service = build_ai_service(app)
-    db_log_directory = app.config.get("DB_LOG_DIRECTORY") or (Path(app.root_path) / "instance").as_posix()
+    db_log_directory = (
+        app.config.get("DB_LOG_DIRECTORY")
+        or (Path(app.root_path) / "instance").as_posix()
+    )
     app.extensions["ai_service"] = InteractionLoggingService(
         wrapped=ai_service,
         writer=RotatingTextLogWriter(log_dir=Path(db_log_directory)),

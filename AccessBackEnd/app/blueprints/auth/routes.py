@@ -4,12 +4,11 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_user, logout_user
 
 from ...extensions import db
-from ...logging_config import DomainEvent
+from ...services.logging import DomainEvent
 from ...models import User
 from ..admin import admin_bp
 from ..instructor import instructor_bp
 from ..student import student_bp
-
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -30,7 +29,12 @@ def register():
     if not email or not password:
         return jsonify({"error": "email and password are required"}), 400
     if role not in _ALLOWED_ROLES:
-        return jsonify({"error": f"role must be one of: {', '.join(sorted(_ALLOWED_ROLES))}"}), 400
+        return (
+            jsonify(
+                {"error": f"role must be one of: {', '.join(sorted(_ALLOWED_ROLES))}"}
+            ),
+            400,
+        )
 
     existing = User.query.filter_by(email=email).first()
     if existing:
@@ -42,7 +46,9 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    current_app.extensions["event_bus"].publish(DomainEvent("auth.user_registered", {"user_id": user.id, "email": user.email}))
+    current_app.extensions["event_bus"].publish(
+        DomainEvent("auth.user_registered", {"user_id": user.id, "email": user.email})
+    )
 
     return jsonify({"id": user.id, "email": user.email, "role": user.role}), 201
 
@@ -58,9 +64,13 @@ def login():
         return jsonify({"error": "invalid credentials"}), 401
 
     login_user(user)
-    current_app.extensions["event_bus"].publish(DomainEvent("auth.user_logged_in", {"user_id": user.id, "email": user.email}))
+    current_app.extensions["event_bus"].publish(
+        DomainEvent("auth.user_logged_in", {"user_id": user.id, "email": user.email})
+    )
 
-    return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email}})
+    return jsonify(
+        {"message": "login successful", "user": {"id": user.id, "email": user.email}}
+    )
 
 
 @auth_bp.post("/logout")
@@ -68,6 +78,8 @@ def logout():
     user_id = current_user.get_id() if current_user.is_authenticated else None
     logout_user()
 
-    current_app.extensions["event_bus"].publish(DomainEvent("auth.user_logged_out", {"user_id": user_id}))
+    current_app.extensions["event_bus"].publish(
+        DomainEvent("auth.user_logged_out", {"user_id": user_id})
+    )
 
     return jsonify({"message": "logout successful"})

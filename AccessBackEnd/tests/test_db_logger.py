@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from app import config as app_config
 from app import create_app
-from app.services.db_logger import InteractionLoggingService, RotatingTextLogWriter
+from app.services.logging import InteractionLoggingService, RotatingTextLogWriter
 
 
 class _FakeAIService:
@@ -20,7 +20,9 @@ def test_interaction_logging_service_writes_user_and_context(tmp_path):
     writer = RotatingTextLogWriter(log_dir=tmp_path, max_lines=2000)
     service = InteractionLoggingService(wrapped=_FakeAIService(), writer=writer)
 
-    result = service.run_interaction("hello", context={"class_id": 12}, initiated_by="student_7")
+    result = service.run_interaction(
+        "hello", context={"class_id": 12}, initiated_by="student_7"
+    )
 
     assert result["response_text"] == "echo:hello"
     log_file = tmp_path / "ai_interactions_1.txt"
@@ -44,7 +46,9 @@ def test_interaction_logging_service_logs_failures_and_reraises(tmp_path):
     else:
         raise AssertionError("RuntimeError expected")
 
-    payload = json.loads((tmp_path / "ai_interactions_1.txt").read_text(encoding="utf-8").strip())
+    payload = json.loads(
+        (tmp_path / "ai_interactions_1.txt").read_text(encoding="utf-8").strip()
+    )
     assert payload["status"] == "failed"
     assert payload["initiated_by"] == "student_8"
 
@@ -63,8 +67,12 @@ def test_rotating_text_log_writer_rolls_after_max_lines(tmp_path):
     assert second.read_text(encoding="utf-8").splitlines() == ["line-3"]
 
 
-def test_ai_interaction_route_logs_to_configured_app_instance_dir(monkeypatch, tmp_path):
-    monkeypatch.setattr(app_config.TestingConfig, "DB_LOG_DIRECTORY", tmp_path.as_posix())
+def test_ai_interaction_route_logs_to_configured_app_instance_dir(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(
+        app_config.TestingConfig, "DB_LOG_DIRECTORY", tmp_path.as_posix()
+    )
 
     app = create_app("testing")
     client = app.test_client()

@@ -12,8 +12,9 @@ DEFAULT_LOG_BASENAME = "ai_interactions"
 
 
 class InteractionRunner(Protocol):
-    def run_interaction(self, prompt: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
-        ...
+    def run_interaction(
+        self, prompt: str, context: dict[str, Any] | None = None
+    ) -> dict[str, Any]: ...
 
 
 @dataclass(slots=True)
@@ -56,7 +57,9 @@ class RotatingTextLogWriter:
 class InteractionLoggingService:
     """Observer-style wrapper that logs interaction metadata to rotating text files."""
 
-    def __init__(self, wrapped: InteractionRunner, writer: RotatingTextLogWriter) -> None:
+    def __init__(
+        self, wrapped: InteractionRunner, writer: RotatingTextLogWriter
+    ) -> None:
         self._wrapped = wrapped
         self._writer = writer
 
