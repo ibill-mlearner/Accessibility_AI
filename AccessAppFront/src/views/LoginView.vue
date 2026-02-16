@@ -1,5 +1,8 @@
 <template>
-  <LoginFormCard v-model:username="username" v-model:password="password" @submit="doLogin" />
+  <div>
+    <LoginFormCard v-model:username="username" v-model:password="password" @submit="doLogin" />
+    <p v-if="store.authError" class="auth-error">{{ store.authError }}</p>
+  </div>
 </template>
 
 <script setup>
@@ -13,8 +16,19 @@ const store = useAppStore()
 const username = ref('')
 const password = ref('')
 
-function doLogin() {
-  store.login()
-  router.push('/')
+async function doLogin() {
+  try {
+    await store.login({ email: username.value, password: password.value })
+    await router.push('/')
+  } catch {
+    // auth error is set by store.login; remain on /login
+  }
 }
 </script>
+
+<style scoped>
+.auth-error {
+  margin-top: 0.75rem;
+  color: #b42318;
+}
+</style>

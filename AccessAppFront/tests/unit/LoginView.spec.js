@@ -1,10 +1,16 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginView from '../../src/views/LoginView.vue'
-import { useAppStore } from '../../src/stores/appStore'
+import api from '../../src/services/api'
 
 const push = vi.fn()
+
+vi.mock('../../src/services/api', () => ({
+  default: {
+    post: vi.fn()
+  }
+}))
 
 vi.mock('vue-router', async (importOriginal) => {
   const mod = await importOriginal()
@@ -15,14 +21,48 @@ vi.mock('vue-router', async (importOriginal) => {
 })
 
 describe('LoginView.vue', () => {
-  it('sets role to student and routes home on submit click', async () => {
+  beforeEach(() => {
     setActivePinia(createPinia())
-    const store = useAppStore()
+    vi.clearAllMocks()
+  })
+
+  it('routes home only after login API success', async () => {
+    let resolveLogin
+    api.post.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLogin = resolve
+      })
+    )
+
     const wrapper = mount(LoginView)
 
+    await wrapper.find('input[placeholder="Username . . ."]').setValue('student@example.com')
+    await wrapper.find('input[type="password"]').setValue('secret')
     await wrapper.find('button.icon-btn').trigger('click')
 
-    expect(store.role).toBe('student')
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/login', {
+      email: 'student@example.com',
+      password: 'secret'
+    })
+    expect(push).not.toHaveBeenCalled()
+
+    resolveLogin({ data: { user: { id: 7, email: 'student@example.com', role: 'student' } } })
+    await flushPromises()
+
     expect(push).toHaveBeenCalledWith('/')
+  })
+
+  it('stays on login and shows auth error when login fails', async () => {
+    api.post.mockRejectedValue({ response: { status: 401 } })
+
+    const wrapper = mount(LoginView)
+
+    await wrapper.find('input[placeholder="Username . . ."]').setValue('bad@example.com')
+    await wrapper.find('input[type="password"]').setValue('wrong')
+    await wrapper.find('button.icon-btn').trigger('click')
+    await flushPromises()
+
+    expect(push).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Invalid email or password.')
   })
 })
