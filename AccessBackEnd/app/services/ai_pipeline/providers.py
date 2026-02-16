@@ -80,6 +80,117 @@ class HTTPEndpointProvider:
         return parsed
 
 
+class OllamaProvider:
+    """Provider for local/remote Ollama HTTP APIs."""
+
+    def __init__(self, *, endpoint: str, model_id: str, timeout_seconds: int = 60) -> None:
+        # Logic intent:
+        # - Keep Ollama endpoint/model configuration explicit at service startup.
+        self.endpoint = endpoint
+        self.model_id = model_id
+        self.timeout_seconds = timeout_seconds
+
+    def invoke(self, request: PipelineRequest) -> dict:
+        # Logic intent:
+        # 1) Detect Ollama contract (`/api/generate` vs `/api/chat`).
+        # 2) Send request payload with selected model.
+        # 3) Parse JSON robustly and normalize metadata.
+        if not self.endpoint:
+            raise ValueError("Ollama endpoint must be configured")
+        if not self.model_id:
+            raise ValueError("Ollama model_id must be configured")
+
+        endpoint_lower = self.endpoint.lower()
+        if endpoint_lower.endswith("/api/chat"):
+            body_payload = {
+                "model": self.model_id,
+                "stream": False,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": self._compose_prompt(request),
+                    }
+                ],
+            }
+        else:
+            body_payload = {
+                "model": self.model_id,
+                "stream": False,
+                "prompt": self._compose_prompt(request),
+            }
+
+        req = Request(
+            self.endpoint,
+            data=json.dumps(body_payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            with urlopen(req, timeout=self.timeout_seconds) as response:
+                content = response.read().decode("utf-8")
+        except URLError as exc:  # pragma: no cover
+            raise RuntimeError(f"Failed to call Ollama endpoint: {exc}") from exc
+
+        parsed_payload = self._parse_ollama_payload(content)
+        parsed_payload.setdefault("meta", {})
+        parsed_payload["meta"].update(
+            {
+                "provider": "ollama",
+                "model_id": self.model_id,
+                "endpoint": self.endpoint,
+            }
+        )
+        return parsed_payload
+
+    def _compose_prompt(self, request: PipelineRequest) -> str:
+        return (
+            "You are a JSON API assistant. Return only a valid JSON object.\n"
+            f"User prompt: {request.prompt}\n"
+            f"Context JSON: {json.dumps(request.context)}"
+        )
+
+    def _parse_ollama_payload(self, content: str) -> dict:
+        parsed = json.loads(content or "{}")
+        if not isinstance(parsed, dict):
+            raise ValueError("Ollama response must be a JSON object")
+
+        # Some Ollama deployments return already-structured JSON.
+        if any(key in parsed for key in {"result", "answer", "confidence", "notes"}):
+            return parsed
+
+        # `/api/generate` returns `response`; `/api/chat` returns `message.content`.
+        candidate_text = parsed.get("response")
+        if not isinstance(candidate_text, str):
+            message = parsed.get("message")
+            if isinstance(message, dict):
+                candidate_text = message.get("content")
+
+        if not isinstance(candidate_text, str):
+            return {"result": "", "raw": parsed}
+
+        candidate_text = candidate_text.strip()
+        try:
+            candidate = json.loads(candidate_text)
+            if isinstance(candidate, dict):
+                return candidate
+        except json.JSONDecodeError:
+            pass
+
+        start = candidate_text.find("{")
+        end = candidate_text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            clipped = candidate_text[start : end + 1]
+            try:
+                candidate = json.loads(clipped)
+                if isinstance(candidate, dict):
+                    return candidate
+            except json.JSONDecodeError:
+                pass
+
+        return {"result": candidate_text, "raw": parsed}
+
+
 class HuggingFaceLangChainProvider:
     """Local HuggingFace model provider using LangChain wrappers.
 
