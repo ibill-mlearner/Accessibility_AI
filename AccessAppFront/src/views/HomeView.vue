@@ -1,5 +1,7 @@
 <template>
   <section class="chat-thread">
+    <p v-if="interactionError" class="chat-error-banner">{{ interactionError }}</p>
+    <p v-if="interactionLoading" class="chat-loading-banner">Sending…</p>
     <template v-if="store.role !== 'guest'">
       <ChatBubbleCard
         v-for="message in conversationMessages"
@@ -30,9 +32,10 @@ import ComposerBar from '../components/chat/ComposerBar.vue'
 
 const router = useRouter()
 const store = useAppStore()
-// Development-only API trigger logging for integration debugging.
-// TODO(v1.0): Remove console logging before release.
 const prompt = ref('')
+const interactionLoading = ref(false)
+const interactionError = ref('')
+const timelineMessages = ref([])
 
 const selectedChat = computed(() => store.chats.find((chat) => chat.id === store.selectedChatId) || null)
 const activeChatText = computed(() => {
@@ -47,42 +50,141 @@ const messageVariantMap = {
   user: 'user'
 }
 
-const conversationMessages = computed(() => [
-  {
-    id: selectedChat.value?.id ?? 'assistant-preview',
-    role: 'assistant',
-    text: activeChatText.value
-  },
-  {
-    id: 'user-preview',
-    role: 'user',
-    text: promptPreviewText.value
+const conversationMessages = computed(() => {
+  if (timelineMessages.value.length) {
+    return timelineMessages.value.map((message) => ({
+      ...message,
+      text: message.unsaved ? `${message.text} (unsaved)` : message.text
+    }))
   }
-])
+
+  return [
+    {
+      id: selectedChat.value?.id ?? 'assistant-preview',
+      role: 'assistant',
+      text: activeChatText.value
+    },
+    {
+      id: 'user-preview',
+      role: 'user',
+      text: promptPreviewText.value
+    }
+  ]
+})
+
+function createId() {
+  return Date.now() + Math.floor(Math.random() * 1000)
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withSingleRetry(task) {
+  try {
+    return await task()
+  } catch {
+    await wait(350)
+    return task()
+  }
+}
+
+function readAssistantText(aiPayload) {
+  if (aiPayload?.response?.summary) return aiPayload.response.summary
+  if (typeof aiPayload?.response === 'string' && aiPayload.response.trim()) return aiPayload.response
+  if (typeof aiPayload?.summary === 'string' && aiPayload.summary.trim()) return aiPayload.summary
+  if (typeof aiPayload === 'string' && aiPayload.trim()) return aiPayload
+  try {
+    return JSON.stringify(aiPayload)
+  } catch {
+    return 'Assistant response unavailable.'
+  }
+}
 
 async function sendPrompt() {
+  if (interactionLoading.value) return
+
   const cleanPrompt = prompt.value.trim()
   if (!cleanPrompt || store.role === 'guest') return
 
-  const payload = {
-    id: Date.now(),
-    title: cleanPrompt.slice(0, 60),
-    start: new Date().toISOString(),
-    model: store.selectedModel || 'General',
-    class: store.selectedClass?.name || '',
-    user: store.role
+  const draftPrompt = prompt.value
+  interactionLoading.value = true
+  interactionError.value = ''
+
+  const messageIntent = 'summarization'
+
+  try {
+    const ensuredChat = await withSingleRetry(() =>
+      store.ensureActiveChat({
+        id: createId(),
+        title: cleanPrompt.slice(0, 60),
+        start: new Date().toISOString(),
+        model: store.selectedModel || 'General',
+        class: store.selectedClass?.name || '',
+        user: store.role
+      })
+    )
+
+    const userMessage = await withSingleRetry(() =>
+      store.createMessage({
+        id: createId(),
+        chat_id: ensuredChat.id,
+        message_text: cleanPrompt,
+        help_intent: messageIntent
+      })
+    )
+    timelineMessages.value.push({ id: userMessage.id, role: 'user', text: userMessage.message_text })
+
+    let aiResponse
+    try {
+      aiResponse = await store.requestAiInteraction({ prompt: cleanPrompt })
+    } catch (error) {
+      const status = error?.response?.status
+      interactionError.value =
+        status === 400
+          ? 'Prompt was rejected. Please edit and retry.'
+          : 'AI is temporarily unavailable. Please retry.'
+      prompt.value = draftPrompt
+      return
+    }
+
+    const assistantText = readAssistantText(aiResponse)
+    const pendingAssistantId = `assistant-unsaved-${createId()}`
+    timelineMessages.value.push({ id: pendingAssistantId, role: 'assistant', text: assistantText, unsaved: true })
+
+    const savedAssistantMessage = await withSingleRetry(() =>
+      store.createMessage({
+        id: createId(),
+        chat_id: ensuredChat.id,
+        message_text: assistantText,
+        help_intent: messageIntent
+      })
+    )
+
+    timelineMessages.value = timelineMessages.value.map((message) =>
+      message.id === pendingAssistantId
+        ? { id: savedAssistantMessage.id, role: 'assistant', text: savedAssistantMessage.message_text }
+        : message
+    )
+
+    prompt.value = ''
+  } catch (error) {
+    const storeMessage = error?.message || ''
+    if (storeMessage.includes('start chat')) {
+      interactionError.value = "Couldn’t start chat. Please retry."
+    } else if (storeMessage.includes('save message')) {
+      if (!timelineMessages.value.some((message) => message.unsaved)) {
+        interactionError.value = 'Message not saved. Retry sending?'
+      } else {
+        interactionError.value = 'Response generated but couldn’t be saved. Retry save?'
+      }
+    } else {
+      interactionError.value = 'Something went wrong. Please retry.'
+    }
+    prompt.value = draftPrompt
+  } finally {
+    interactionLoading.value = false
   }
-
-  console.info('[API trigger] createChat', {
-    actor: store.role,
-    why: 'User submitted a new prompt from the home composer.',
-    chatTitle: payload.title,
-    className: payload.class,
-    model: payload.model
-  })
-
-  await store.createChat(payload)
-  prompt.value = ''
 }
 
 async function saveCurrentChatAsNote() {
@@ -107,3 +209,4 @@ async function saveCurrentChatAsNote() {
   await store.createNote(payload)
 }
 </script>
+

@@ -206,6 +206,47 @@ export const useAppStore = defineStore('app', {
         this.setActionError(actionKey, 'Unable to create chat.')
       }
     },
+    async ensureActiveChat(payload) {
+      const existing = this.chats.find((chat) => chat.id === this.selectedChatId)
+      if (existing) return existing
+
+      const actionKey = 'ensureActiveChat'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/chats', payload)
+        this.chats = [...this.chats, response.data]
+        this.selectedChatId = response.data.id
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+        return response.data
+      } catch {
+        this.setActionError(actionKey, 'Unable to start chat.')
+        throw new Error('Unable to start chat.')
+      }
+    },
+    async createMessage(payload) {
+      const actionKey = 'createMessage'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/messages', payload)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+        return response.data
+      } catch {
+        this.setActionError(actionKey, 'Unable to save message.')
+        throw new Error('Unable to save message.')
+      }
+    },
+    async requestAiInteraction(payload) {
+      const actionKey = 'requestAiInteraction'
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/ai/interactions', payload)
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+        return response.data
+      } catch (error) {
+        this.setActionError(actionKey, 'Unable to fetch assistant response.')
+        throw error
+      }
+    },
     async updateChat(chatId, patch) {
       const actionKey = `updateChat:${chatId}`
       const snapshot = [...this.chats]

@@ -90,3 +90,6 @@ input[type='radio'] { width: 42px; height: 42px; }
 .preview-only-layout {
   padding: 16px;
 }
+
+.chat-error-banner { color: #a0182f; }
+.chat-loading-banner { color: #1f4b99; }
