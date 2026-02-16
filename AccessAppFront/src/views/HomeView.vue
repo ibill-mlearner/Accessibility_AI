@@ -1,5 +1,5 @@
 <template>
-  <section>
+  <section class="chat-thread">
     <template v-if="store.role !== 'guest'">
       <ChatBubbleCard
         :text="activeChatText"
