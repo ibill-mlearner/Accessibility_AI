@@ -1,8 +1,16 @@
 import argparse
+import sqlite3
+import sys
+from pathlib import Path
+
+from sqlalchemy.engine import make_url
 
 from app import create_app, build_ai_service
 from app.db import init_flask_database
 from app.extensions import db
+
+
+_SEED_USERS_SQL = Path(__file__).resolve().parent / "instance" / "seed_users.sql"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -25,6 +33,49 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--ai-endpoint is required when --ai-provider=live_agent")
 
 
+def _sqlite_database_path(database_uri: str) -> Path | None:
+    parsed = make_url(database_uri)
+    if not parsed.drivername.startswith("sqlite"):
+        return None
+
+    sqlite_db = parsed.database
+    if not sqlite_db or sqlite_db == ":memory:" or sqlite_db.startswith("file:"):
+        return None
+
+    return Path(sqlite_db)
+
+
+def _seed_users_from_sql(database_uri: str) -> bool:
+    database_path = _sqlite_database_path(database_uri)
+    if database_path is None:
+        print("Skipping user seed prompt: SQL seed currently supports only file-based SQLite databases.")
+        return False
+
+    if not _SEED_USERS_SQL.exists():
+        print(f"Skipping user seed prompt: seed file not found at {_SEED_USERS_SQL}.")
+        return False
+
+    script = _SEED_USERS_SQL.read_text(encoding="utf-8")
+    with sqlite3.connect(database_path.as_posix()) as conn:
+        conn.executescript(script)
+
+    print(f"Seeded users from {_SEED_USERS_SQL.relative_to(Path(__file__).resolve().parent)}")
+    return True
+
+
+def _prompt_for_seed_users(database_uri: str) -> None:
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        print("Skipping interactive seed prompt (non-interactive session).")
+        return
+
+    answer = input("Seed default users now? [y/N]: ").strip().lower()
+    if answer not in {"y", "yes"}:
+        print("Skipping seed users.")
+        return
+
+    _seed_users_from_sql(database_uri)
+
+
 def build_runtime_app(args: argparse.Namespace):
     _validate_args(args)
 
@@ -39,8 +90,12 @@ def build_runtime_app(args: argparse.Namespace):
     app.extensions["ai_service"] = build_ai_service(app)
 
     if args.init_db:
+        sqlite_db_path = _sqlite_database_path(app.config["SQLALCHEMY_DATABASE_URI"])
+        first_run = sqlite_db_path is not None and not sqlite_db_path.exists()
         print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
         init_flask_database(app)
+        if first_run:
+            _prompt_for_seed_users(app.config["SQLALCHEMY_DATABASE_URI"])
 
     return app
 
