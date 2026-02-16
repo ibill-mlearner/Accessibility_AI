@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -25,6 +26,23 @@ def _env(key: str, default=None, cast=None):
     return cast(val)
 
 
+
+
+def _env_json(key: str, default: dict | None = None):
+    raw = os.getenv(key)
+    if raw is None:
+        return default
+
+    value = raw.strip()
+    if not value:
+        return default
+
+    parsed = json.loads(value)
+    if parsed is None:
+        return default
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Invalid JSON object for {key}: {raw}")
+    return parsed
 class BaseConfig:
     ENV = _env("FLASK_ENV", "development")
     DEBUG = _env("FLASK_DEBUG", False, bool)
@@ -81,6 +99,8 @@ class BaseConfig:
         "AI_OLLAMA_ENDPOINT",
         "http://localhost:11434/api/generate",
     )
+    AI_OLLAMA_MODEL = _env("AI_OLLAMA_MODEL", AI_MODEL_NAME)
+    AI_OLLAMA_OPTIONS = _env_json("AI_OLLAMA_OPTIONS", {})
     AI_LIVE_ENDPOINT = _env("AI_LIVE_ENDPOINT", AI_OLLAMA_ENDPOINT)
     AI_MOCK_RESOURCE_PATH = _env(
         "AI_MOCK_RESOURCE_PATH",

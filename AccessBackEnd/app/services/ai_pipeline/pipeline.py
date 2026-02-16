@@ -25,6 +25,9 @@ class AIPipelineConfig:
     provider: str = "ollama"
     mock_resource_path: str = ""
     live_endpoint: str = ""
+    ollama_endpoint: str = ""
+    ollama_model_id: str = ""
+    ollama_options: dict[str, Any] | None = None
     timeout_seconds: int = 60
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
@@ -84,8 +87,9 @@ class AIPipelineService:
 
         if provider in {"ollama", "ollama_local"}:
             return OllamaProvider(
-                endpoint=config.live_endpoint,
-                model_id=config.huggingface_model_id,
+                endpoint=config.ollama_endpoint or config.live_endpoint,
+                model_id=config.ollama_model_id or config.huggingface_model_id,
+                options=config.ollama_options,
                 timeout_seconds=config.timeout_seconds,
             )
 

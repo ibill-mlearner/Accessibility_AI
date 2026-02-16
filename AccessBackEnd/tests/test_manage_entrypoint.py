@@ -100,3 +100,39 @@ def test_prompt_for_seed_users_skips_non_interactive(monkeypatch, capsys):
     module._prompt_for_seed_users("sqlite:////tmp/example.db")
     out = capsys.readouterr().out
     assert "Skipping interactive seed prompt" in out
+
+
+def test_validate_args_rejects_mock_endpoint_override():
+    spec = importlib.util.spec_from_file_location("backend_manage_module_validate", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    args = Namespace(ai_provider="mock_json", ai_endpoint="http://localhost:9999", config="testing", host="0.0.0.0", port=5000, init_db=False)
+    try:
+        module._validate_args(args)
+    except SystemExit as exc:
+        assert "cannot be used" in str(exc)
+    else:
+        raise AssertionError("Expected SystemExit for invalid --ai-endpoint usage")
+
+
+def test_build_runtime_app_sets_only_ollama_endpoint(monkeypatch):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_ollama", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    args = Namespace(
+        config="testing",
+        ai_provider="ollama",
+        ai_endpoint="http://localhost:11434/api/generate",
+        host="0.0.0.0",
+        port=5000,
+        init_db=False,
+    )
+
+    app = module.build_runtime_app(args)
+
+    assert app.config["AI_PROVIDER"] == "ollama"
+    assert app.config["AI_OLLAMA_ENDPOINT"] == "http://localhost:11434/api/generate"
