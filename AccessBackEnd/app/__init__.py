@@ -29,18 +29,24 @@ def _register_cli_commands(app: Flask) -> None:
 
 def build_ai_service(app: Flask) -> AIPipelineService:
     provider = app.config["AI_PROVIDER"]
-    if provider in {"live", "live_agent", "http"} and not app.config.get(
-        "AI_LIVE_ENDPOINT"
+    if provider in {"live", "live_agent", "http", "ollama"} and not (
+        app.config.get("AI_OLLAMA_ENDPOINT") or app.config.get("AI_LIVE_ENDPOINT")
     ):
         raise ValueError(
-            "AI_LIVE_ENDPOINT must be configured when AI_PROVIDER=live_agent"
+            "AI_OLLAMA_ENDPOINT (or AI_LIVE_ENDPOINT) must be configured for live AI providers"
         )
+
+    live_endpoint = (
+        app.config.get("AI_OLLAMA_ENDPOINT")
+        if provider == "ollama"
+        else app.config.get("AI_LIVE_ENDPOINT")
+    )
 
     return AIPipelineService(
         AIPipelineConfig(
             provider=provider,
             mock_resource_path=app.config["AI_MOCK_RESOURCE_PATH"],
-            live_endpoint=app.config["AI_LIVE_ENDPOINT"],
+            live_endpoint=live_endpoint,
             timeout_seconds=app.config["AI_TIMEOUT_SECONDS"],
             huggingface_model_id=app.config["AI_MODEL_NAME"],
         )

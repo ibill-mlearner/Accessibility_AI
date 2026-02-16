@@ -18,7 +18,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", choices=["development", "testing", "production"], help="Application config profile")
     parser.add_argument(
         "--ai-provider",
-        choices=["mock_json", "live_agent"],
+        choices=["mock_json", "live_agent", "ollama"],
         help="AI provider mode. Use mock JSON for local testing or live agent endpoint.",
     )
     parser.add_argument("--ai-endpoint", help="Live AI endpoint URL (required when --ai-provider=live_agent)")
@@ -29,8 +29,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _validate_args(args: argparse.Namespace) -> None:
-    if args.ai_provider == "live_agent" and not args.ai_endpoint:
-        raise SystemExit("--ai-endpoint is required when --ai-provider=live_agent")
+    if args.ai_provider in {"live_agent", "ollama"} and not args.ai_endpoint:
+        raise SystemExit("--ai-endpoint is required when --ai-provider is a live endpoint provider")
 
 
 def _sqlite_database_path(database_uri: str) -> Path | None:
@@ -85,6 +85,7 @@ def build_runtime_app(args: argparse.Namespace):
         app.config["AI_PROVIDER"] = args.ai_provider
     if args.ai_endpoint:
         app.config["AI_LIVE_ENDPOINT"] = args.ai_endpoint
+        app.config["AI_OLLAMA_ENDPOINT"] = args.ai_endpoint
 
     # Rebuild service with runtime overrides from parsed args.
     app.extensions["ai_service"] = build_ai_service(app)
