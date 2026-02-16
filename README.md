@@ -128,3 +128,4 @@ Default frontend URL: `http://localhost:5173`
 - Importing modules does not parse CLI arguments or mutate environment variables.
 - Instance overrides can be placed in `AccessBackEnd/instance/config.py`.
 - Tests default to in-memory SQLite (`sqlite:///:memory:`), while development defaults to persistent instance SQLite.
+- AI interaction file logs use `AI_INTERACTION_LOG_DIR` (or `INTERACTION_LOG_DIR`) when set; `DB_LOG_DIRECTORY` is still supported as a deprecated fallback.

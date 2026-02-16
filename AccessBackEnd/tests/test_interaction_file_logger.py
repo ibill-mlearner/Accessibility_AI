@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 from app import config as app_config
 from app import create_app
 from app.services.logging import InteractionLoggingService, RotatingTextLogWriter
@@ -71,23 +72,38 @@ def test_ai_interaction_route_logs_to_configured_app_instance_dir(
     monkeypatch, tmp_path
 ):
     monkeypatch.setattr(
-        app_config.TestingConfig, "DB_LOG_DIRECTORY", tmp_path.as_posix()
+        app_config.TestingConfig, "AI_INTERACTION_LOG_DIR", tmp_path.as_posix()
     )
 
     app = create_app("testing")
-    client = app.test_client()
-
-    response = client.post(
-        "/api/v1/ai/interactions",
-        json={"prompt": "summarize", "user": "student_11", "context": {"chat_id": 4}},
+    ai_service = app.extensions["ai_service"]
+    ai_service.run_interaction(
+        "summarize", context={"chat_id": 4}, initiated_by="student_11"
     )
 
-    assert response.status_code == 200
     log_path = tmp_path / "ai_interactions_1.txt"
     assert log_path.exists()
 
     payload = json.loads(log_path.read_text(encoding="utf-8").splitlines()[-1])
     assert payload["initiated_by"] == "student_11"
     assert payload["context"] == {"chat_id": 4}
+
+    monkeypatch.setattr(app_config.TestingConfig, "AI_INTERACTION_LOG_DIR", None)
+
+
+def test_ai_interaction_route_supports_deprecated_db_log_directory(
+    monkeypatch, tmp_path, caplog
+):
+    monkeypatch.setattr(app_config.TestingConfig, "AI_INTERACTION_LOG_DIR", None)
+    monkeypatch.setattr(
+        app_config.TestingConfig, "DB_LOG_DIRECTORY", tmp_path.as_posix()
+    )
+
+    app = create_app("testing")
+    ai_service = app.extensions["ai_service"]
+    ai_service.run_interaction("legacy", context={"chat_id": 5}, initiated_by="student_12")
+
+    assert (tmp_path / "ai_interactions_1.txt").exists()
+    assert "DB_LOG_DIRECTORY is deprecated" in caplog.text
 
     monkeypatch.setattr(app_config.TestingConfig, "DB_LOG_DIRECTORY", None)

@@ -82,7 +82,8 @@ class BaseConfig:
         "AI_MOCK_RESOURCE_PATH",
         (_BASE_DIR / "resources" / "mock_ai_response.json").as_posix(),
     )
-    DB_LOG_DIRECTORY = _env("DB_LOG_DIRECTORY")
+    AI_INTERACTION_LOG_DIR = _env("AI_INTERACTION_LOG_DIR") or _env("INTERACTION_LOG_DIR")
+    DB_LOG_DIRECTORY = _env("DB_LOG_DIRECTORY")  # Deprecated: use AI_INTERACTION_LOG_DIR
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
