@@ -23,6 +23,7 @@ class AIPipelineConfig:
     """
 
     provider: str = "ollama"
+    model_name: str = ""
     mock_resource_path: str = ""
     live_endpoint: str = ""
     ollama_endpoint: str = ""
@@ -71,6 +72,7 @@ class AIPipelineService:
             data={k: v for k, v in payload.items() if k != "meta"},
             meta={
                 **meta,
+                "model": meta.get("model") or meta.get("model_id") or self.config.model_name,
                 "pipeline": "app.services.ai_pipeline",
                 "selected_provider": self.config.provider,
             },
@@ -88,13 +90,17 @@ class AIPipelineService:
         if provider in {"ollama", "ollama_local"}:
             return OllamaProvider(
                 endpoint=config.ollama_endpoint or config.live_endpoint,
-                model_id=config.ollama_model_id or config.huggingface_model_id,
+                model_id=config.ollama_model_id or config.model_name or config.huggingface_model_id,
                 options=config.ollama_options,
                 timeout_seconds=config.timeout_seconds,
             )
 
         if provider in {"live", "live_agent", "http"}:
-            return HTTPEndpointProvider(endpoint=config.live_endpoint, timeout_seconds=config.timeout_seconds)
+            return HTTPEndpointProvider(
+                endpoint=config.live_endpoint,
+                model_name=config.model_name,
+                timeout_seconds=config.timeout_seconds,
+            )
 
         if provider in {"hf", "huggingface", "langchain_hf"}:
             return HuggingFaceLangChainProvider(

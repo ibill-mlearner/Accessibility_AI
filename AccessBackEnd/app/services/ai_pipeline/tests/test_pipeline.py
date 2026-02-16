@@ -25,6 +25,7 @@ def test_run_interaction_with_mock_provider_returns_normalized_meta() -> None:
     assert payload["meta"]["prompt_echo"] == "hello world"
     assert payload["meta"]["pipeline"] == "app.services.ai_pipeline"
     assert payload["meta"]["selected_provider"] == "mock_json"
+    assert payload["meta"]["model"] == ""
 
 
 def test_unsupported_provider_raises_value_error() -> None:
@@ -55,6 +56,7 @@ def test_build_provider_uses_ollama_aliases() -> None:
     config = AIPipelineConfig(
         provider="ollama_local",
         live_endpoint="http://localhost:11434/api/generate",
+        model_name="llama3:8b",
         huggingface_model_id="llama3:8b",
     )
     service = AIPipelineService(config)
@@ -96,3 +98,4 @@ def test_ollama_provider_parses_nested_json_response(monkeypatch: pytest.MonkeyP
     assert payload["result"] == "ok"
     assert payload["meta"]["provider"] == "ollama"
     assert payload["meta"]["model_id"] == "llama3:8b"
+    assert payload["meta"]["model"] == "llama3:8b"

@@ -47,9 +47,10 @@ class MockJSONProvider:
 class HTTPEndpointProvider:
     """Provider for JSON-over-HTTP AI services."""
 
-    def __init__(self, *, endpoint: str, timeout_seconds: int = 60) -> None:
+    def __init__(self, *, endpoint: str, model_name: str = "", timeout_seconds: int = 60) -> None:
         # Logic intent: configure endpoint and timeout once at startup.
         self.endpoint = endpoint
+        self.model_name = model_name
         self.timeout_seconds = timeout_seconds
 
     def invoke(self, request: PipelineRequest) -> dict:
@@ -59,7 +60,13 @@ class HTTPEndpointProvider:
         if not self.endpoint:
             raise ValueError("HTTP endpoint must be configured")
 
-        body = json.dumps({"prompt": request.prompt, "context": request.context}).encode("utf-8")
+        body = json.dumps(
+            {
+                "prompt": request.prompt,
+                "context": request.context,
+                "model": self.model_name,
+            }
+        ).encode("utf-8")
         req = Request(
             self.endpoint,
             data=body,
@@ -77,6 +84,7 @@ class HTTPEndpointProvider:
         if isinstance(parsed, dict):
             parsed.setdefault("meta", {})
             parsed["meta"]["provider"] = "http"
+            parsed["meta"]["model"] = self.model_name
         return parsed
 
 
@@ -147,6 +155,7 @@ class OllamaProvider:
         parsed_payload["meta"].update(
             {
                 "provider": "ollama",
+                "model": self.model_id,
                 "model_id": self.model_id,
                 "endpoint": self.endpoint,
             }
@@ -265,7 +274,9 @@ Required response schema: {{"result": string, "confidence": number, "notes": [st
         raw_text = chain.invoke({"prompt": request.prompt, "context_json": json.dumps(request.context)})
         parsed = self._parse_json(raw_text)
         parsed.setdefault("meta", {})
-        parsed["meta"].update({"provider": "huggingface_langchain", "model_id": self.model_id})
+        parsed["meta"].update(
+            {"provider": "huggingface_langchain", "model": self.model_id, "model_id": self.model_id}
+        )
         return parsed
 
     def _parse_json(self, raw_text: str) -> dict:

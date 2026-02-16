@@ -393,5 +393,6 @@ def test_build_ai_service_maps_explicit_ollama_config_fields():
     service = build_ai_service(app)
 
     assert service.config.ollama_endpoint == "http://localhost:11434/api/chat"
+    assert service.config.model_name == app.config["AI_MODEL_NAME"]
     assert service.config.ollama_model_id == "llama3.2:3b"
     assert service.config.ollama_options == {"temperature": 0.05}

@@ -41,6 +41,7 @@ def build_ai_service(app: Flask) -> AIPipelineService:
     return AIPipelineService(
         AIPipelineConfig(
             provider=provider,
+            model_name=app.config["AI_MODEL_NAME"],
             mock_resource_path=app.config["AI_MOCK_RESOURCE_PATH"],
             live_endpoint=live_endpoint or "",
             ollama_endpoint=ollama_endpoint or "",
