@@ -6,126 +6,46 @@ Accessibility AI includes a Vue frontend and a Flask backend.
 - `AccessBackEnd/` — Flask backend.
 - `AccessAppFront/` — Vue 3 + Vite frontend.
 
-## Backend (Flask)
+## Backend + Frontend Quick Run (Windows PowerShell)
 
-### 1) Create and activate virtualenv (do this first)
+### Script 1: Full backend setup + run
+Run from repo root:
 
-From repo root:
-
-**macOS/Linux (bash/zsh):**
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r AccessBackEnd/requirements.txt
-```
-
-**Windows PowerShell:**
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r AccessBackEnd/requirements.txt
-```
-
-> `source .venv/bin/activate` is Unix-only. In PowerShell use `\.venv\Scripts\Activate.ps1`.
-
-### 2) Initialize database schema (required once per local database)
-
-Development DB is persistent and stored at:
-- `AccessBackEnd/instance/accessibility_ai.db`
-
-Run **one** of these commands (they depend on current directory):
-
-From repo root:
-```bash
-python -m flask --app AccessBackEnd.app:create_app init-db
-```
-
-From backend directory (**must already be inside `AccessBackEnd/`**):
-```bash
-cd AccessBackEnd
-python -m flask --app app:create_app init-db
-```
-
-PowerShell one-liner alternative:
-```powershell
-cd AccessBackEnd; python -m flask --app app:create_app init-db
-```
-
-> `--app app:create_app` only works when your current directory is `AccessBackEnd/`.
-
-### 3) Run backend
-
-Backend runtime entrypoint is **only** `AccessBackEnd/manage.py`.
-
-From repo root:
-```bash
-python AccessBackEnd/manage.py
-```
-
-From backend directory:
-```bash
-cd AccessBackEnd
-python manage.py
-```
-
-Default backend URL: `http://localhost:5000`
-
-### Runtime options
-```bash
-# From repo root
-python AccessBackEnd/manage.py --config development
-python AccessBackEnd/manage.py --ai-provider ollama --ai-endpoint http://localhost:11434/api/generate
-python AccessBackEnd/manage.py --ai-provider mock_json
 python AccessBackEnd/manage.py --init-db
 ```
 
-By default the backend runs with the Ollama provider path (`AI_PROVIDER=ollama`).
-Use `--ai-provider mock_json` only when you explicitly want fixture-based offline responses for isolated testing.
+Backend URL: `http://localhost:5000`
 
-### Backend tests
-```bash
-pytest AccessBackEnd/tests
-```
+> On first run, when prompted, enter `y` to load `AccessBackEnd/instance/seed_users.sql`.
 
-### Backend DB path + init diagnostics
-- Flask app-factory DB resolution details and verification query examples live in `AccessBackEnd/docs/README.md`.
-- During `init-db`/`--init-db`, the CLI prints the resolved `SQLALCHEMY_DATABASE_URI` so you can confirm the exact SQLite file in use.
+### Script 2: Full frontend setup + run
+Open a second PowerShell window at repo root:
 
-## Frontend (Vue + Vite)
-
-### Install dependencies
-From repo root:
-```bash
+```powershell
 npm install --prefix AccessAppFront
+npm run dev --prefix AccessAppFront
 ```
 
-Or:
-```bash
-cd AccessAppFront
-npm install
-```
+Frontend URL: `http://localhost:5173`
 
-### Run frontend unit tests
-From repo root:
-```bash
-npm test --prefix AccessAppFront
-```
+### Quick nuances
+- Backend entrypoint is only `AccessBackEnd/manage.py`.
+- Dev DB file is `AccessBackEnd/instance/accessibility_ai.db`.
+- Seed data file is `AccessBackEnd/instance/seed_users.sql` (on first run, accept the `--init-db` prompt with `y` to apply it).
+- Backend tests: `pytest AccessBackEnd/tests`
+- Frontend tests: `npm test --prefix AccessAppFront`
+- Optional backend runtime flags:
+  - `python AccessBackEnd/manage.py --config development`
+  - `python AccessBackEnd/manage.py --ai-provider mock_json`
+  - `python AccessBackEnd/manage.py --init-db`
 
-Or inside frontend directory:
-```bash
-cd AccessAppFront
-npm run test
-```
-
-### Start frontend dev server
-```bash
-cd AccessAppFront
-npm run dev
-```
-
-Default frontend URL: `http://localhost:5173`
+## Planning guardrails
+- Chat stabilization scope and entitlement deferral policy: `docs/chat-stabilization-scope.md`.
 
 ## Notes on configuration
 - Flask app creation uses `create_app()` in `AccessBackEnd/app/__init__.py`.
