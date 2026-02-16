@@ -133,3 +133,19 @@ def test_create_app_uses_backend_instance_directory():
     app = create_app("testing")
 
     assert Path(app.instance_path) == app_config._INSTANCE_DIR
+
+
+def test_init_db_cli_reports_resolved_database_uri(tmp_path):
+    from app import create_app
+
+    db_path = tmp_path / "cli-init.db"
+    app = create_app("testing")
+    app.config.update(SQLALCHEMY_DATABASE_URI=f"sqlite+pysqlite:///{db_path.as_posix()}")
+
+    runner = app.test_cli_runner()
+    result = runner.invoke(args=["init-db"])
+
+    assert result.exit_code == 0
+    assert "Resolved SQLALCHEMY_DATABASE_URI:" in result.output
+    assert db_path.as_posix() in result.output
+    assert "Database schema initialized." in result.output

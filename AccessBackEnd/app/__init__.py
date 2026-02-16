@@ -22,6 +22,7 @@ def _register_cli_commands(app: Flask) -> None:
     def init_db_command() -> None:
         """Create all configured database tables for the current app profile."""
 
+        print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
         init_flask_database(app)
         print("Database schema initialized.")
 

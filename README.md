@@ -85,6 +85,10 @@ python AccessBackEnd/manage.py --init-db
 pytest AccessBackEnd/tests
 ```
 
+### Backend DB path + init diagnostics
+- Flask app-factory DB resolution details and verification query examples live in `AccessBackEnd/docs/README.md`.
+- During `init-db`/`--init-db`, the CLI prints the resolved `SQLALCHEMY_DATABASE_URI` so you can confirm the exact SQLite file in use.
+
 ## Frontend (Vue + Vite)
 
 ### Install dependencies
