@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from copy import deepcopy
+from datetime import date, datetime
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
@@ -9,7 +9,9 @@ from flask_login import current_user, login_required
 from ..errors import BadRequestError, NotFoundError
 from .api_view import register_api_view_route
 
+from ...extensions import db
 from ...logging_config import DomainEvent
+from ...models import Chat, CourseClass, Feature, Message, Note
 
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -50,132 +52,76 @@ def _read_json_object() -> dict[str, Any]:
     return payload
 
 
-_RESOURCE_STORE: dict[str, list[dict[str, Any]]] = {
-    "chats": [
-        {
-            "id": 1,
-            "title": "Bio 103 lecture recap",
-            "start": "2026-02-09T09:00:00Z",
-            "model": "gpt-4o-mini",
-            "class": "Biology 103",
-            "user": "student_1",
-        },
-        {
-            "id": 2,
-            "title": "CS 101 study session",
-            "start": "2026-02-09T10:30:00Z",
-            "model": "gpt-4o-mini",
-            "class": "Computer Science 101",
-            "user": "student_2",
-        },
-    ],
-    "messages": [
-        {
-            "id": 1,
-            "chat_id": 1,
-            "message_text": "Can you summarize mitochondria function?",
-            "vote": "good",
-            "note": "yes",
-            "help_intent": "summarization",
-        },
-        {
-            "id": 2,
-            "chat_id": 1,
-            "message_text": "Mitochondria generate ATP for cell energy.",
-            "vote": "good",
-            "note": "no",
-            "help_intent": "note_taking",
-        },
-        {
-            "id": 3,
-            "chat_id": 2,
-            "message_text": "Explain recursion with an example.",
-            "vote": "bad",
-            "note": "yes",
-            "help_intent": "restating",
-        },
-    ],
-    "features": [
-        {
-            "id": 1,
-            "title": "Note Taking assistance",
-            "description": "Responses set to assist with taking notes for selected class",
-            "enabled": True,
-            "instructor_id": 4,
-            "class_id": 1,
-        },
-        {
-            "id": 2,
-            "title": "Summarization and restating",
-            "description": "Responses focused on summaries and restatements",
-            "enabled": False,
-            "instructor_id": 5,
-            "class_id": 2,
-        },
-        {
-            "id": 3,
-            "title": "Text-to-speech formatting",
-            "description": "Responses expected to supply Text-to-speech features",
-            "enabled": False,
-            "instructor_id": 6,
-            "class_id": 3,
-        },
-    ],
-    "classes": [
-        {
-            "id": 1,
-            "role": "student",
-            "name": "Biology 103",
-            "description": "Assist with a guided approach to class material or intent.",
-        },
-        {
-            "id": 2,
-            "role": "student",
-            "name": "Computer Science 101",
-            "description": "Assist with a guided approach to class material or intent.",
-        },
-        {
-            "id": 3,
-            "role": "student",
-            "name": "CyberSecurity 230",
-            "description": "Assist with a guided approach to class material or intent.",
-        },
-        {
-            "id": 4,
-            "role": "instructor",
-            "name": "Biology 103",
-            "description": "Assist with a guided approach with instructor prompts and controls.",
-        },
-        {
-            "id": 5,
-            "role": "instructor",
-            "name": "Chemistry 213",
-            "description": "Enable/disable prompt complexity and class-level controls.",
-        },
-        {
-            "id": 6,
-            "role": "instructor",
-            "name": "Genetics 330",
-            "description": "Enable/disable class files and upload settings.",
-        },
-    ],
-    "notes": [
-        {
-            "id": 1,
-            "class": "Bio",
-            "date": "2026-02-09",
-            "chat": "Chat 3",
-            "content": "System's response . . .",
-        },
-        {
-            "id": 2,
-            "class": "Chem",
-            "date": "2026-02-09",
-            "chat": "Chat 2",
-            "content": "User's prompt . . .",
-        },
-    ],
+_RESOURCE_MODEL_MAP: dict[str, type] = {
+    "chats": Chat,
+    "messages": Message,
+    "classes": CourseClass,
+    "notes": Note,
+    "features": Feature,
 }
+
+_RESOURCE_API_TO_MODEL_FIELDS: dict[str, dict[str, str]] = {
+    "chats": {"start": "started_at", "class": "class_id", "user": "user_id"},
+    "notes": {"date": "noted_on", "class": "class_id"},
+}
+
+_RESOURCE_MODEL_TO_API_FIELDS: dict[str, dict[str, str]] = {
+    name: {model_field: api_field for api_field, model_field in field_map.items()}
+    for name, field_map in _RESOURCE_API_TO_MODEL_FIELDS.items()
+}
+
+
+def _coerce_field_value(resource_name: str, model_field: str, value: Any) -> Any:
+    if value is None:
+        return None
+
+    if resource_name == "chats" and model_field == "started_at" and isinstance(value, str):
+        normalized = value.replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise BadRequestError("invalid datetime format for start") from exc
+
+    if resource_name == "notes" and model_field == "noted_on" and isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise BadRequestError("invalid date format for date") from exc
+
+    return value
+
+
+def _resource_model(resource_name: str):
+    return _RESOURCE_MODEL_MAP[resource_name]
+
+
+def _deserialize_payload(resource_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    model = _resource_model(resource_name)
+    valid_model_fields = {column.name for column in model.__table__.columns}
+    field_map = _RESOURCE_API_TO_MODEL_FIELDS.get(resource_name, {})
+
+    transformed: dict[str, Any] = {}
+    for api_field, value in payload.items():
+        model_field = field_map.get(api_field, api_field)
+        if model_field not in valid_model_fields:
+            raise BadRequestError(f"unknown field: {api_field}")
+        transformed[model_field] = _coerce_field_value(resource_name, model_field, value)
+    return transformed
+
+
+def _serialize_record(resource_name: str, record: Any) -> dict[str, Any]:
+    model_to_api = _RESOURCE_MODEL_TO_API_FIELDS.get(resource_name, {})
+    payload: dict[str, Any] = {}
+
+    for column in record.__table__.columns:
+        model_field = column.name
+        api_field = model_to_api.get(model_field, model_field)
+        value = getattr(record, model_field)
+        if isinstance(value, (datetime, date)):
+            value = value.isoformat()
+        payload[api_field] = value
+
+    return payload
 
 
 def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
@@ -184,55 +130,66 @@ def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
 
 
 def _list_resource(resource_name: str):
-    """Return all records for a resource without data transformation."""
-    records = _RESOURCE_STORE[resource_name]
+    """Return all records for a resource from ORM-backed storage."""
+    model = _resource_model(resource_name)
+    records = db.session.query(model).all()
     _publish(f"api.{resource_name}.listed", {"count": len(records)})
-    return jsonify(deepcopy(records)), 200
+    return jsonify([_serialize_record(resource_name, record) for record in records]), 200
 
 
 def _get_resource(resource_name: str, record_id: int):
-    """Return a single record by id; pass-through payload contract."""
-    for record in _RESOURCE_STORE[resource_name]:
-        if record.get("id") == record_id:
-            _publish(f"api.{resource_name}.retrieved", {"id": record_id})
-            return jsonify(deepcopy(record)), 200
+    """Return a single ORM record by primary key."""
+    model = _resource_model(resource_name)
+    record = db.session.get(model, record_id)
+    if record is None:
+        _resource_not_found(resource_name, record_id)
 
-    _resource_not_found(resource_name, record_id)
+    _publish(f"api.{resource_name}.retrieved", {"id": record_id})
+    return jsonify(_serialize_record(resource_name, record)), 200
 
 
 def _create_resource(resource_name: str):
-    """Store the client payload as submitted and return it unchanged."""
+    """Create and persist a resource record from API payload fields."""
     payload = _read_json_object()
+    model = _resource_model(resource_name)
+    transformed_payload = _deserialize_payload(resource_name, payload)
 
-    _RESOURCE_STORE[resource_name].append(payload)
+    record = model(**transformed_payload)
+    db.session.add(record)
+    db.session.commit()
     _publish(f"api.{resource_name}.created", {"has_id": "id" in payload})
-    return jsonify(deepcopy(payload)), 201
+    return jsonify(_serialize_record(resource_name, record)), 201
 
 
 def _update_resource(resource_name: str, record_id: int):
-    """Replace a record with the provided payload without mutating fields."""
+    """Update an existing ORM-backed resource from API payload fields."""
     payload = _read_json_object()
+    model = _resource_model(resource_name)
+    record = db.session.get(model, record_id)
+    if record is None:
+        _resource_not_found(resource_name, record_id)
 
-    records = _RESOURCE_STORE[resource_name]
-    for index, record in enumerate(records):
-        if record.get("id") == record_id:
-            records[index] = payload
-            _publish(f"api.{resource_name}.updated", {"id": record_id})
-            return jsonify(deepcopy(payload)), 200
+    transformed_payload = _deserialize_payload(resource_name, payload)
+    for field_name, value in transformed_payload.items():
+        setattr(record, field_name, value)
 
-    _resource_not_found(resource_name, record_id)
+    db.session.commit()
+    _publish(f"api.{resource_name}.updated", {"id": record_id})
+    return jsonify(_serialize_record(resource_name, record)), 200
 
 
 def _delete_resource(resource_name: str, record_id: int):
-    """Delete a record by id and return a minimal pass-through status."""
-    records = _RESOURCE_STORE[resource_name]
-    for index, record in enumerate(records):
-        if record.get("id") == record_id:
-            deleted = records.pop(index)
-            _publish(f"api.{resource_name}.deleted", {"id": record_id})
-            return jsonify(deepcopy(deleted)), 200
+    """Delete a persisted resource by id and return the deleted payload."""
+    model = _resource_model(resource_name)
+    record = db.session.get(model, record_id)
+    if record is None:
+        _resource_not_found(resource_name, record_id)
 
-    _resource_not_found(resource_name, record_id)
+    deleted_payload = _serialize_record(resource_name, record)
+    db.session.delete(record)
+    db.session.commit()
+    _publish(f"api.{resource_name}.deleted", {"id": record_id})
+    return jsonify(deleted_payload), 200
 
 
 def _register_resource_routes(resource_name: str) -> None:
