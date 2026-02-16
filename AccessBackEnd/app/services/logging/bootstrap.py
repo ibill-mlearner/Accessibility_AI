@@ -6,7 +6,7 @@ from flask import Flask
 
 from .config import configure_logging
 from .events import EventBus, LoggingObserver
-from .interaction_logger import InteractionLoggingService, RotatingTextLogWriter
+from .interaction_file_logger import InteractionLoggingService, RotatingTextLogWriter
 
 
 DEFAULT_OBSERVER_TYPES = (LoggingObserver,)
@@ -33,11 +33,22 @@ def initialize_logging(app: Flask) -> None:
     if ai_service is None or isinstance(ai_service, InteractionLoggingService):
         return
 
-    db_log_directory = (
-        app.config.get("DB_LOG_DIRECTORY")
-        or (Path(app.root_path) / "instance").as_posix()
+    interaction_log_dir = (
+        app.config.get("AI_INTERACTION_LOG_DIR")
+        or app.config.get("INTERACTION_LOG_DIR")
     )
+    if not interaction_log_dir:
+        interaction_log_dir = app.config.get("DB_LOG_DIRECTORY")
+        if interaction_log_dir:
+            app.logger.warning(
+                "DB_LOG_DIRECTORY is deprecated; use AI_INTERACTION_LOG_DIR instead."
+            )
+
+    interaction_log_dir = interaction_log_dir or (
+        Path(app.root_path) / "instance"
+    ).as_posix()
+
     app.extensions["ai_service"] = InteractionLoggingService(
         wrapped=ai_service,
-        writer=RotatingTextLogWriter(log_dir=Path(db_log_directory)),
+        writer=RotatingTextLogWriter(log_dir=Path(interaction_log_dir)),
     )
