@@ -26,21 +26,24 @@ body { margin: 0; background: #ececec; }
 }
 .content { display: flex; flex-direction: column; gap: 20px; }
 .chat-thread {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: 12px;
   min-height: 0;
   height: 100%;
+}
+
+.chat-messages {
+  overflow-y: auto;
+  min-height: 0;
+  max-height: min(62vh, 760px);
+  padding-right: 6px;
 }
 
 .chat-thread__messages {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  padding-right: 6px;
 }
 .header-bar { text-align: center; background: #ddd; min-height: 86px; display: flex; align-items: center; }
 .header-bar h1 { margin: 0; font-size: 58px; font-weight: 400; color: #666; text-align: left; padding-left: 24px; }

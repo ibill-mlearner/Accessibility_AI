@@ -1,18 +1,20 @@
 <template>
   <section class="chat-thread">
-    <div ref="messageListRef" class="chat-thread__messages" aria-live="polite">
-      <p v-if="interactionError" class="chat-error-banner">{{ interactionError }}</p>
-      <p v-if="interactionLoading" class="chat-loading-banner">Sending…</p>
-      <template v-if="store.role !== 'guest'">
-        <ChatBubbleCard
-          v-for="message in conversationMessages"
-          :key="message.id"
-          :text="message.text"
-          :variant="messageVariantMap[message.role] || message.role"
-          :show-actions="message.role === 'assistant'"
-          @save-note="saveCurrentChatAsNote"
-        />
-      </template>
+    <div ref="messageListRef" class="chat-messages" aria-live="polite">
+      <div class="chat-thread__messages">
+        <p v-if="interactionError" class="chat-error-banner">{{ interactionError }}</p>
+        <p v-if="interactionLoading" class="chat-loading-banner">Sending…</p>
+        <template v-if="store.role !== 'guest'">
+          <ChatBubbleCard
+            v-for="message in conversationMessages"
+            :key="message.id"
+            :text="message.text"
+            :variant="messageVariantMap[message.role] || message.role"
+            :show-actions="message.role === 'assistant'"
+            @save-note="saveCurrentChatAsNote"
+          />
+        </template>
+      </div>
     </div>
     <ComposerBar
       v-model="prompt"
