@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .providers import AIProvider, HTTPEndpointProvider, HuggingFaceLangChainProvider, MockJSONProvider
+from .providers import (
+    AIProvider,
+    HTTPEndpointProvider,
+    HuggingFaceLangChainProvider,
+    MockJSONProvider,
+    OllamaProvider,
+)
 from .types import PipelineRequest, PipelineResponse
 
 
@@ -71,12 +77,19 @@ class AIPipelineService:
     def _build_provider(self, config: AIPipelineConfig) -> AIProvider:
         # Logic intent:
         # - Route configured provider aliases to concrete provider implementations.
-        provider = (config.provider or "mock_json").strip().lower()
+        provider = (config.provider or "ollama").strip().lower()
 
         if provider in {"mock", "mock_json", "json"}:
             return MockJSONProvider(mock_resource_path=config.mock_resource_path)
 
-        if provider in {"live", "live_agent", "http", "ollama"}:
+        if provider in {"ollama", "ollama_local"}:
+            return OllamaProvider(
+                endpoint=config.live_endpoint,
+                model_id=config.huggingface_model_id,
+                timeout_seconds=config.timeout_seconds,
+            )
+
+        if provider in {"live", "live_agent", "http"}:
             return HTTPEndpointProvider(endpoint=config.live_endpoint, timeout_seconds=config.timeout_seconds)
 
         if provider in {"hf", "huggingface", "langchain_hf"}:
