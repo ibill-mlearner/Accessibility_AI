@@ -13,9 +13,8 @@ from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...logging_config import DomainEvent
 from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note
-
+from ...services.logging import DomainEvent
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
@@ -78,14 +77,22 @@ def _coerce_field_value(resource_name: str, model_field: str, value: Any) -> Any
     if value is None:
         return None
 
-    if resource_name == "chats" and model_field == "started_at" and isinstance(value, str):
+    if (
+        resource_name == "chats"
+        and model_field == "started_at"
+        and isinstance(value, str)
+    ):
         normalized = value.replace("Z", "+00:00")
         try:
             return datetime.fromisoformat(normalized)
         except ValueError as exc:
             raise BadRequestError("invalid datetime format for start") from exc
 
-    if resource_name == "notes" and model_field == "noted_on" and isinstance(value, str):
+    if (
+        resource_name == "notes"
+        and model_field == "noted_on"
+        and isinstance(value, str)
+    ):
         try:
             return date.fromisoformat(value)
         except ValueError as exc:
@@ -108,7 +115,9 @@ def _deserialize_payload(resource_name: str, payload: dict[str, Any]) -> dict[st
         model_field = field_map.get(api_field, api_field)
         if model_field not in valid_model_fields:
             raise BadRequestError(f"unknown field: {api_field}")
-        transformed[model_field] = _coerce_field_value(resource_name, model_field, value)
+        transformed[model_field] = _coerce_field_value(
+            resource_name, model_field, value
+        )
     return transformed
 
 
@@ -153,12 +162,13 @@ def _extract_response_text(result: Any) -> str:
     return json.dumps(result, default=str)
 
 
-
-
 def _resolve_initiated_by(payload: dict[str, Any]) -> str:
     """Resolve actor identifier used for AI interaction auditing."""
     if getattr(current_user, "is_authenticated", False):
-        return str(current_user.get_id() or getattr(current_user, "email", "authenticated_user"))
+        return str(
+            current_user.get_id()
+            or getattr(current_user, "email", "authenticated_user")
+        )
     if payload.get("user"):
         return str(payload["user"])
     if payload.get("user_id"):
@@ -189,7 +199,9 @@ def _resolve_chat_id(payload: dict[str, Any]) -> int | None:
         raise BadRequestError("chat_id must be an integer") from exc
 
 
-def _persist_ai_interaction(payload: dict[str, Any], prompt: str, result: Any) -> tuple[Any, int] | None:
+def _persist_ai_interaction(
+    payload: dict[str, Any], prompt: str, result: Any
+) -> tuple[Any, int] | None:
     """Persist an AI interaction; return error response tuple when persistence fails."""
     interaction_repo = AIInteractionRepository(AIInteraction)
 
@@ -219,12 +231,16 @@ def _persist_ai_interaction(payload: dict[str, Any], prompt: str, result: Any) -
 
     return None
 
+
 def _list_resource(resource_name: str):
     """Return all records for a resource from ORM-backed storage."""
     model = _resource_model(resource_name)
     records = db.session.query(model).all()
     _publish(f"api.{resource_name}.listed", {"count": len(records)})
-    return jsonify([_serialize_record(resource_name, record) for record in records]), 200
+    return (
+        jsonify([_serialize_record(resource_name, record) for record in records]),
+        200,
+    )
 
 
 def _get_resource(resource_name: str, record_id: int):
@@ -305,9 +321,17 @@ def _register_resource_routes(resource_name: str) -> None:
     def delete_handler(record_id: int) -> tuple[Any, int]:
         return _delete_resource(resource_name, record_id)
 
-    api_v1_bp.add_url_rule(f"/{resource_name}", endpoint=f"list_{resource_name}", view_func=list_handler, methods=["GET"])
     api_v1_bp.add_url_rule(
-        f"/{resource_name}", endpoint=f"create_{resource_name}", view_func=create_handler, methods=["POST"]
+        f"/{resource_name}",
+        endpoint=f"list_{resource_name}",
+        view_func=list_handler,
+        methods=["GET"],
+    )
+    api_v1_bp.add_url_rule(
+        f"/{resource_name}",
+        endpoint=f"create_{resource_name}",
+        view_func=create_handler,
+        methods=["POST"],
     )
     api_v1_bp.add_url_rule(
         f"/{resource_name}/<int:record_id>",
@@ -334,7 +358,9 @@ def _register_resource_routes(resource_name: str) -> None:
 def health():
     """Service heartbeat endpoint for deployment/readiness checks."""
     _publish("api.health_checked")
-    return jsonify({"status": "ok", "ai_provider": current_app.config.get("AI_PROVIDER")})
+    return jsonify(
+        {"status": "ok", "ai_provider": current_app.config.get("AI_PROVIDER")}
+    )
 
 
 @api_v1_bp.post("/ai/interactions")
@@ -371,7 +397,18 @@ def create_ai_interaction():
     except (FileNotFoundError, ValueError) as exc:
         raise BadRequestError(str(exc)) from exc
     except RuntimeError as exc:
-        return jsonify({"error": {"code": "upstream_error", "message": str(exc), "details": {}}}), 502
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "upstream_error",
+                        "message": str(exc),
+                        "details": {},
+                    }
+                }
+            ),
+            502,
+        )
 
     persistence_error = _persist_ai_interaction(payload, prompt, result)
     if persistence_error is not None:

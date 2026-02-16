@@ -1,9 +1,4 @@
-"""Logging and observer/event infrastructure.
-
-Logging is deliberately decoupled from API handlers. Handlers publish domain events
-that observers can subscribe to. The logging observer is attached in the app
-factory.
-"""
+"""Domain event primitives and observers."""
 
 from __future__ import annotations
 
@@ -21,7 +16,9 @@ class DomainEvent:
 
 
 class EventObserver:
-    def on_event(self, event: DomainEvent) -> None:  # pragma: no cover - protocol method
+    def on_event(
+        self, event: DomainEvent
+    ) -> None:  # pragma: no cover - protocol method
         raise NotImplementedError
 
 
@@ -42,11 +39,9 @@ class LoggingObserver(EventObserver):
         self._logger = logger or logging.getLogger("app.events")
 
     def on_event(self, event: DomainEvent) -> None:
-        self._logger.info("event=%s payload=%s occurred_at=%s", event.name, event.payload, event.occurred_at.isoformat())
-
-
-def configure_logging(log_level: str = "INFO") -> None:
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    )
+        self._logger.info(
+            "event=%s payload=%s occurred_at=%s",
+            event.name,
+            event.payload,
+            event.occurred_at.isoformat(),
+        )
