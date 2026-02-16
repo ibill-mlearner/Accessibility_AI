@@ -2,12 +2,13 @@
   <section class="chat-thread">
     <template v-if="store.role !== 'guest'">
       <ChatBubbleCard
-        :text="activeChatText"
-        variant="system"
-        :show-actions="true"
+        v-for="message in conversationMessages"
+        :key="message.id"
+        :text="message.text"
+        :variant="messageVariantMap[message.role] || message.role"
+        :show-actions="message.role === 'assistant'"
         @save-note="saveCurrentChatAsNote"
       />
-      <ChatBubbleCard :text="promptPreviewText" variant="user" />
     </template>
     <ComposerBar
       v-model="prompt"
@@ -39,6 +40,25 @@ const activeChatText = computed(() => {
   return selectedChat.value.title || "System's response . . ."
 })
 const promptPreviewText = computed(() => prompt.value || "User's prompt . . .")
+
+const messageVariantMap = {
+  assistant: 'system',
+  system: 'system',
+  user: 'user'
+}
+
+const conversationMessages = computed(() => [
+  {
+    id: selectedChat.value?.id ?? 'assistant-preview',
+    role: 'assistant',
+    text: activeChatText.value
+  },
+  {
+    id: 'user-preview',
+    role: 'user',
+    text: promptPreviewText.value
+  }
+])
 
 async function sendPrompt() {
   const cleanPrompt = prompt.value.trim()
