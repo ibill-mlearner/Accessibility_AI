@@ -3,4 +3,4 @@
 
 # Example:
 # SQLALCHEMY_DATABASE_URI = "sqlite:///custom-dev.db"
-# AI_PROVIDER = "mock_json"
+# AI_PROVIDER = "ollama"

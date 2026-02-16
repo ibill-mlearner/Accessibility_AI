@@ -33,7 +33,7 @@ def test_standalone_db_user_and_interaction_roundtrip():
             session,
             prompt="Summarize ATP synthesis",
             response_text="ATP synthesis primarily occurs in the mitochondria.",
-            provider="mock_json",
+            provider="ollama",
             chat_id=None,
         )
         user_id = user.id
