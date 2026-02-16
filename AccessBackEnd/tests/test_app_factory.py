@@ -30,6 +30,29 @@ def test_app_factory_registers_extensions_and_blueprints():
     assert "ai_service" in app.extensions
 
 
+def test_initialize_logging_is_idempotent():
+    from app import create_app
+    from app.services.logging import (
+        InteractionLoggingService,
+        LoggingObserver,
+        initialize_logging,
+    )
+
+    app = create_app("testing")
+
+    assert isinstance(app.extensions["ai_service"], InteractionLoggingService)
+    event_bus = app.extensions["event_bus"]
+    initial_observer_count = len(event_bus._observers)
+
+    initialize_logging(app)
+
+    assert isinstance(app.extensions["ai_service"], InteractionLoggingService)
+    assert len(event_bus._observers) == initial_observer_count
+    assert sum(
+        isinstance(observer, LoggingObserver) for observer in event_bus._observers
+    ) == 1
+
+
 def test_health_endpoint_requires_authentication(client):
     response = client.get("/api/v1/health")
     assert response.status_code == 401

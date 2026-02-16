@@ -1,5 +1,6 @@
 """Public import surface for logging and event services."""
 
+from .bootstrap import initialize_logging
 from .config import configure_logging
 from .events import DomainEvent, EventBus, EventObserver, LoggingObserver
 from .interaction_logger import (
@@ -11,6 +12,7 @@ from .interaction_logger import (
 )
 
 __all__ = [
+    "initialize_logging",
     "configure_logging",
     "DomainEvent",
     "EventBus",
