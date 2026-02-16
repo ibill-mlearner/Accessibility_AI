@@ -3,6 +3,19 @@ from pathlib import Path
 import pytest
 
 
+def _authenticate_api_client(app, client, email: str = "apitester@example.com") -> None:
+    from app.extensions import db
+
+    with app.app_context():
+        db.create_all()
+
+    response = client.post(
+        "/api/v1/api_view/register",
+        json={"email": email, "password": "password123", "role": "student"},
+    )
+    assert response.status_code == 201
+
+
 def test_app_factory_registers_extensions_and_blueprints():
     try:
         from app import create_app
@@ -17,7 +30,16 @@ def test_app_factory_registers_extensions_and_blueprints():
     assert "ai_service" in app.extensions
 
 
-def test_health_endpoint(client):
+def test_health_endpoint_requires_authentication(client):
+    response = client.get("/api/v1/health")
+    assert response.status_code == 401
+    body = response.get_json()
+    assert body["error"]["code"] == "unauthorized"
+
+
+def test_health_endpoint(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     body = response.get_json()
@@ -25,7 +47,9 @@ def test_health_endpoint(client):
     assert body["ai_provider"] == "mock_json"
 
 
-def test_resource_endpoints_return_seed_data(client):
+def test_resource_endpoints_return_seed_data(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.get("/api/v1/chats")
     assert response.status_code == 200
     data = response.get_json()
@@ -34,21 +58,27 @@ def test_resource_endpoints_return_seed_data(client):
     assert {"id", "title", "start", "model", "class", "user"}.issubset(data[0].keys())
 
 
-def test_resource_create_is_passthrough(client):
+def test_resource_create_is_passthrough(app, client):
+    _authenticate_api_client(app, client)
+
     payload = {"id": 99, "title": "Chat 99", "meta": {"tag": "passthrough"}}
     response = client.post("/api/v1/chats", json=payload)
     assert response.status_code == 201
     assert response.get_json() == payload
 
 
-def test_resource_update_replaces_record_without_transform(client):
+def test_resource_update_replaces_record_without_transform(app, client):
+    _authenticate_api_client(app, client)
+
     payload = {"id": 1, "title": "Renamed Chat", "extra": ["a", "b"]}
     response = client.put("/api/v1/chats/1", json=payload)
     assert response.status_code == 200
     assert response.get_json() == payload
 
 
-def test_resource_delete_returns_deleted_record(client):
+def test_resource_delete_returns_deleted_record(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.delete("/api/v1/chats/2")
     assert response.status_code == 200
     body = response.get_json()
@@ -78,7 +108,9 @@ def test_unmatched_route_returns_json_error(client):
     assert body["error"]["code"] == "not_found"
 
 
-def test_messages_resource_has_chat_relationship(client):
+def test_messages_resource_has_chat_relationship(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.get("/api/v1/messages")
     assert response.status_code == 200
     data = response.get_json()
@@ -87,7 +119,9 @@ def test_messages_resource_has_chat_relationship(client):
     assert {"id", "chat_id", "message_text", "vote", "note", "help_intent"}.issubset(data[0].keys())
 
 
-def test_resource_not_found_uses_json_error_envelope(client):
+def test_resource_not_found_uses_json_error_envelope(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.get("/api/v1/classes/999")
     assert response.status_code == 404
     body = response.get_json()
@@ -96,7 +130,9 @@ def test_resource_not_found_uses_json_error_envelope(client):
     assert body["error"]["details"]["id"] == 999
 
 
-def test_create_resource_requires_json_object(client):
+def test_create_resource_requires_json_object(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.post("/api/v1/chats", json=[{"id": 7}])
     assert response.status_code == 400
     body = response.get_json()
@@ -104,7 +140,9 @@ def test_create_resource_requires_json_object(client):
     assert body["error"]["message"] == "json object body required"
 
 
-def test_features_resource_includes_instructor_and_class_associations(client):
+def test_features_resource_includes_instructor_and_class_associations(app, client):
+    _authenticate_api_client(app, client)
+
     response = client.get("/api/v1/features")
     assert response.status_code == 200
     data = response.get_json()
