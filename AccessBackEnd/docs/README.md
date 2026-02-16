@@ -34,3 +34,7 @@ ORDER BY name;
 ```
 
 Expected rows include `chats` and `users`.
+
+## Logging
+
+- Logging architecture and extension points are documented in `AccessBackEnd/docs/logging.md`.
