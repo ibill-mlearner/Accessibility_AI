@@ -25,7 +25,23 @@ body { margin: 0; background: #ececec; }
   padding: 0;
 }
 .content { display: flex; flex-direction: column; gap: 20px; }
-.chat-thread { display: flex; flex-direction: column; }
+.chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+
+.chat-thread__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 6px;
+}
 .header-bar { text-align: center; background: #ddd; min-height: 86px; display: flex; align-items: center; }
 .header-bar h1 { margin: 0; font-size: 58px; font-weight: 400; color: #666; text-align: left; padding-left: 24px; }
 .header-separator { margin: 0 12px; }
@@ -44,20 +60,16 @@ input[type='radio'] { width: 42px; height: 42px; }
 .button-row { display: flex; justify-content: space-between; }
 .chat-bubble-card {
   width: fit-content;
-  max-width: 70%;
+  max-width: min(80%, 900px);
 }
 
 .chat-bubble-card--system {
   align-self: flex-start;
-  margin-left: 15%;
-  margin-right: auto;
   text-align: left;
 }
 
 .chat-bubble-card--user {
   align-self: flex-end;
-  margin-left: auto;
-  margin-right: 15%;
   text-align: left;
 }
 .auth-card {
@@ -85,6 +97,11 @@ input[type='radio'] { width: 42px; height: 42px; }
   .layout { grid-template-columns: 220px 1fr; }
   .menu-item,.chat-list li,label,input,select,.btn,.icon-btn,.panel,.card-row p,.header-bar h1,.logo-card span { font-size: 20px; }
   .icon-btn { width: 40px; height: 40px; }
+  .chat-bubble-card { max-width: 88%; }
+}
+
+@media (min-width: 1800px) {
+  .chat-bubble-card { max-width: min(70%, 1024px); }
 }
 
 .preview-only-layout {
