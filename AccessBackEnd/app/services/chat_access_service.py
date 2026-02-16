@@ -1,47 +1,38 @@
 from __future__ import annotations
 
+from flask_login import current_user
+
+from ..models.role import Role
 from ..models import Chat, CourseClass, UserClassEnrollment
 
 
 class ChatAccessService:
-    """Placeholder access-service contract for chat-flow authorization checks.
+    """Authorization checks for chat read/create operations."""
 
-    This module intentionally exposes method signatures and sequencing intent only.
-    Endpoint handlers should call these methods once implementation work begins.
-    """
+    ENROLLMENT_ACCESS_ROLES = {Role.STUDENT.value, "ta"}
 
     @staticmethod
     def get_authenticated_user_id() -> int:
-        """Return the authenticated user id used by chat access checks.
+        """Return authenticated user id from flask-login context."""
+        if not getattr(current_user, "is_authenticated", False):
+            raise PermissionError("user is not authenticated")
 
-        TODO sequence:
-        1) Resolve principal from auth/session context.
-        2) Validate principal identity is present and castable to int.
-        3) Return normalized user id for downstream checks.
-        """
-        raise NotImplementedError("TODO: implement authenticated user id resolution")
+        try:
+            return int(current_user.get_id())
+        except (TypeError, ValueError) as exc:
+            raise PermissionError("invalid authenticated user context") from exc
 
     @classmethod
     def assert_chat_owner(cls, *, chat: Chat, user_id: int) -> None:
-        """Ensure the given user is the owner of ``chat``.
-
-        TODO sequence:
-        1) Validate chat/user inputs.
-        2) Compare chat.user_id with user_id.
-        3) Raise authorization error when ownership check fails.
-        """
-        raise NotImplementedError("TODO: implement chat owner authorization check")
+        """Ensure the given user is the owner of ``chat``."""
+        if chat is None or int(chat.user_id) != int(user_id):
+            raise PermissionError("user is not chat owner")
 
     @classmethod
     def assert_class_instructor(cls, *, class_record: CourseClass, user_id: int) -> None:
-        """Ensure the given user is the instructor for ``class_record``.
-
-        TODO sequence:
-        1) Validate class/user inputs.
-        2) Compare class_record.instructor_id with user_id.
-        3) Raise authorization error when instructor check fails.
-        """
-        raise NotImplementedError("TODO: implement class instructor authorization check")
+        """Ensure the given user is the instructor for ``class_record``."""
+        if class_record is None or int(class_record.instructor_id) != int(user_id):
+            raise PermissionError("user is not class instructor")
 
     @classmethod
     def assert_active_enrollment(
@@ -51,26 +42,38 @@ class ChatAccessService:
         user_id: int,
         allowed_roles: set[str] | None = None,
     ) -> UserClassEnrollment:
-        """Ensure user has active class enrollment and optional role membership.
+        """Ensure user has active class enrollment and optional role membership."""
+        effective_allowed_roles = allowed_roles or cls.ENROLLMENT_ACCESS_ROLES
 
-        TODO sequence:
-        1) Locate enrollment where ``enrollment.user_id == user_id`` and not dropped.
-        2) Validate role membership when ``allowed_roles`` is provided.
-        3) Return matched enrollment or raise authorization error.
-        """
-        raise NotImplementedError("TODO: implement active enrollment authorization check")
+        for enrollment in enrollments:
+            if int(enrollment.user_id) != int(user_id):
+                continue
+            if enrollment.dropped_at is not None:
+                continue
+            if enrollment.role not in effective_allowed_roles:
+                continue
+            return enrollment
+
+        raise PermissionError("user is not actively enrolled in this class")
 
     @classmethod
     def assert_can_access_chat(cls, *, chat: Chat, user_id: int) -> None:
-        """Authorize chat read access via owner, instructor, or enrollment checks.
+        """Authorize chat read access via owner, instructor, or enrollment checks."""
+        try:
+            cls.assert_chat_owner(chat=chat, user_id=user_id)
+            return
+        except PermissionError:
+            pass
 
-        TODO sequence:
-        1) Allow owner access via ``assert_chat_owner``.
-        2) Allow instructor access via ``assert_class_instructor``.
-        3) Allow enrolled users via ``assert_active_enrollment``.
-        4) Raise authorization error when no access path applies.
-        """
-        raise NotImplementedError("TODO: implement chat access authorization policy")
+        class_record = chat.course_class
+
+        try:
+            cls.assert_class_instructor(class_record=class_record, user_id=user_id)
+            return
+        except PermissionError:
+            pass
+
+        cls.assert_active_enrollment(enrollments=class_record.enrollments, user_id=user_id)
 
     @classmethod
     def assert_can_create_chat(
@@ -80,14 +83,20 @@ class ChatAccessService:
         actor_user_id: int,
         requested_user_id: int | None,
     ) -> int:
-        """Authorize chat creation and return normalized owner id.
+        """Authorize chat creation and return normalized owner id."""
+        owner_user_id = int(actor_user_id if requested_user_id is None else requested_user_id)
 
-        TODO sequence:
-        1) Validate requested ownership semantics for actor/requested user ids.
-        2) Authorize through instructor or active enrollment checks.
-        3) Return persisted owner id for chat creation.
-        """
-        raise NotImplementedError("TODO: implement chat create authorization policy")
+        if owner_user_id != int(actor_user_id):
+            cls.assert_class_instructor(class_record=class_record, user_id=actor_user_id)
+            cls.assert_active_enrollment(enrollments=class_record.enrollments, user_id=owner_user_id)
+            return owner_user_id
+
+        try:
+            cls.assert_class_instructor(class_record=class_record, user_id=actor_user_id)
+            return owner_user_id
+        except PermissionError:
+            cls.assert_active_enrollment(enrollments=class_record.enrollments, user_id=actor_user_id)
+            return owner_user_id
 
 
 __all__ = ["ChatAccessService"]

@@ -12,7 +12,8 @@ from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import AIInteraction, Chat, Message, User
+from ...models import AIInteraction, Chat, CourseClass, Message, User
+from ...services.chat_access_service import ChatAccessService
 from ...services.logging import DomainEvent
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -84,6 +85,21 @@ def _read_json_object() -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise BadRequestError("json object body required")
     return payload
+
+
+def _forbidden_response(message: str = "access denied"):
+    return (
+        jsonify(
+            {
+                "error": {
+                    "code": "forbidden",
+                    "message": message,
+                    "details": {},
+                }
+            }
+        ),
+        403,
+    )
 
 
 def _todo_response(
@@ -203,30 +219,29 @@ def list_chats():
 def create_chat():
     """Create a chat for the authenticated user in a class context."""
     payload = _deserialize_payload("chat", _read_json_object())
-    authenticated_user_id = int(current_user.get_id())
+    authenticated_user_id = ChatAccessService.get_authenticated_user_id()
 
     class_id = payload.get("class_id")
     if class_id is None:
         raise BadRequestError("class_id is required")
 
-    requested_user_id = int(payload.get("user_id", authenticated_user_id))
-    if requested_user_id != authenticated_user_id:
-        return (
-            jsonify(
-                {
-                    "error": {
-                        "code": "forbidden",
-                        "message": "cannot create chats for another user",
-                        "details": {},
-                    }
-                }
-            ),
-            403,
+    class_record = db.session.get(CourseClass, int(class_id))
+    if class_record is None:
+        raise NotFoundError("class not found")
+
+    requested_user_id = payload.get("user_id")
+    try:
+        owner_user_id = ChatAccessService.assert_can_create_chat(
+            class_record=class_record,
+            actor_user_id=authenticated_user_id,
+            requested_user_id=None if requested_user_id is None else int(requested_user_id),
         )
+    except PermissionError:
+        return _forbidden_response("access denied")
 
     chat = Chat(
         class_id=int(class_id),
-        user_id=authenticated_user_id,
+        user_id=owner_user_id,
         title=(payload.get("title") or "New Chat").strip(),
         model=(payload.get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown").strip(),
     )
@@ -242,19 +257,13 @@ def list_chat_messages(chat_id: int):
     chat = db.session.get(Chat, chat_id)
     if chat is None:
         raise NotFoundError("chat not found")
-    if chat.user_id != int(current_user.get_id()):
-        return (
-            jsonify(
-                {
-                    "error": {
-                        "code": "forbidden",
-                        "message": "user is not authorized for this chat",
-                        "details": {},
-                    }
-                }
-            ),
-            403,
+    try:
+        ChatAccessService.assert_can_access_chat(
+            chat=chat,
+            user_id=ChatAccessService.get_authenticated_user_id(),
         )
+    except PermissionError:
+        return _forbidden_response("access denied")
 
     messages = (
         db.session.query(Message)
@@ -281,19 +290,13 @@ def create_chat_message(chat_id: int):
     chat = db.session.get(Chat, chat_id)
     if chat is None:
         raise NotFoundError("chat not found")
-    if chat.user_id != int(current_user.get_id()):
-        return (
-            jsonify(
-                {
-                    "error": {
-                        "code": "forbidden",
-                        "message": "user is not authorized for this chat",
-                        "details": {},
-                    }
-                }
-            ),
-            403,
+    try:
+        ChatAccessService.assert_can_access_chat(
+            chat=chat,
+            user_id=ChatAccessService.get_authenticated_user_id(),
         )
+    except PermissionError:
+        return _forbidden_response("access denied")
 
     payload = _deserialize_payload("message", _read_json_object())
     message_text = (payload.get("message_text") or "").strip()
