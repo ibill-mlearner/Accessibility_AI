@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from flask import Flask
+from flask import jsonify
 
 from . import config
 from .api.errors import register_api_error_handlers
@@ -74,6 +75,10 @@ def create_app(config_name: str | None = None) -> Flask:
     )
     login_manager.init_app(app)
 
+    @login_manager.unauthorized_handler
+    def _unauthorized_response():
+        return jsonify({"error": {"code": "unauthorized", "message": "authentication required", "details": {}}}), 401
+
     event_bus = EventBus()
     event_bus.subscribe(LoggingObserver())
     app.extensions["event_bus"] = event_bus
@@ -92,6 +97,6 @@ def create_app(config_name: str | None = None) -> Flask:
 
     @login_manager.user_loader
     def load_user(user_id: str):
-        return User.query.get(int(user_id))
+        return db_ext.session.get(User, int(user_id))
 
     return app

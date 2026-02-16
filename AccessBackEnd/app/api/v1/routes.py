@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_login import current_user
+from flask_login import current_user, login_required
 
 from ..errors import BadRequestError, NotFoundError
 from .api_view import register_api_view_route
@@ -238,18 +238,23 @@ def _delete_resource(resource_name: str, record_id: int):
 def _register_resource_routes(resource_name: str) -> None:
     """Register standard CRUD endpoints for a top-level API resource."""
 
+    @login_required
     def list_handler() -> tuple[Any, int]:
         return _list_resource(resource_name)
 
+    @login_required
     def create_handler() -> tuple[Any, int]:
         return _create_resource(resource_name)
 
+    @login_required
     def get_handler(record_id: int) -> tuple[Any, int]:
         return _get_resource(resource_name, record_id)
 
+    @login_required
     def update_handler(record_id: int) -> tuple[Any, int]:
         return _update_resource(resource_name, record_id)
 
+    @login_required
     def delete_handler(record_id: int) -> tuple[Any, int]:
         return _delete_resource(resource_name, record_id)
 
@@ -278,6 +283,7 @@ def _register_resource_routes(resource_name: str) -> None:
 
 
 @api_v1_bp.get("/health")
+@login_required
 def health():
     """Service heartbeat endpoint for deployment/readiness checks."""
     _publish("api.health_checked")
