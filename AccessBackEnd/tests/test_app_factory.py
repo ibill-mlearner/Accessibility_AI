@@ -4,10 +4,10 @@ import pytest
 
 
 def _authenticate_api_client(app, client, email: str = "apitester@example.com") -> None:
+    from app.db import init_flask_database
     from app.extensions import db
 
-    with app.app_context():
-        db.create_all()
+    init_flask_database(app)
 
     response = client.post(
         "/api/v1/api_view/register",
@@ -85,7 +85,7 @@ def test_resource_delete_returns_deleted_record(app, client):
     assert body["id"] == 2
 
 
-def test_ai_interaction_accepts_future_growth_fields(client):
+def test_ai_interaction_accepts_future_growth_fields(app, client):
     payload = {
         "prompt": "hello",
         "system_prompt": "You are a helpful note assistant",
@@ -93,11 +93,58 @@ def test_ai_interaction_accepts_future_growth_fields(client):
         "context": {"class_id": 1},
     }
 
+    from app.db import init_flask_database
+
+    init_flask_database(app)
+
     response = client.post("/api/v1/ai/interactions", json=payload)
     assert response.status_code == 200
     body = response.get_json()
     assert "meta" in body
     assert body["meta"]["prompt_echo"] == "hello"
+
+
+def test_ai_interaction_persists_record(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import AIInteraction
+
+    init_flask_database(app)
+
+    payload = {
+        "prompt": "persist this interaction",
+        "context": {"class_id": 1},
+    }
+    response = client.post("/api/v1/ai/interactions", json=payload)
+
+    assert response.status_code == 200
+
+    with app.app_context():
+        interactions = db.session.query(AIInteraction).all()
+        assert len(interactions) == 1
+        assert interactions[0].prompt == payload["prompt"]
+        assert interactions[0].provider == "mock_json"
+        assert interactions[0].response_text
+
+
+def test_ai_interaction_returns_structured_error_when_persistence_fails(app, client, monkeypatch):
+    from app.db import init_flask_database
+    from app.extensions import db
+
+    init_flask_database(app)
+
+    from sqlalchemy.exc import SQLAlchemyError
+
+    def _raise_sql_error() -> None:
+        raise SQLAlchemyError("forced commit failure")
+
+    monkeypatch.setattr(db.session, "commit", _raise_sql_error)
+
+    response = client.post("/api/v1/ai/interactions", json={"prompt": "hello"})
+
+    assert response.status_code == 500
+    body = response.get_json()
+    assert body["error"]["code"] == "persistence_error"
 
 
 def test_unmatched_route_returns_json_error(client):
@@ -164,10 +211,10 @@ def test_api_view_page_renders(client):
 
 
 def test_api_view_register_creates_user_and_returns_session_token(app, client):
+    from app.db import init_flask_database
     from app.extensions import db
 
-    with app.app_context():
-        db.create_all()
+    init_flask_database(app)
 
     response = client.post(
         "/api/v1/api_view/register",
@@ -184,10 +231,10 @@ def test_api_view_register_creates_user_and_returns_session_token(app, client):
 
 
 def test_api_view_login_returns_session_token(app, client):
+    from app.db import init_flask_database
     from app.extensions import db
 
-    with app.app_context():
-        db.create_all()
+    init_flask_database(app)
 
     register_response = client.post(
         "/auth/register",

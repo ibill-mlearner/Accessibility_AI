@@ -1,17 +1,20 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..errors import BadRequestError, NotFoundError
 from .api_view import register_api_view_route
 
+from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
 from ...logging_config import DomainEvent
-from ...models import Chat, CourseClass, Feature, Message, Note
+from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note
 
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -128,6 +131,93 @@ def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
     """Publish a domain event for endpoint observability."""
     current_app.extensions["event_bus"].publish(DomainEvent(event_name, payload or {}))
 
+
+def _extract_response_text(result: Any) -> str:
+    """Normalize provider payload into a storable interaction response string."""
+    if isinstance(result, dict):
+        for key in ("response_text", "response", "answer", "result"):
+            value = result.get(key)
+            if value is not None:
+                return str(value)
+
+        if "data" in result:
+            data_value = result["data"]
+            if isinstance(data_value, str):
+                return data_value
+            if data_value is not None:
+                return json.dumps(data_value, default=str)
+
+    if isinstance(result, str):
+        return result
+
+    return json.dumps(result, default=str)
+
+
+
+
+def _resolve_initiated_by(payload: dict[str, Any]) -> str:
+    """Resolve actor identifier used for AI interaction auditing."""
+    if getattr(current_user, "is_authenticated", False):
+        return str(current_user.get_id() or getattr(current_user, "email", "authenticated_user"))
+    if payload.get("user"):
+        return str(payload["user"])
+    if payload.get("user_id"):
+        return str(payload["user_id"])
+    return "anonymous"
+
+
+def _resolve_provider(result: Any) -> str:
+    """Resolve persisted provider name from response payload or app config."""
+    provider = current_app.config.get("AI_PROVIDER") or "unknown"
+    if isinstance(result, dict):
+        meta_payload = result.get("meta")
+        if isinstance(meta_payload, dict) and meta_payload.get("provider"):
+            return str(meta_payload["provider"])
+        if result.get("provider"):
+            return str(result["provider"])
+    return str(provider)
+
+
+def _resolve_chat_id(payload: dict[str, Any]) -> int | None:
+    """Extract optional chat id and validate integer shape when present."""
+    chat_id = payload.get("chat_id")
+    if chat_id is None:
+        return None
+    try:
+        return int(chat_id)
+    except (TypeError, ValueError) as exc:
+        raise BadRequestError("chat_id must be an integer") from exc
+
+
+def _persist_ai_interaction(payload: dict[str, Any], prompt: str, result: Any) -> tuple[Any, int] | None:
+    """Persist an AI interaction; return error response tuple when persistence fails."""
+    interaction_repo = AIInteractionRepository(AIInteraction)
+
+    try:
+        interaction_repo.create(
+            db.session,
+            prompt=prompt,
+            response_text=_extract_response_text(result),
+            provider=_resolve_provider(result),
+            chat_id=_resolve_chat_id(payload),
+        )
+        db.session.commit()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "persistence_error",
+                        "message": "Failed to persist AI interaction",
+                        "details": {"exception": exc.__class__.__name__},
+                    }
+                }
+            ),
+            500,
+        )
+
+    return None
 
 def _list_resource(resource_name: str):
     """Return all records for a resource from ORM-backed storage."""
@@ -269,13 +359,7 @@ def create_ai_interaction():
         },
     )
 
-    initiated_by = "anonymous"
-    if getattr(current_user, "is_authenticated", False):
-        initiated_by = str(current_user.get_id() or getattr(current_user, "email", "authenticated_user"))
-    elif payload.get("user"):
-        initiated_by = str(payload["user"])
-    elif payload.get("user_id"):
-        initiated_by = str(payload["user_id"])
+    initiated_by = _resolve_initiated_by(payload)
 
     try:
         result = current_app.extensions["ai_service"].run_interaction(
@@ -287,6 +371,10 @@ def create_ai_interaction():
         raise BadRequestError(str(exc)) from exc
     except RuntimeError as exc:
         return jsonify({"error": {"code": "upstream_error", "message": str(exc), "details": {}}}), 502
+
+    persistence_error = _persist_ai_interaction(payload, prompt, result)
+    if persistence_error is not None:
+        return persistence_error
 
     return jsonify(result), 200
 
