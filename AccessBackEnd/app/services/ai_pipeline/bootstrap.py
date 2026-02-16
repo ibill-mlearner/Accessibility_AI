@@ -24,6 +24,10 @@ class HuggingFaceModelBootstrap:
         if not self.model_id:
             raise ValueError("model_id must be configured for HuggingFace bootstrap")
 
+        candidate_path = Path(self.model_id).expanduser()
+        if candidate_path.exists() and candidate_path.is_dir():
+            return candidate_path
+
         try:
             from huggingface_hub import snapshot_download
         except Exception as exc:  # pragma: no cover - dependency and env specific
