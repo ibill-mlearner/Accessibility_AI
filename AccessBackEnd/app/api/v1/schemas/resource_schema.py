@@ -19,6 +19,23 @@ ChatRecord = TypedDict(
 )
 
 
+
+
+class ClassRecord(TypedDict, total=False):
+    """Class resource payload contract with ownership and section metadata."""
+
+    id: int
+    role: str
+    name: str
+    description: str
+    instructor_id: int
+    term: str | None
+    section_code: str | None
+    external_class_key: str | None
+    instructor: dict[str, Any]
+    section: dict[str, str | None]
+
+
 class MessageRecord(TypedDict, total=False):
     """Pass-through message record contract.
 

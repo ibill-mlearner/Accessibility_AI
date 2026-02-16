@@ -3,7 +3,12 @@ from pathlib import Path
 import pytest
 
 
-def _authenticate_api_client(app, client, email: str = "apitester@example.com") -> None:
+def _authenticate_api_client(
+    app,
+    client,
+    email: str = "apitester@example.com",
+    role: str = "student",
+) -> None:
     from app.db import init_flask_database
     from app.extensions import db
 
@@ -11,7 +16,7 @@ def _authenticate_api_client(app, client, email: str = "apitester@example.com") 
 
     response = client.post(
         "/api/v1/api_view/register",
-        json={"email": email, "password": "password123", "role": "student"},
+        json={"email": email, "password": "password123", "role": role},
     )
     assert response.status_code == 201
 
@@ -396,3 +401,65 @@ def test_build_ai_service_maps_explicit_ollama_config_fields():
     assert service.config.model_name == app.config["AI_MODEL_NAME"]
     assert service.config.ollama_model_id == "llama3.2:3b"
     assert service.config.ollama_options == {"temperature": 0.05}
+
+
+def test_classes_resource_returns_instructor_and_section_metadata(app, client):
+    _authenticate_api_client(app, client, email="instructor.meta@example.com", role="instructor")
+
+    response = client.post(
+        "/api/v1/classes",
+        json={
+            "name": "Biology 102",
+            "role": "student",
+            "description": "Spring section",
+            "instructor_id": 1,
+            "term": "2026-SPRING",
+            "section_code": "B02",
+            "external_class_key": "BIO-102-2026-SPRING-B02",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.get_json()
+    assert payload["instructor_id"] == 1
+    assert payload["section"]["term"] == "2026-SPRING"
+    assert payload["section"]["section_code"] == "B02"
+    assert payload["instructor"]["id"] == 1
+
+
+def test_chat_read_requires_membership_or_ownership(app, client):
+    _authenticate_api_client(app, client, email="instructor.chat@example.com", role="instructor")
+
+    class_response = client.post(
+        "/api/v1/classes",
+        json={
+            "name": "Physics 201",
+            "role": "student",
+            "description": "Class for membership checks",
+            "instructor_id": 1,
+            "term": "2026-FALL",
+            "section_code": "P01",
+            "external_class_key": "PHY-201-2026-FALL-P01",
+        },
+    )
+    class_id = class_response.get_json()["id"]
+
+    chat_response = client.post(
+        "/api/v1/chats",
+        json={
+            "title": "Kinematics prep",
+            "start": "2026-09-01T00:00:00+00:00",
+            "model": "gpt-4o-mini",
+            "class": class_id,
+            "user": 1,
+        },
+    )
+    assert chat_response.status_code == 201
+    chat_id = chat_response.get_json()["id"]
+
+    outsider_client = app.test_client()
+    _authenticate_api_client(app, outsider_client, email="outsider@example.com", role="student")
+
+    unauthorized = outsider_client.get(f"/api/v1/chats/{chat_id}")
+    assert unauthorized.status_code == 403
+    assert unauthorized.get_json()["error"]["message"] == "user is not authorized for this chat"

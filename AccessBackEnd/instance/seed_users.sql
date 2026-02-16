@@ -84,13 +84,54 @@ ON CONFLICT(email) DO UPDATE SET
   lockout_enabled = excluded.lockout_enabled,
   security_stamp = excluded.security_stamp;
 
-INSERT INTO classes (role, name, description)
-SELECT 'student', 'Soup Basics 101', 'Beginner discussion topics for making chicken noodle soup.'
-WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Soup Basics 101');
+INSERT INTO classes (role, name, description, instructor_id, term, section_code, external_class_key)
+SELECT
+  'student',
+  'Soup Basics 101',
+  'Beginner discussion topics for making chicken noodle soup.',
+  (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1),
+  '2025-SPRING',
+  'A1',
+  'SOUP-101-2025-SPRING-A1'
+WHERE NOT EXISTS (SELECT 1 FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1');
 
-INSERT INTO classes (role, name, description)
-SELECT 'instructor', 'Soup Lab', 'Instructor-led walkthrough for a simple chicken noodle soup recipe.'
-WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Soup Lab');
+INSERT INTO classes (role, name, description, instructor_id, term, section_code, external_class_key)
+SELECT
+  'instructor',
+  'Soup Lab',
+  'Instructor-led walkthrough for a simple chicken noodle soup recipe.',
+  (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1),
+  '2025-SPRING',
+  'L1',
+  'SOUP-LAB-2025-SPRING-L1'
+WHERE NOT EXISTS (SELECT 1 FROM classes WHERE external_class_key = 'SOUP-LAB-2025-SPRING-L1');
+
+
+INSERT INTO user_class_enrollments (user_id, class_id, role, enrolled_at)
+SELECT
+  (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1),
+  (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1),
+  'student',
+  CURRENT_TIMESTAMP
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM user_class_enrollments
+  WHERE user_id = (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1)
+    AND class_id = (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1)
+);
+
+INSERT INTO user_class_enrollments (user_id, class_id, role, enrolled_at)
+SELECT
+  (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1),
+  (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1),
+  'student',
+  CURRENT_TIMESTAMP
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM user_class_enrollments
+  WHERE user_id = (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1)
+    AND class_id = (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1)
+);
 
 INSERT INTO chats (title, model, class_id, user_id)
 SELECT

@@ -6,6 +6,7 @@ from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..errors import BadRequestError, NotFoundError
@@ -13,7 +14,16 @@ from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note
+from ...models import (
+    AIInteraction,
+    Chat,
+    CourseClass,
+    Feature,
+    Message,
+    Note,
+    UserClassEnrollment,
+)
+from ...services.chat_access_service import ChatAccessService
 from ...services.logging import DomainEvent
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -133,7 +143,43 @@ def _serialize_record(resource_name: str, record: Any) -> dict[str, Any]:
             value = value.isoformat()
         payload[api_field] = value
 
+    if resource_name == "classes":
+        payload["instructor"] = {
+            "id": record.instructor.id,
+            "email": record.instructor.email,
+            "role": record.instructor.role,
+        }
+        payload["section"] = {
+            "term": payload.get("term"),
+            "section_code": payload.get("section_code"),
+            "external_class_key": payload.get("external_class_key"),
+        }
+
     return payload
+
+
+def _chat_accessible_query():
+    """Base query scoped to chats accessible by the current user."""
+    user_id = int(current_user.get_id())
+    return (
+        db.session.query(Chat)
+        .join(CourseClass, Chat.class_id == CourseClass.id)
+        .outerjoin(
+            UserClassEnrollment,
+            and_(
+                UserClassEnrollment.class_id == CourseClass.id,
+                UserClassEnrollment.user_id == user_id,
+                UserClassEnrollment.dropped_at.is_(None),
+            ),
+        )
+        .filter(
+            or_(
+                Chat.user_id == user_id,
+                CourseClass.instructor_id == user_id,
+                UserClassEnrollment.id.is_not(None),
+            )
+        )
+    )
 
 
 def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
@@ -235,7 +281,10 @@ def _persist_ai_interaction(
 def _list_resource(resource_name: str):
     """Return all records for a resource from ORM-backed storage."""
     model = _resource_model(resource_name)
-    records = db.session.query(model).all()
+    if resource_name == "chats":
+        records = _chat_accessible_query().all()
+    else:
+        records = db.session.query(model).all()
     _publish(f"api.{resource_name}.listed", {"count": len(records)})
     return (
         jsonify([_serialize_record(resource_name, record) for record in records]),
@@ -249,6 +298,8 @@ def _get_resource(resource_name: str, record_id: int):
     record = db.session.get(model, record_id)
     if record is None:
         _resource_not_found(resource_name, record_id)
+    if resource_name == "chats":
+        ChatAccessService.assert_can_access_chat(record)
 
     _publish(f"api.{resource_name}.retrieved", {"id": record_id})
     return jsonify(_serialize_record(resource_name, record)), 200
@@ -259,6 +310,20 @@ def _create_resource(resource_name: str):
     payload = _read_json_object()
     model = _resource_model(resource_name)
     transformed_payload = _deserialize_payload(resource_name, payload)
+
+    if resource_name == "chats":
+        class_id = transformed_payload.get("class_id")
+        if class_id is None:
+            raise BadRequestError("class is required")
+
+        course_class = db.session.get(CourseClass, class_id)
+        if course_class is None:
+            raise BadRequestError("class not found")
+
+        transformed_payload["user_id"] = ChatAccessService.assert_can_create_chat(
+            class_record=course_class,
+            requested_user_id=transformed_payload.get("user_id"),
+        )
 
     record = model(**transformed_payload)
     db.session.add(record)

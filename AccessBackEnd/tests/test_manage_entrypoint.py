@@ -39,10 +39,13 @@ def test_seed_users_from_sql_inserts_rows(tmp_path):
             "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, normalized_email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, last_login_at TEXT, is_active INTEGER NOT NULL DEFAULT 1, email_confirmed INTEGER NOT NULL DEFAULT 0, lockout_end TEXT, access_failed_count INTEGER NOT NULL DEFAULT 0, lockout_enabled INTEGER NOT NULL DEFAULT 1, security_stamp TEXT NOT NULL DEFAULT '')"
         )
         conn.execute(
-            "CREATE TABLE classes (id INTEGER PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL)"
+            "CREATE TABLE classes (id INTEGER PRIMARY KEY, role TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, instructor_id INTEGER NOT NULL, term TEXT, section_code TEXT, external_class_key TEXT UNIQUE)"
         )
         conn.execute(
             "CREATE TABLE chats (id INTEGER PRIMARY KEY, title TEXT NOT NULL, started_at TEXT DEFAULT CURRENT_TIMESTAMP, model TEXT NOT NULL, class_id INTEGER NOT NULL, user_id INTEGER NOT NULL)"
+        )
+        conn.execute(
+            "CREATE TABLE user_class_enrollments (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, class_id INTEGER NOT NULL, role TEXT NOT NULL, enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP, dropped_at TEXT)"
         )
 
     assert module._seed_users_from_sql(uri)

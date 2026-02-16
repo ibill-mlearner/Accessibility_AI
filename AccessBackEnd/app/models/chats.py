@@ -2,7 +2,17 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -13,14 +23,47 @@ class CourseClass(Base):
     """Course context that groups chats and notes."""
 
     __tablename__ = "classes"
+    __table_args__ = (
+        UniqueConstraint("name", "instructor_id", "term", name="uq_class_name_instructor_term"),
+        UniqueConstraint("external_class_key", name="uq_class_external_key"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     role: Mapped[str] = mapped_column(String(32), nullable=False, default=Role.STUDENT.value)
     name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    instructor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    term: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    section_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    external_class_key: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+
+    instructor: Mapped["DBUser"] = relationship(back_populates="taught_classes")
+    enrollments: Mapped[list["UserClassEnrollment"]] = relationship(
+        back_populates="course_class", cascade="all, delete-orphan"
+    )
 
     chats: Mapped[list["Chat"]] = relationship(back_populates="course_class", cascade="all, delete-orphan")
     notes: Mapped[list["Note"]] = relationship(back_populates="course_class", cascade="all, delete-orphan")
+
+
+class UserClassEnrollment(Base):
+    """Many-to-many enrollment records between users and classes."""
+
+    __tablename__ = "user_class_enrollments"
+    __table_args__ = (
+        UniqueConstraint("user_id", "class_id", name="uq_user_class_enrollment"),
+        CheckConstraint("role IN ('student', 'ta')", name="ck_user_class_enrollment_role"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default=Role.STUDENT.value)
+    enrolled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    dropped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["DBUser"] = relationship(back_populates="class_enrollments")
+    course_class: Mapped[CourseClass] = relationship(back_populates="enrollments")
 
 
 class Chat(Base):
@@ -70,4 +113,3 @@ class Note(Base):
 
     course_class: Mapped[CourseClass] = relationship(back_populates="notes")
     chat: Mapped[Chat] = relationship(back_populates="notes")
-

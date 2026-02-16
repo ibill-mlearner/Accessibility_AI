@@ -11,7 +11,7 @@ from .ai_interaction import AIInteraction, SystemPrompt
 from .ai_models import AIModel, Feature
 from .audit_log import AuditLog
 from .base import Base
-from .chats import Chat, CourseClass, Message, Note
+from .chats import Chat, CourseClass, Message, Note, UserClassEnrollment
 from .role import Role
 from .session import UserSession
 
@@ -46,6 +46,12 @@ class DBUser(Base):
     security_stamp: Mapped[str] = mapped_column(String(64), nullable=False, default="")
 
     chats: Mapped[list[Chat]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    taught_classes: Mapped[list[CourseClass]] = relationship(
+        back_populates="instructor", foreign_keys=[CourseClass.instructor_id]
+    )
+    class_enrollments: Mapped[list[UserClassEnrollment]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     accommodations: Mapped[list[Accommodation]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list[UserSession]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
@@ -70,6 +76,7 @@ DB_MODELS = {
     "chat": Chat,
     "message": Message,
     "note": Note,
+    "user_class_enrollment": UserClassEnrollment,
     "feature": Feature,
     "ai_model": AIModel,
     "system_prompt": SystemPrompt,
