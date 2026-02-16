@@ -1,0 +1,16 @@
+<li>
+  <code>POST /api/v1/api_view/logout</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p>Clears the current API-view auth session and invalidates the saved test token state.</p>
+    <pre>{"message":"logout successful"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "api-view-logout" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/api_view/logout" %}
+      {% set seed_payload = "{}" %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>

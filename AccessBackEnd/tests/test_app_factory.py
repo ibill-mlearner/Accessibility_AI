@@ -245,6 +245,7 @@ def test_api_view_page_renders(client):
     assert "/api/v1/health" in body
     assert "/api/v1/api_view/register" in body
     assert "/api/v1/api_view/login" in body
+    assert "/api/v1/api_view/logout" in body
 
 
 def test_api_view_register_creates_user_and_returns_session_token(app, client):
@@ -290,6 +291,24 @@ def test_api_view_login_returns_session_token(app, client):
     assert body["user"]["email"] == "student@example.com"
     assert isinstance(body["session_token"], str)
     assert body["session_token"]
+
+
+def test_api_view_logout_clears_session(app, client):
+    from app.db import init_flask_database
+
+    init_flask_database(app)
+
+    register_response = client.post(
+        "/api/v1/api_view/register",
+        json={"email": "logoutstudent@example.com", "password": "password123", "role": "student"},
+    )
+    assert register_response.status_code == 201
+
+    response = client.post("/api/v1/api_view/logout")
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["message"] == "logout successful"
 
 
 def test_create_app_uses_backend_instance_directory():

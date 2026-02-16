@@ -9,7 +9,7 @@ from flask import (
     request,
     session,
 )
-from flask_login import login_user
+from flask_login import login_user, logout_user
 
 from ....extensions import db
 from ....models import User
@@ -21,6 +21,7 @@ _ALLOWED_ROLES = {"student", "instructor", "admin"}
 _ENDPOINT_COMPONENTS: list[str] = [
     "api_view/endpoints/register.html",
     "api_view/endpoints/login.html",
+    "api_view/endpoints/logout.html",
     "api_view/endpoints/health.html",
     "api_view/endpoints/ai_interactions.html",
     "api_view/endpoints/chats_collection.html",
@@ -124,6 +125,16 @@ def login() -> tuple[Response, int]:
     )
 
 
+def logout() -> tuple[Response, int]:
+    """Clear the current auth session for API view testing flows."""
+    logout_user()
+    session.clear()
+
+    current_app.extensions["event_bus"].publish(DomainEvent("api.view_logout_succeeded"))
+
+    return jsonify({"message": "logout successful"}), 200
+
+
 def api_view() -> Response:
     """Render a template-based built-in API test page for v1 endpoints."""
     current_app.extensions["event_bus"].publish(DomainEvent("api.viewed"))
@@ -148,4 +159,10 @@ def register_api_view_route(api_v1_bp: Blueprint) -> None:
     )
     api_v1_bp.add_url_rule(
         "/api_view/login", endpoint="api_view_login", view_func=login, methods=["POST"]
+    )
+    api_v1_bp.add_url_rule(
+        "/api_view/logout",
+        endpoint="api_view_logout",
+        view_func=logout,
+        methods=["POST"],
     )
