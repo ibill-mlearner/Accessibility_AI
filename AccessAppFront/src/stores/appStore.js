@@ -71,6 +71,8 @@ import api from '../services/api'
 export const useAppStore = defineStore('app', {
   state: () => ({
     role: 'guest',
+    user: null,
+    authError: '',
     selectedChatId: null,
     selectedClassId: null,
     selectedModel: '',
@@ -395,11 +397,31 @@ export const useAppStore = defineStore('app', {
         this.loading = false
       }
     },
-    login() {
-      this.role = 'student'
+    async login({ email, password }) {
+      this.authError = ''
+      try {
+        const response = await api.post('/api/v1/auth/login', { email, password })
+        const authenticatedUser = response?.data?.user || {}
+        this.user = {
+          id: authenticatedUser.id,
+          email: authenticatedUser.email
+        }
+        this.role = authenticatedUser.role || (this.user ? 'authenticated' : 'guest')
+        return true
+      } catch (error) {
+        const status = error?.response?.status
+        if (status === 400 || status === 401) {
+          this.authError = 'Invalid email or password.'
+        } else {
+          this.authError = 'Unable to log in right now. Please try again.'
+        }
+        throw error
+      }
     },
     logout() {
       this.role = 'guest'
+      this.user = null
+      this.authError = ''
       this.selectedClassId = null
     },
     setRole(role) {

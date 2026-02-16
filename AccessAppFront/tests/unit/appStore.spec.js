@@ -71,12 +71,20 @@ describe('appStore actions', () => {
     expect(store.loading).toBe(false)
   })
 
-  it('login, logout, and setRole update role and selectedClassId as expected', () => {
+  it('login, logout, and setRole update auth state and selectedClassId as expected', async () => {
     const store = useAppStore()
     store.selectedClassId = 42
 
-    store.login()
+    api.post.mockResolvedValueOnce({ data: { user: { id: 5, email: 'student@example.com', role: 'student' } } })
+
+    await store.login({ email: 'student@example.com', password: 'secret' })
+    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/login', {
+      email: 'student@example.com',
+      password: 'secret'
+    })
     expect(store.role).toBe('student')
+    expect(store.user).toEqual({ id: 5, email: 'student@example.com' })
+    expect(store.authError).toBe('')
     expect(store.selectedClassId).toBe(42)
 
     store.setRole('instructor')
@@ -86,6 +94,20 @@ describe('appStore actions', () => {
     store.selectedClassId = 99
     store.logout()
     expect(store.role).toBe('guest')
+    expect(store.user).toBeNull()
+    expect(store.authError).toBe('')
     expect(store.selectedClassId).toBeNull()
+  })
+
+  it('login sets auth-specific error on 401/400 failures', async () => {
+    const store = useAppStore()
+    api.post.mockRejectedValueOnce({ response: { status: 401 } })
+
+    await expect(store.login({ email: 'bad@example.com', password: 'wrong' })).rejects.toEqual({
+      response: { status: 401 }
+    })
+
+    expect(store.authError).toBe('Invalid email or password.')
+    expect(store.role).toBe('guest')
   })
 })
