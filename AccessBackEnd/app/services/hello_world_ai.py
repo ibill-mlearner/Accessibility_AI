@@ -7,11 +7,15 @@ Run from the backend folder:
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+INSTANCE_DIR = BACKEND_ROOT / "app" / "instance"
+DEMO_MODEL_REPO_ID = os.getenv("AI_DEMO_MODEL_REPO", "NousResearch/Meta-Llama-3-8B-Instruct")
+DEMO_MODEL_LOCAL_DIR = INSTANCE_DIR / "models" / "meta-llama-3-8b-instruct"
 
 
 def _configure_import_path() -> None:
@@ -32,6 +36,28 @@ def _configure_import_path() -> None:
     backend_root = str(BACKEND_ROOT)
     if backend_root not in sys.path:
         sys.path.insert(0, backend_root)
+
+
+def ensure_demo_model() -> Path:
+    """Ensure an 8B model exists under ``app/instance`` for demo inference."""
+
+    DEMO_MODEL_LOCAL_DIR.mkdir(parents=True, exist_ok=True)
+    if (DEMO_MODEL_LOCAL_DIR / "config.json").exists():
+        return DEMO_MODEL_LOCAL_DIR
+
+    try:
+        from huggingface_hub import snapshot_download
+    except Exception as exc:  # pragma: no cover - env specific
+        raise RuntimeError(
+            "huggingface_hub is required. Install backend requirements to run the AI demo."
+        ) from exc
+
+    snapshot_download(
+        repo_id=DEMO_MODEL_REPO_ID,
+        local_dir=DEMO_MODEL_LOCAL_DIR,
+        local_dir_use_symlinks=False,
+    )
+    return DEMO_MODEL_LOCAL_DIR
 
 
 _configure_import_path()
@@ -56,29 +82,29 @@ def build_prompt_with_system_instructions(system_prompt: str, user_prompt: str) 
 
 
 def main() -> None:
-    mock_resource = BACKEND_ROOT / "app" / "resources" / "mock_ai_response.json"
+    model_path = ensure_demo_model()
 
     pipeline = AIPipelineService(
         AIPipelineConfig(
-            provider="mock_json",
-            mock_resource_path=str(mock_resource),
+            provider="huggingface",
+            huggingface_model_id=str(model_path),
+            max_new_tokens=192,
+            temperature=0.2,
         )
     )
 
     user_prompt = "Generate accessibility support suggestions for a lecture chat tool."
     composed_prompt = build_prompt_with_system_instructions(DEFAULT_SYSTEM_PROMPT, user_prompt)
 
-    # Rough-in structure for future provider support where system prompts can be
-    # passed separately instead of being flattened into one prompt string.
     context = {
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
-        "sprint_note": "Demo scaffold only; providers can adopt dedicated system prompt channels later.",
+        "sprint_note": "Demo uses a local 8B HuggingFace model in app/instance/models.",
     }
 
     response = pipeline.run_interaction(composed_prompt, context=context)
 
     print("=== Pipeline input payload (demo) ===")
-    print(json.dumps({"prompt": composed_prompt, "context": context}, indent=2))
+    print(json.dumps({"prompt": composed_prompt, "context": context, "model_path": str(model_path)}, indent=2))
     print("\n=== Pipeline response ===")
     print(json.dumps(response, indent=2))
 
