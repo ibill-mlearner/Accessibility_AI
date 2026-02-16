@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from flask import Flask
 from flask import jsonify
 
@@ -12,13 +10,7 @@ from .blueprints.auth.routes import auth_bp
 from .db import init_flask_database
 from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
-from .services.logging import (
-    EventBus,
-    InteractionLoggingService,
-    LoggingObserver,
-    RotatingTextLogWriter,
-    configure_logging,
-)
+from .services.logging import initialize_logging
 from .models import User
 from .services import AIPipelineConfig, AIPipelineService
 
@@ -78,8 +70,6 @@ def create_app(config_name: str | None = None) -> Flask:
     if app.config.get("DATA_BACKEND_FACTORY"):
         app.extensions["data_backend"] = app.config["DATA_BACKEND_FACTORY"]()
 
-    configure_logging(app.config["LOG_LEVEL"])
-
     db_ext.init_app(app)
     migrate.init_app(app, db_ext)
     jwt.init_app(app)
@@ -105,19 +95,8 @@ def create_app(config_name: str | None = None) -> Flask:
             401,
         )
 
-    event_bus = EventBus()
-    event_bus.subscribe(LoggingObserver())
-    app.extensions["event_bus"] = event_bus
-
-    ai_service = build_ai_service(app)
-    db_log_directory = (
-        app.config.get("DB_LOG_DIRECTORY")
-        or (Path(app.root_path) / "instance").as_posix()
-    )
-    app.extensions["ai_service"] = InteractionLoggingService(
-        wrapped=ai_service,
-        writer=RotatingTextLogWriter(log_dir=Path(db_log_directory)),
-    )
+    app.extensions["ai_service"] = build_ai_service(app)
+    initialize_logging(app)
 
     app.register_blueprint(api_v1_bp)
     app.register_blueprint(auth_bp)
