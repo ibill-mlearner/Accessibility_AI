@@ -37,13 +37,15 @@ def init_standalone_schema(runtime: StandaloneDatabase) -> None:
 
 
 def init_flask_database(app: Flask) -> None:
-    """Explicitly create Flask-SQLAlchemy tables for the configured app DB."""
+    """Explicitly create every configured SQLAlchemy table set for the app DB."""
 
     from .. import models  # noqa: F401  # ensure model metadata is registered
     from ..extensions import db
+    from ..models.base import Base
 
     with app.app_context():
         db.create_all()
+        Base.metadata.create_all(bind=db.engine)
 
 
 __all__ = [
