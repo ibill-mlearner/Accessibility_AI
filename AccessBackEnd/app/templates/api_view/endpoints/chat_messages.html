@@ -1,0 +1,17 @@
+<li>
+  <code>GET|POST /api/v1/chats/&lt;int:chat_id&gt;/messages</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p><strong>GET</strong> returns all messages for a chat visible to the current authenticated user.</p>
+    <p><strong>POST</strong> creates a message in the chat and requires <code>message_text</code> and <code>help_intent</code>.</p>
+    <pre>{"message_text":"Explain photosynthesis at a 5th-grade level","help_intent":"summarization","vote":"good","note":"no"}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "chat-messages" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/chats/1/messages" %}
+      {% set seed_payload = '{"message_text":"Explain photosynthesis at a 5th-grade level","help_intent":"summarization","vote":"good","note":"no"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>

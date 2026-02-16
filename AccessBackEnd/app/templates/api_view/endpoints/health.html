@@ -2,8 +2,8 @@
   <code>GET /api/v1/health</code>
   <details class="endpoint-details">
     <summary>Details</summary>
-    <p>Checks API service health and active AI provider.</p>
-    <pre>{"status":"ok","ai_provider":"ollama"}</pre>
+    <p>Authenticated health-check endpoint that returns service status and configured AI provider.</p>
+    <pre>{"status":"ok","ai_provider":"openai"}</pre>
     <details class="endpoint-tester-panel">
       <summary>Try this endpoint</summary>
       {% set tester_id = "health" %}

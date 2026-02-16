@@ -20,22 +20,16 @@ from ....services.logging import DomainEvent
 _ALLOWED_ROLES = {"student", "instructor", "admin"}
 
 _ENDPOINT_COMPONENTS: list[str] = [
+    "api_view/endpoints/api_view.html",
     "api_view/endpoints/register.html",
     "api_view/endpoints/login.html",
     "api_view/endpoints/logout.html",
+    "api_view/endpoints/auth_register.html",
+    "api_view/endpoints/auth_login.html",
+    "api_view/endpoints/chats_collection.html",
+    "api_view/endpoints/chat_messages.html",
     "api_view/endpoints/health.html",
     "api_view/endpoints/ai_interactions.html",
-    "api_view/endpoints/chats_collection.html",
-    "api_view/endpoints/chats_item.html",
-    "api_view/endpoints/messages_collection.html",
-    "api_view/endpoints/messages_item.html",
-    "api_view/endpoints/classes_collection.html",
-    "api_view/endpoints/classes_item.html",
-    "api_view/endpoints/features_collection.html",
-    "api_view/endpoints/features_item.html",
-    "api_view/endpoints/notes_collection.html",
-    "api_view/endpoints/notes_item.html",
-    "api_view/endpoints/api_view.html",
 ]
 
 

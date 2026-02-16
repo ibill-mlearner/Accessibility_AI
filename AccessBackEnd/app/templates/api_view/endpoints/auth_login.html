@@ -1,0 +1,16 @@
+<li>
+  <code>POST /api/v1/auth/login</code>
+  <details class="endpoint-details">
+    <summary>Details</summary>
+    <p>Authenticates an API user and creates a Flask-backed login session.</p>
+    <pre>{"message":"login successful","user":{"id":1,"email":"student@example.com"}}</pre>
+    <details class="endpoint-tester-panel">
+      <summary>Try this endpoint</summary>
+      {% set tester_id = "auth-login" %}
+      {% set seed_method = "POST" %}
+      {% set seed_path = "/api/v1/auth/login" %}
+      {% set seed_payload = '{"email":"student@example.com","password":"password123"}' %}
+      {% include "api_view/components/endpoint_tester.html" %}
+    </details>
+  </details>
+</li>
