@@ -4,18 +4,71 @@ import json
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required, login_user
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..errors import BadRequestError
+from ..errors import BadRequestError, NotFoundError
 from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import AIInteraction
+from ...models import AIInteraction, Chat, Message, User
 from ...services.logging import DomainEvent
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
+
+_RESOURCE_API_TO_MODEL_FIELDS: dict[str, dict[str, str]] = {
+    "chat": {
+        "class": "class_id",
+        "class_id": "class_id",
+        "user": "user_id",
+        "user_id": "user_id",
+        "start": "started_at",
+        "started_at": "started_at",
+        "title": "title",
+        "model": "model",
+    },
+    "message": {
+        "chat": "chat_id",
+        "chat_id": "chat_id",
+        "text": "message_text",
+        "message_text": "message_text",
+        "vote": "vote",
+        "note": "note",
+        "help_intent": "help_intent",
+    },
+}
+
+
+def _deserialize_payload(resource: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Map API payload keys onto model field names for CRUD operations."""
+    field_map = _RESOURCE_API_TO_MODEL_FIELDS.get(resource, {})
+    return {field_map.get(key, key): value for key, value in payload.items()}
+
+
+def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
+    """Serialize ORM objects using API field names for stable endpoint envelopes."""
+    if resource == "chat":
+        return {
+            "id": record.id,
+            "class_id": record.class_id,
+            "user_id": record.user_id,
+            "title": record.title,
+            "model": record.model,
+            "started_at": record.started_at.isoformat() if record.started_at else None,
+        }
+
+    if resource == "message":
+        return {
+            "id": record.id,
+            "chat_id": record.chat_id,
+            "message_text": record.message_text,
+            "vote": record.vote,
+            "note": record.note,
+            "help_intent": record.help_intent,
+        }
+
+    return {}
 
 
 def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
@@ -56,128 +109,211 @@ def _todo_response(
 
 @api_v1_bp.post("/auth/register")
 def register_auth_user():
-    """Placeholder for API-v1 user registration flow."""
+    """Create and authenticate a user account for API-v1 clients."""
     payload = _read_json_object()
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
+    role = (payload.get("role") or "student").strip().lower()
 
-    # TODO(register):
-    # 1) Validate request contract (required fields, email format, password policy).
-    # 2) Authorize registration path (invite-only checks / tenant constraints as needed).
-    # 3) Persist user credentials/profile via auth domain services and emit audit events.
-    # 4) Return normalized auth tokens + user envelope.
-    return _todo_response(
-        endpoint="POST /api/v1/auth/register",
-        next_steps=[
-            "validate_register_payload",
-            "authorize_registration_context",
-            "persist_user_and_issue_tokens",
-        ],
-        payload={"received_keys": sorted(payload.keys())},
+    if not email or not password:
+        raise BadRequestError("email and password are required")
+
+    if db.session.query(User).filter_by(normalized_email=email).first() is not None:
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "conflict",
+                        "message": "email already registered",
+                        "details": {},
+                    }
+                }
+            ),
+            409,
+        )
+
+    user = User(email=email, role=role)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    user.mark_login_success()
+    login_user(user)
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "message": "registration successful",
+                "user": {"id": user.id, "email": user.email, "role": user.role},
+            }
+        ),
+        201,
     )
 
 
 @api_v1_bp.post("/auth/login")
 def login_auth_user():
-    """Placeholder for API-v1 login flow."""
+    """Authenticate an API-v1 user and establish a login session."""
     payload = _read_json_object()
+    email = (payload.get("email") or "").strip().lower()
+    password = payload.get("password") or ""
 
-    # TODO(login):
-    # 1) Validate login payload (identifier/password shape, required fields).
-    # 2) Authorize login attempt (account status, lockouts, MFA preconditions).
-    # 3) Persist session/token metadata and security audit log entries.
-    # 4) Return auth/session envelope expected by frontend.
-    return _todo_response(
-        endpoint="POST /api/v1/auth/login",
-        next_steps=[
-            "validate_login_payload",
-            "authorize_login_attempt",
-            "persist_session_and_audit",
-        ],
-        payload={"received_keys": sorted(payload.keys())},
-    )
+    if not email or not password:
+        raise BadRequestError("email and password are required")
+
+    user = db.session.query(User).filter_by(normalized_email=email).first()
+    if user is None or not user.check_password(password):
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "unauthorized",
+                        "message": "invalid credentials",
+                        "details": {},
+                    }
+                }
+            ),
+            401,
+        )
+
+    user.mark_login_success()
+    login_user(user)
+    db.session.commit()
+
+    return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email}}), 200
 
 
 @api_v1_bp.get("/chats")
 @login_required
 def list_chats():
-    """Placeholder for listing chats accessible to the current user."""
-    # TODO(chats.list):
-    # 1) Validate query contract (pagination/cursor/filter fields).
-    # 2) Authorize user scope (owner, instructor, enrollment visibility).
-    # 3) Persist/read sequence: fetch chat summaries from repository with stable ordering.
-    # 4) Return paginated chat collection envelope.
-    return _todo_response(
-        endpoint="GET /api/v1/chats",
-        next_steps=[
-            "validate_chat_list_query",
-            "authorize_chat_list_scope",
-            "read_chat_collection",
-        ],
-        payload={"user_id": current_user.get_id()},
+    """List chats for the authenticated user in a stable collection envelope."""
+    user_id = int(current_user.get_id())
+    chats = (
+        db.session.query(Chat)
+        .filter(Chat.user_id == user_id)
+        .order_by(Chat.started_at.desc(), Chat.id.desc())
+        .all()
     )
+    return jsonify({"items": [_serialize_record("chat", chat) for chat in chats], "next_cursor": None}), 200
 
 
 @api_v1_bp.post("/chats")
 @login_required
 def create_chat():
-    """Placeholder for creating a chat within class/user scope."""
-    payload = _read_json_object()
+    """Create a chat for the authenticated user in a class context."""
+    payload = _deserialize_payload("chat", _read_json_object())
+    authenticated_user_id = int(current_user.get_id())
 
-    # TODO(chats.create):
-    # 1) Validate payload contract (class_id/title/model and defaults).
-    # 2) Authorize creation scope (owner self-write + enrollment/instructor permissions).
-    # 3) Persist chat row and creation metadata inside transaction boundaries.
-    # 4) Return created chat response envelope.
-    return _todo_response(
-        endpoint="POST /api/v1/chats",
-        next_steps=[
-            "validate_chat_create_payload",
-            "authorize_chat_create_scope",
-            "persist_chat_record",
-        ],
-        payload={"received_keys": sorted(payload.keys())},
+    class_id = payload.get("class_id")
+    if class_id is None:
+        raise BadRequestError("class_id is required")
+
+    requested_user_id = int(payload.get("user_id", authenticated_user_id))
+    if requested_user_id != authenticated_user_id:
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "forbidden",
+                        "message": "cannot create chats for another user",
+                        "details": {},
+                    }
+                }
+            ),
+            403,
+        )
+
+    chat = Chat(
+        class_id=int(class_id),
+        user_id=authenticated_user_id,
+        title=(payload.get("title") or "New Chat").strip(),
+        model=(payload.get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown").strip(),
     )
+    db.session.add(chat)
+    db.session.commit()
+    return jsonify(_serialize_record("chat", chat)), 201
 
 
 @api_v1_bp.get("/chats/<int:chat_id>/messages")
 @login_required
 def list_chat_messages(chat_id: int):
-    """Placeholder for listing messages in a chat visible to the current user."""
-    # TODO(messages.list):
-    # 1) Validate query contract (pagination, ordering, optional role filters).
-    # 2) Authorize chat visibility (owner/instructor/enrollment checks against chat).
-    # 3) Persist/read sequence: fetch ordered messages for chat_id from repository.
-    # 4) Return message collection envelope with pagination metadata.
-    return _todo_response(
-        endpoint="GET /api/v1/chats/<chat_id>/messages",
-        next_steps=[
-            "validate_message_list_query",
-            "authorize_message_list_scope",
-            "read_message_collection",
-        ],
-        payload={"chat_id": chat_id, "user_id": current_user.get_id()},
+    """List messages for a target chat when visible to the authenticated user."""
+    chat = db.session.get(Chat, chat_id)
+    if chat is None:
+        raise NotFoundError("chat not found")
+    if chat.user_id != int(current_user.get_id()):
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "forbidden",
+                        "message": "user is not authorized for this chat",
+                        "details": {},
+                    }
+                }
+            ),
+            403,
+        )
+
+    messages = (
+        db.session.query(Message)
+        .filter(Message.chat_id == chat_id)
+        .order_by(Message.id.asc())
+        .all()
+    )
+    return (
+        jsonify(
+            {
+                "chat_id": chat_id,
+                "items": [_serialize_record("message", message) for message in messages],
+                "next_cursor": None,
+            }
+        ),
+        200,
     )
 
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
 def create_chat_message(chat_id: int):
-    """Placeholder for creating a message in a chat."""
-    payload = _read_json_object()
+    """Create a message on a target chat when writable by the current user."""
+    chat = db.session.get(Chat, chat_id)
+    if chat is None:
+        raise NotFoundError("chat not found")
+    if chat.user_id != int(current_user.get_id()):
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "forbidden",
+                        "message": "user is not authorized for this chat",
+                        "details": {},
+                    }
+                }
+            ),
+            403,
+        )
 
-    # TODO(messages.create):
-    # 1) Validate payload contract (message body/role/metadata fields).
-    # 2) Authorize write scope (owner/instructor/enrollment checks for chat_id).
-    # 3) Persist message row + optional side effects (intent/vote/note links) transactionally.
-    # 4) Return created message envelope.
-    return _todo_response(
-        endpoint="POST /api/v1/chats/<chat_id>/messages",
-        next_steps=[
-            "validate_message_create_payload",
-            "authorize_message_create_scope",
-            "persist_message_record",
-        ],
-        payload={"chat_id": chat_id, "received_keys": sorted(payload.keys())},
+    payload = _deserialize_payload("message", _read_json_object())
+    message_text = (payload.get("message_text") or "").strip()
+    help_intent = (payload.get("help_intent") or "").strip()
+
+    if not message_text:
+        raise BadRequestError("message_text is required")
+    if not help_intent:
+        raise BadRequestError("help_intent is required")
+
+    message = Message(
+        chat_id=chat_id,
+        message_text=message_text,
+        vote=(payload.get("vote") or "good").strip(),
+        note=(payload.get("note") or "no").strip(),
+        help_intent=help_intent,
     )
+    db.session.add(message)
+    db.session.commit()
+    return jsonify(_serialize_record("message", message)), 201
 
 
 @api_v1_bp.get("/health")
