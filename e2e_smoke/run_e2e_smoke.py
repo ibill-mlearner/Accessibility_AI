@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import sys
 import time
 import urllib.error
@@ -111,102 +112,158 @@ class SmokeRunner:
             path = "/" + path
         return f"{self.frontend_base}{path}"
 
-    def run(self) -> None:
-        print("[1/8] Checking frontend is reachable...")
-        frontend = self.client.request_text("GET", self._web("/"))
-        self._assert(frontend.status == 200, f"Frontend check failed with HTTP {frontend.status}")
-        self._assert("<html" in frontend.body.lower(), "Frontend response does not look like HTML")
-
-        print("[2/8] Checking backend health endpoint...")
-        health = self.client.request_json("GET", self._api("/api/v1/health"))
-        self._assert(health.status == 200, f"Backend health failed with HTTP {health.status}")
-
+    def run(self) -> int:
+        results: list[tuple[str, bool, str]] = []
+        class_id: Any | None = None
+        chat_id: Any | None = None
         unique_email = self._unique_email(self.email)
 
-        print("[3/8] Registering test user...")
-        register = self.client.request_json(
-            "POST",
-            self._api("/api/v1/auth/register"),
-            {"email": unique_email, "password": self.password, "role": self.role},
-        )
-        self._assert(register.status == 201, f"Register failed with HTTP {register.status} body={register.body}")
+        def run_step(index: int, title: str, fn) -> None:
+            print(f"[{index}/8] {title}...")
+            try:
+                detail = fn()
+                results.append((title, True, detail or "ok"))
+                print(f"      PASS: {detail or 'ok'}")
+            except Exception as exc:
+                results.append((title, False, str(exc)))
+                print(f"      FAIL: {exc}")
 
-        print("[4/8] Logging in test user...")
-        login = self.client.request_json(
-            "POST",
-            self._api("/api/v1/auth/login"),
-            {"email": unique_email, "password": self.password},
-        )
-        self._assert(login.status == 200, f"Login failed with HTTP {login.status} body={login.body}")
+        def step1() -> str:
+            self.frontend_base = self._resolve_frontend_base(self.frontend_base)
+            frontend = self.client.request_text("GET", self._web("/"))
+            self._assert(frontend.status == 200, f"Frontend check failed with HTTP {frontend.status}")
+            self._assert("<html" in frontend.body.lower(), "Frontend response does not look like HTML")
+            return f"frontend reachable at {self.frontend_base}"
 
-        print("[5/8] Verifying bootstrap collections...")
-        for resource in ("chats", "classes", "notes", "features"):
-            result = self.client.request_json("GET", self._api(f"/api/v1/{resource}"))
-            self._assert(result.status == 200, f"GET /{resource} failed with HTTP {result.status}")
-            self._assert(isinstance(result.body, list), f"GET /{resource} expected JSON list")
+        def step2() -> str:
+            self._preflight_http_target("Backend", self.backend_base)
+            health = self.client.request_json("GET", self._api("/api/v1/health"))
+            self._assert(health.status == 200, f"Backend health failed with HTTP {health.status}")
+            return "backend health returned HTTP 200"
 
-        print("[6/8] Creating class/chat/message/note records...")
-        class_resp = self.client.request_json(
-            "POST",
-            self._api("/api/v1/classes"),
-            {
-                "name": "E2E Biology",
-                "description": "Smoke test class",
-                "role": self.role,
-                "term": "2026-SPRING",
-                "section_code": "E2E01",
-                "external_class_key": f"E2E-BIO-{int(time.time())}",
-            },
-        )
-        self._assert(class_resp.status == 201, f"Create class failed HTTP {class_resp.status} body={class_resp.body}")
-        class_id = class_resp.body.get("id")
-        self._assert(bool(class_id), "Create class response missing id")
+        def step3() -> str:
+            register = self.client.request_json(
+                "POST",
+                self._api("/api/v1/auth/register"),
+                {"email": unique_email, "password": self.password, "role": self.role},
+            )
+            self._assert(register.status == 201, f"Register failed with HTTP {register.status} body={register.body}")
+            return f"registered {unique_email}"
 
-        chat_resp = self.client.request_json(
-            "POST",
-            self._api("/api/v1/chats"),
-            {"title": "E2E chat", "class_id": class_id, "model": "gpt-4o-mini"},
-        )
-        self._assert(chat_resp.status == 201, f"Create chat failed HTTP {chat_resp.status} body={chat_resp.body}")
-        chat_id = chat_resp.body.get("id")
-        self._assert(bool(chat_id), "Create chat response missing id")
+        def step4() -> str:
+            login = self.client.request_json(
+                "POST",
+                self._api("/api/v1/auth/login"),
+                {"email": unique_email, "password": self.password},
+            )
+            self._assert(login.status == 200, f"Login failed with HTTP {login.status} body={login.body}")
+            return f"logged in as {unique_email}"
 
-        msg_resp = self.client.request_json(
-            "POST",
-            self._api("/api/v1/messages"),
-            {"chat_id": chat_id, "message_text": "What is ATP?", "help_intent": "summarization"},
-        )
-        self._assert(msg_resp.status == 201, f"Create message failed HTTP {msg_resp.status} body={msg_resp.body}")
+        def step5() -> str:
+            checked: list[str] = []
+            failures: list[str] = []
+            for resource in ("chats", "classes", "notes", "features"):
+                result = self.client.request_json("GET", self._api(f"/api/v1/{resource}"))
+                if result.status != 200:
+                    failures.append(f"/{resource}: HTTP {result.status}")
+                    continue
+                if not isinstance(result.body, list):
+                    failures.append(f"/{resource}: expected list")
+                    continue
+                checked.append(resource)
+            self._assert(not failures, "Bootstrap checks failed: " + "; ".join(failures))
+            return f"bootstrap resources ok ({', '.join(checked)})"
 
-        note_resp = self.client.request_json(
-            "POST",
-            self._api("/api/v1/notes"),
-            {
-                "class_id": class_id,
-                "chat_id": chat_id,
-                "noted_on": "2026-02-10",
-                "content": "ATP is cellular energy currency.",
-            },
-        )
-        self._assert(note_resp.status == 201, f"Create note failed HTTP {note_resp.status} body={note_resp.body}")
+        def step6() -> str:
+            nonlocal class_id, chat_id
+            details: list[str] = []
 
-        print("[7/8] Verifying message listing for created chat...")
-        messages = self.client.request_json("GET", self._api(f"/api/v1/chats/{chat_id}/messages"))
-        self._assert(messages.status == 200, f"Get chat messages failed HTTP {messages.status} body={messages.body}")
-        self._assert(isinstance(messages.body, list), "Expected list from chat messages endpoint")
-        self._assert(any(item.get("chat_id") == chat_id for item in messages.body), "Created message not found in chat message list")
+            class_resp = self.client.request_json(
+                "POST",
+                self._api("/api/v1/classes"),
+                {
+                    "name": "E2E Biology",
+                    "description": "Smoke test class",
+                    "role": self.role,
+                    "term": "2026-SPRING",
+                    "section_code": "E2E01",
+                    "external_class_key": f"E2E-BIO-{int(time.time())}",
+                },
+            )
+            self._assert(class_resp.status == 201, f"Create class failed HTTP {class_resp.status} body={class_resp.body}")
+            class_id = class_resp.body.get("id") if isinstance(class_resp.body, dict) else None
+            self._assert(bool(class_id), "Create class response missing id")
+            details.append(f"class={class_id}")
 
-        print("[8/8] Exercising AI interaction endpoint...")
-        ai_resp = self.client.request_json(
-            "POST",
-            self._api("/api/v1/ai/interactions"),
-            {"prompt": "Explain ATP briefly", "context": {"chat_id": chat_id}},
-        )
-        self._assert(ai_resp.status in (200, 502), f"AI interaction failed HTTP {ai_resp.status} body={ai_resp.body}")
+            chat_resp = self.client.request_json(
+                "POST",
+                self._api("/api/v1/chats"),
+                {"title": "E2E chat", "class_id": class_id, "model": "gpt-4o-mini"},
+            )
+            self._assert(chat_resp.status == 201, f"Create chat failed HTTP {chat_resp.status} body={chat_resp.body}")
+            chat_id = chat_resp.body.get("id") if isinstance(chat_resp.body, dict) else None
+            self._assert(bool(chat_id), "Create chat response missing id")
+            details.append(f"chat={chat_id}")
 
-        print("Smoke E2E completed successfully.")
-        if ai_resp.status == 502:
-            print("AI provider returned 502 (upstream issue), but endpoint wiring is reachable.")
+            msg_resp = self.client.request_json(
+                "POST",
+                self._api("/api/v1/messages"),
+                {"chat_id": chat_id, "message_text": "What is ATP?", "help_intent": "summarization"},
+            )
+            self._assert(msg_resp.status == 201, f"Create message failed HTTP {msg_resp.status} body={msg_resp.body}")
+            details.append("message=created")
+
+            note_resp = self.client.request_json(
+                "POST",
+                self._api("/api/v1/notes"),
+                {
+                    "class_id": class_id,
+                    "chat_id": chat_id,
+                    "noted_on": "2026-02-10",
+                    "content": "ATP is cellular energy currency.",
+                },
+            )
+            self._assert(note_resp.status == 201, f"Create note failed HTTP {note_resp.status} body={note_resp.body}")
+            details.append("note=created")
+            return ", ".join(details)
+
+        def step7() -> str:
+            self._assert(bool(chat_id), "Cannot verify chat messages because chat creation did not succeed in step 6")
+            messages = self.client.request_json("GET", self._api(f"/api/v1/chats/{chat_id}/messages"))
+            self._assert(messages.status == 200, f"Get chat messages failed HTTP {messages.status} body={messages.body}")
+            self._assert(isinstance(messages.body, list), "Expected list from chat messages endpoint")
+            self._assert(any(item.get("chat_id") == chat_id for item in messages.body), "Created message not found in chat message list")
+            return f"verified messages for chat {chat_id}"
+
+        def step8() -> str:
+            payload = {"prompt": "Explain ATP briefly", "context": {}}
+            if chat_id:
+                payload["context"]["chat_id"] = chat_id
+            ai_resp = self.client.request_json("POST", self._api("/api/v1/ai/interactions"), payload)
+            self._assert(ai_resp.status in (200, 502), f"AI interaction failed HTTP {ai_resp.status} body={ai_resp.body}")
+            if ai_resp.status == 502:
+                return "endpoint reachable; AI provider returned 502"
+            return "AI interaction returned HTTP 200"
+
+        run_step(1, "Checking frontend is reachable", step1)
+        run_step(2, "Checking backend health endpoint", step2)
+        run_step(3, "Registering test user", step3)
+        run_step(4, "Logging in test user", step4)
+        run_step(5, "Verifying bootstrap collections", step5)
+        run_step(6, "Creating class/chat/message/note records", step6)
+        run_step(7, "Verifying message listing for created chat", step7)
+        run_step(8, "Exercising AI interaction endpoint", step8)
+
+        print("\nSmoke E2E summary:")
+        passed = 0
+        for index, (title, ok, detail) in enumerate(results, start=1):
+            status = "PASS" if ok else "FAIL"
+            if ok:
+                passed += 1
+            print(f"  [{index}/8] {status} - {title}: {detail}")
+
+        print(f"Completed {passed}/8 checks successfully.")
+        return 0 if passed == 8 else 1
 
     @staticmethod
     def _unique_email(seed_email: str) -> str:
@@ -215,6 +272,118 @@ class SmokeRunner:
         if not domain:
             domain = "example.com"
         return f"{local}+{suffix}@{domain}"
+
+    def _resolve_frontend_base(self, base_url: str) -> str:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname
+        port = parsed.port or (443 if (parsed.scheme or "http") == "https" else 80)
+        self._assert(bool(host), f"Frontend base URL is missing a hostname: {base_url}")
+
+        if self._is_tcp_reachable(host, port):
+            return base_url
+
+        if host in {"127.0.0.1", "localhost"}:
+            sibling_host = "localhost" if host == "127.0.0.1" else "127.0.0.1"
+            if self._is_tcp_reachable(sibling_host, port):
+                resolved = self._replace_host(base_url, sibling_host)
+                print(f"Frontend detected on {resolved} (auto-switched from {base_url}).")
+                return resolved
+
+        if host in {"127.0.0.1", "localhost"} and port == 5173:
+            discovered = self._discover_listening_local_port(host, [5174, 4173, 3000])
+            if discovered is not None:
+                resolved = self._replace_port(base_url, discovered)
+                print(f"Frontend detected on {resolved} (auto-switched from {base_url}).")
+                return resolved
+
+        self._preflight_http_target("Frontend", base_url)
+        return base_url
+
+    def _preflight_http_target(self, name: str, base_url: str) -> None:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname
+        port = parsed.port
+        scheme = parsed.scheme or "http"
+
+        self._assert(bool(host), f"{name} base URL is missing a hostname: {base_url}")
+
+        if port is None:
+            port = 443 if scheme == "https" else 80
+
+        try:
+            with socket.create_connection((host, port), timeout=self.client.timeout):
+                return
+        except OSError as exc:
+            hints: list[str] = []
+            if name == "Frontend" and host in {"127.0.0.1", "localhost"}:
+                sibling_host = "localhost" if host == "127.0.0.1" else "127.0.0.1"
+                if self._is_tcp_reachable(sibling_host, port):
+                    hints.append(
+                        f"Frontend is reachable on {sibling_host}:{port}. "
+                        f"Try --frontend-base {self._replace_host(base_url, sibling_host)}"
+                    )
+            if name == "Frontend" and host in {"127.0.0.1", "localhost"} and port == 5173:
+                discovered = self._discover_listening_local_port(host, [5174, 4173, 3000])
+                if discovered is not None:
+                    hints.append(
+                        f"Detected an open frontend-like port at {host}:{discovered}. "
+                        f"Try --frontend-base {self._replace_port(base_url, discovered)}"
+                    )
+                else:
+                    hints.append("Start frontend: npm run dev --prefix AccessAppFront")
+
+            if name == "Backend" and host in {"127.0.0.1", "localhost"} and port == 5000:
+                hints.append("Start backend: python AccessBackEnd/manage.py --config development")
+
+            hint_text = f" Hints: {' | '.join(hints)}" if hints else ""
+            raise SmokeTestError(
+                f"{name} is unreachable at {base_url} (host={host}, port={port}, reason={exc}).{hint_text}"
+            ) from exc
+
+    def _discover_listening_local_port(self, host: str, ports: list[int]) -> int | None:
+        for candidate in ports:
+            if self._is_tcp_reachable(host, candidate, timeout=0.4):
+                return candidate
+        return None
+
+    @staticmethod
+    def _replace_host(base_url: str, new_host: str) -> str:
+        parsed = urllib.parse.urlparse(base_url)
+        host_port = parsed.netloc
+        if "@" in host_port:
+            auth, _, host_port = host_port.rpartition("@")
+        else:
+            auth = ""
+        if ":" in host_port and not host_port.startswith("["):
+            _, _, port_text = host_port.partition(":")
+            host_port = f"{new_host}:{port_text}"
+        elif host_port.startswith("[") and "]" in host_port:
+            after = host_port.split("]", 1)[1]
+            host_port = f"{new_host}{after}"
+        else:
+            host_port = new_host
+        if auth:
+            host_port = f"{auth}@{host_port}"
+        return urllib.parse.urlunparse(parsed._replace(netloc=host_port))
+
+    @staticmethod
+    def _replace_port(base_url: str, new_port: int) -> str:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname or ""
+        auth = ""
+        if "@" in parsed.netloc:
+            auth, _, _ = parsed.netloc.rpartition("@")
+        netloc = f"{host}:{new_port}"
+        if auth:
+            netloc = f"{auth}@{netloc}"
+        return urllib.parse.urlunparse(parsed._replace(netloc=netloc))
+
+    def _is_tcp_reachable(self, host: str, port: int, timeout: float | None = None) -> bool:
+        try:
+            with socket.create_connection((host, port), timeout=timeout or self.client.timeout):
+                return True
+        except OSError:
+            return False
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -239,11 +408,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout=args.timeout,
     )
     try:
-        runner.run()
-        return 0
-    except SmokeTestError as exc:
-        print(f"Smoke E2E failed: {exc}")
-        return 1
+        return runner.run()
     except urllib.error.URLError as exc:
         print(f"Network error during smoke test: {exc}")
         return 1
