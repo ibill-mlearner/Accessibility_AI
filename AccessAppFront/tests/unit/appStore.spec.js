@@ -19,9 +19,9 @@ describe('appStore actions', () => {
     window.sessionStorage.clear()
   })
 
-  it('bootstrap loads chats/classes/notes/features and selects first chat from items envelope', async () => {
+  it('bootstrap loads chats/classes/notes/features and selects first chat from array response', async () => {
     api.get
-      .mockResolvedValueOnce({ data: { items: [{ id: 101, name: 'Chat A' }] } })
+      .mockResolvedValueOnce({ data: [{ id: 101, name: 'Chat A' }] })
       .mockResolvedValueOnce({ data: [{ id: 1, role: 'student', name: 'Biology 103' }] })
       .mockResolvedValueOnce({ data: [{ id: 501, text: 'Saved note' }] })
       .mockResolvedValueOnce({ data: [{ id: 801, name: 'VoiceOver' }] })
@@ -59,7 +59,7 @@ describe('appStore actions', () => {
 
   it('bootstrap sets selectedChatId to null when chats are empty', async () => {
     api.get
-      .mockResolvedValueOnce({ data: { items: [] } })
+      .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] })

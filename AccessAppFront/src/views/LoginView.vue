@@ -20,6 +20,7 @@ const password = ref('')
 async function doLogin() {
   try {
     await store.login({ email: username.value, password: password.value })
+    await store.bootstrap()
     const nextPath = typeof route.query?.next === 'string' ? route.query.next : '/'
     // `next` restores the intended destination, while `prompt` is only forwarded when
     // present so we don't leave an empty query string on normal logins.
