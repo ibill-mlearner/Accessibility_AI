@@ -11,6 +11,7 @@ No edge-case coverage; this is a happy-path prototype check.
 from __future__ import annotations
 
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -39,6 +40,24 @@ def wait_for_backend(timeout_s: float = 20.0) -> None:
         time.sleep(0.3)
     raise RuntimeError("Backend did not become healthy in time")
 
+
+
+
+def _vite_node_command(frontend_dir: Path) -> list[str]:
+    npx_path = shutil.which("npx") or shutil.which("npx.cmd")
+    if npx_path:
+        return [npx_path, "vite-node"]
+
+    local_bin = frontend_dir / "node_modules" / ".bin" / ("vite-node.cmd" if os.name == "nt" else "vite-node")
+    if local_bin.exists():
+        return [str(local_bin)]
+
+    local_cli = frontend_dir / "node_modules" / "vite-node" / "vite-node.mjs"
+    node_path = shutil.which("node") or shutil.which("node.exe")
+    if node_path and local_cli.exists():
+        return [node_path, str(local_cli)]
+
+    raise RuntimeError("Could not find vite-node runner. Install Node.js and run npm install in AccessAppFront.")
 
 def run() -> int:
     db_path = BACKEND_DIR / "access_v2.db"
@@ -113,7 +132,7 @@ def run() -> int:
             env = os.environ.copy()
             env["VITE_API_BASE_URL"] = BASE_URL
             proc = subprocess.run(
-                ["npx", "vite-node", js_path.name],
+                _vite_node_command(FRONTEND_DIR) + [js_path.name],
                 cwd=str(FRONTEND_DIR),
                 env=env,
                 capture_output=True,
