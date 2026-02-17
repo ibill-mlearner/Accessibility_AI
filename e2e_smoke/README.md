@@ -34,7 +34,7 @@ python e2e_smoke/run_e2e_smoke.py \
 
 ## What it verifies
 1. Frontend root page returns HTML.
-2. Backend `/api/v1/health` is up.
+2. Backend `/api/v1/health` is up (public liveness/readiness endpoint; no auth required).
 3. Register + login round trip using session cookies.
 4. Bootstrap resources are reachable:
    - `/api/v1/chats`
