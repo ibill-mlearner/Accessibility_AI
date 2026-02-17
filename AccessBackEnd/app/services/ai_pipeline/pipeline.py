@@ -52,11 +52,19 @@ class AIPipelineService:
         self.config = config
         self._provider = self._build_provider(config)
 
-    def run_interaction(self, prompt: str, context: dict[str, Any] | None = None) -> dict:
+    def run_interaction(
+        self,
+        prompt: str,
+        context: dict[str, Any] | None = None,
+        **metadata: Any,
+    ) -> dict:
         # Logic intent:
-        # 1) Wrap raw inputs in a typed request object.
-        # 2) Invoke provider and validate JSON shape.
-        # 3) Return a normalized dictionary with consistent metadata.
+        # 1) Accept optional metadata kwargs (for API/logger compatibility)
+        #    without coupling the core pipeline to logging concerns.
+        # 2) Wrap raw inputs in a typed request object.
+        # 3) Invoke provider and validate JSON shape.
+        # 4) Return a normalized dictionary with consistent metadata.
+        _ = metadata
         request = PipelineRequest(prompt=prompt, context=context or {})
         payload = self._provider.invoke(request)
 

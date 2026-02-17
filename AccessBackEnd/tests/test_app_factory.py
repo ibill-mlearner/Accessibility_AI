@@ -213,6 +213,27 @@ def test_ai_interaction_accepts_future_growth_fields(app, client, monkeypatch):
     assert body["meta"]["selected_provider"] == "ollama"
 
 
+def test_ai_interaction_succeeds_with_unwrapped_pipeline_service(app, client, monkeypatch):
+    _stub_ollama_provider(app, monkeypatch, result="unwrapped")
+    _authenticate_api_client(app, client)
+
+    ai_service = app.extensions["ai_service"]
+    app.extensions["ai_service"] = getattr(ai_service, "_wrapped", ai_service)
+
+    from app.db import init_flask_database
+
+    init_flask_database(app)
+
+    response = client.post(
+        "/api/v1/ai/interactions",
+        json={"prompt": "works without logger", "context": {"class_id": 1}},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["result"] == "unwrapped"
+
+
 def test_ai_interaction_persists_record(app, client, monkeypatch):
     _stub_ollama_provider(app, monkeypatch, result="persisted")
     _authenticate_api_client(app, client)

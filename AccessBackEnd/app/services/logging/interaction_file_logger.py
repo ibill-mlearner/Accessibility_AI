@@ -13,7 +13,10 @@ DEFAULT_LOG_BASENAME = "ai_interactions"
 
 class InteractionRunner(Protocol):
     def run_interaction(
-        self, prompt: str, context: dict[str, Any] | None = None
+        self,
+        prompt: str,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]: ...
 
 
@@ -67,14 +70,18 @@ class InteractionLoggingService:
         self,
         prompt: str,
         context: dict[str, Any] | None = None,
-        *,
-        initiated_by: str = "anonymous",
+        **kwargs: Any,
     ) -> dict[str, Any]:
+        initiated_by = str(kwargs.get("initiated_by") or "anonymous")
         started_at = datetime.now(timezone.utc)
         status = "success"
 
         try:
-            response = self._wrapped.run_interaction(prompt=prompt, context=context)
+            response = self._wrapped.run_interaction(
+                prompt=prompt,
+                context=context,
+                **kwargs,
+            )
             return response
         except Exception:
             status = "failed"
