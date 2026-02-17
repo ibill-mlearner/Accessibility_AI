@@ -136,6 +136,38 @@ export const useAppStore = defineStore('app', {
       }
       return this.sortedByStableKey(items)[0]?.id ?? items[0]?.id ?? null
     },
+    isEndpointUnavailableStatus(status) {
+      return [404, 405, 501, 502, 503].includes(status)
+    },
+    toResourceError(error, { resourceLabel, unavailableMessage, fallbackMessage }) {
+      const status = error?.response?.status
+      if (status === 401 || status === 403) {
+        const authError = new Error(`${resourceLabel} requires authentication.`)
+        authError.kind = 'auth'
+        authError.status = status
+        authError.resource = resourceLabel
+        return authError
+      }
+
+      if (this.isEndpointUnavailableStatus(status)) {
+        const unavailableError = new Error(unavailableMessage)
+        unavailableError.kind = 'unavailable'
+        unavailableError.status = status
+        unavailableError.resource = resourceLabel
+        return unavailableError
+      }
+
+      const resourceError = new Error(fallbackMessage)
+      resourceError.kind = 'resource'
+      resourceError.status = status
+      resourceError.resource = resourceLabel
+      return resourceError
+    },
+    parseCollectionItems(payload) {
+      if (Array.isArray(payload)) return payload
+      if (payload && Array.isArray(payload.items)) return payload.items
+      return null
+    },
     // ---------------------------------------------------------------------
     // Chat + AI interaction resource actions
     // Includes list loading and optimistic CRUD behavior for active sessions.
@@ -145,12 +177,26 @@ export const useAppStore = defineStore('app', {
       this.setActionStatus(actionKey, { loading: true, error: '' })
       try {
         const response = await api.get('/api/v1/chats')
-        this.chats = response.data
+        const parsedChats = this.parseCollectionItems(response?.data)
+        if (!parsedChats) {
+          const malformedPayloadError = new Error('Chats response payload was malformed.')
+          malformedPayloadError.kind = 'resource'
+          malformedPayloadError.resource = 'chats'
+          throw malformedPayloadError
+        }
+        this.chats = parsedChats
         this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
         this.setActionStatus(actionKey, { loading: false, error: '' })
-      } catch {
-        this.setActionError(actionKey, 'Unable to load chats.')
-        throw new Error('Unable to load chats.')
+      } catch (error) {
+        const wrappedError = error?.kind
+          ? error
+          : this.toResourceError(error, {
+              resourceLabel: 'chats',
+              unavailableMessage: 'Chats endpoint is currently unavailable. Please verify backend routes.',
+              fallbackMessage: 'Unable to load chats.'
+            })
+        this.setActionError(actionKey, wrappedError.message)
+        throw wrappedError
       }
     },
     async fetchClasses() {
@@ -161,9 +207,14 @@ export const useAppStore = defineStore('app', {
         this.classes = response.data
         this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
         this.setActionStatus(actionKey, { loading: false, error: '' })
-      } catch {
-        this.setActionError(actionKey, 'Unable to load classes.')
-        throw new Error('Unable to load classes.')
+      } catch (error) {
+        const wrappedError = this.toResourceError(error, {
+          resourceLabel: 'classes',
+          unavailableMessage: 'Classes endpoint is unavailable. Enable /api/v1/classes or disable class-dependent UI.',
+          fallbackMessage: 'Unable to load classes.'
+        })
+        this.setActionError(actionKey, wrappedError.message)
+        throw wrappedError
       }
     },
     async fetchNotes() {
@@ -173,9 +224,14 @@ export const useAppStore = defineStore('app', {
         const response = await api.get('/api/v1/notes')
         this.notes = response.data
         this.setActionStatus(actionKey, { loading: false, error: '' })
-      } catch {
-        this.setActionError(actionKey, 'Unable to load notes.')
-        throw new Error('Unable to load notes.')
+      } catch (error) {
+        const wrappedError = this.toResourceError(error, {
+          resourceLabel: 'notes',
+          unavailableMessage: 'Notes endpoint is unavailable. Enable /api/v1/notes or hide notes functionality.',
+          fallbackMessage: 'Unable to load notes.'
+        })
+        this.setActionError(actionKey, wrappedError.message)
+        throw wrappedError
       }
     },
     async fetchFeatures() {
@@ -185,9 +241,14 @@ export const useAppStore = defineStore('app', {
         const response = await api.get('/api/v1/features')
         this.features = response.data
         this.setActionStatus(actionKey, { loading: false, error: '' })
-      } catch {
-        this.setActionError(actionKey, 'Unable to load features.')
-        throw new Error('Unable to load features.')
+      } catch (error) {
+        const wrappedError = this.toResourceError(error, {
+          resourceLabel: 'features',
+          unavailableMessage: 'Features endpoint is unavailable. Enable /api/v1/features or disable feature toggles.',
+          fallbackMessage: 'Unable to load features.'
+        })
+        this.setActionError(actionKey, wrappedError.message)
+        throw wrappedError
       }
     },
     async createChat(payload) {
@@ -389,13 +450,27 @@ export const useAppStore = defineStore('app', {
     async bootstrap() {
       this.loading = true
       this.error = ''
-      try {
-        await Promise.all([this.fetchChats(), this.fetchClasses(), this.fetchNotes(), this.fetchFeatures()])
-      } catch (error) {
-        this.error = 'Unable to load data from the backend service. Please try again.'
-      } finally {
-        this.loading = false
+      this.authError = ''
+
+      const results = await Promise.allSettled([
+        this.fetchChats(),
+        this.fetchClasses(),
+        this.fetchNotes(),
+        this.fetchFeatures()
+      ])
+
+      const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason)
+
+      if (failures.some((error) => error?.kind === 'auth')) {
+        this.authError = 'Your session is invalid or expired. Please sign in again.'
       }
+
+      const hasResourceFailure = failures.some((error) => error?.kind !== 'auth')
+      if (hasResourceFailure) {
+        this.error = 'Some application resources could not be loaded from the backend service.'
+      }
+
+      this.loading = false
     },
     async login({ email, password }) {
       this.authError = ''
