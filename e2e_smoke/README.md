@@ -47,3 +47,24 @@ python e2e_smoke/run_e2e_smoke.py \
 ## Notes
 - The script creates a unique test user email each run.
 - It is intentionally tolerant of AI provider upstream outages (`502`) while still validating endpoint wiring.
+
+## Troubleshooting connection-refused errors
+If you see `WinError 10061` / "actively refused", the smoke runner could not open a TCP connection to one of the configured base URLs.
+
+Common causes:
+- Frontend dev server is not started (or started on a different port such as `5174`).
+- Backend server is not started.
+- Wrong `--frontend-base` or `--backend-base` value.
+
+The runner also auto-detects common frontend mismatches:
+- If `127.0.0.1` fails but `localhost` works (or vice versa), it auto-switches and continues.
+- If `5173` is closed but `5174`, `4173`, or `3000` is open, it auto-switches and continues.
+
+Examples:
+```bash
+# If frontend is on a non-default port
+python e2e_smoke/run_e2e_smoke.py --frontend-base http://127.0.0.1:5174
+
+# If backend is on a non-default port
+python e2e_smoke/run_e2e_smoke.py --backend-base http://127.0.0.1:5001
+```
