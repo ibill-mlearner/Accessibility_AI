@@ -40,6 +40,18 @@ def _create_class_and_chat(client):
     return class_id, chat_id
 
 
+def test_chat_collection_endpoint_returns_list_shape(app, client):
+    _authenticate(app, client)
+    _create_class_and_chat(client)
+
+    list_response = client.get("/api/v1/chats")
+    assert list_response.status_code == 200
+    payload = list_response.get_json()
+
+    assert isinstance(payload, list)
+    assert payload
+    assert {"id", "title", "start", "model", "class", "user"}.issubset(payload[0].keys())
+
 def test_chat_item_endpoints_round_trip(app, client):
     _authenticate(app, client)
     _class_id, chat_id = _create_class_and_chat(client)
