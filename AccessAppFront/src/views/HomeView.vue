@@ -28,13 +28,14 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../stores/appStore'
 import ChatBubbleCard from '../components/chat/ChatBubbleCard.vue'
 import ComposerBar from '../components/chat/ComposerBar.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store = useAppStore()
 const prompt = ref('')
 const interactionLoading = ref(false)
@@ -110,7 +111,13 @@ async function sendPrompt() {
   if (interactionLoading.value) return
 
   const cleanPrompt = prompt.value.trim()
-  if (!cleanPrompt || store.role === 'guest') return
+  if (!cleanPrompt) return
+
+  if (store.role === 'guest') {
+    interactionError.value = 'Please log in to send a prompt.'
+    await router.push({ path: '/login', query: { next: '/', prompt: cleanPrompt } })
+    return
+  }
 
   const draftPrompt = prompt.value
   interactionLoading.value = true
@@ -222,4 +229,14 @@ async function saveCurrentChatAsNote() {
 
   await store.createNote(payload)
 }
+
+onMounted(async () => {
+  const promptFromQuery = route.query?.prompt
+  if (typeof promptFromQuery !== 'string' || !promptFromQuery.trim()) return
+
+  prompt.value = promptFromQuery
+  if (route.path === '/' && Object.keys(route.query).length) {
+    await router.replace({ path: '/', query: {} })
+  }
+})
 </script>
