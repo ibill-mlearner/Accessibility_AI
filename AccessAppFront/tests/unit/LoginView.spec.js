@@ -63,6 +63,7 @@ describe('LoginView.vue', () => {
     await flushPromises()
 
     expect(push).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Invalid email or password.')
+    expect(wrapper.find('.auth-error').exists()).toBe(true)
+    expect(wrapper.find('.auth-error').text()).toContain('Invalid email or password.')
   })
 })

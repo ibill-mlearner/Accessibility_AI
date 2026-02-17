@@ -402,13 +402,18 @@ export const useAppStore = defineStore('app', {
       try {
         const response = await api.post('/api/v1/auth/login', { email, password })
         const authenticatedUser = response?.data?.user || {}
+        const hasAuthenticatedIdentity = Boolean(authenticatedUser.id && authenticatedUser.email)
+
         this.user = {
           id: authenticatedUser.id,
           email: authenticatedUser.email
         }
-        this.role = authenticatedUser.role || (this.user ? 'authenticated' : 'guest')
+
+        this.role = authenticatedUser.role || (hasAuthenticatedIdentity ? 'authenticated' : 'guest')
         return true
       } catch (error) {
+        this.user = null
+        this.role = 'guest'
         const status = error?.response?.status
         if (status === 400 || status === 401) {
           this.authError = 'Invalid email or password.'
