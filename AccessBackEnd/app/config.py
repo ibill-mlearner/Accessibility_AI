@@ -93,7 +93,11 @@ class BaseConfig:
     DATA_BACKEND_FACTORY = None
 
     AI_PROVIDER = _env("AI_PROVIDER", "huggingface")
-    AI_MODEL_NAME = _env("AI_MODEL_NAME", "NousResearch/Meta-Llama-3-8B-Instruct")
+    # Common local model options (toggle by setting AI_MODEL_NAME in env):
+    # - "Qwen/Qwen2.5-0.5B-Instruct" (default, very small CPU-friendly baseline)
+    # - "Qwen/Qwen2.5-1.5B-Instruct"
+    # - "NousResearch/Meta-Llama-3-8B-Instruct"
+    AI_MODEL_NAME = _env("AI_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct")
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
     AI_OLLAMA_ENDPOINT = _env(
         "AI_OLLAMA_ENDPOINT",
