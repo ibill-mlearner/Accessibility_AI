@@ -28,13 +28,14 @@
 </template>
 
 <script setup>
-import { computed, nextTick, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../stores/appStore'
 import ChatBubbleCard from '../components/chat/ChatBubbleCard.vue'
 import ComposerBar from '../components/chat/ComposerBar.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store = useAppStore()
 const prompt = ref('')
 const interactionLoading = ref(false)
@@ -110,9 +111,27 @@ async function sendPrompt() {
   if (interactionLoading.value) return
 
   const cleanPrompt = prompt.value.trim()
-  if (!cleanPrompt || store.role === 'guest') return
+  if (!cleanPrompt) return
+
+  // TODO(security-plan): Consider an optional preflight adversarial prompt-injection check
+  // before creating/storing messages. Proposed flow: (1) send `cleanPrompt` to a
+  // lightweight classifier policy prompt (same model or dedicated guardrail model),
+  // (2) require a structured verdict like {allow, risk_level, reason}, and
+  // (3) block or require confirmation on medium/high risk while logging the verdict
+  // for audit analysis. This is a planning note and may be toggled via feature flag.
+  if (store.role === 'guest') {
+    interactionError.value = 'Please log in to send a prompt.'
+    await router.push({ path: '/login', query: { next: '/', prompt: cleanPrompt } })
+    return
+  }
 
   const draftPrompt = prompt.value
+  const classIdForChat = store.selectedClassId || store.classes[0]?.id
+  if (!classIdForChat) {
+    interactionError.value = 'No class is available for this account yet.'
+    return
+  }
+
   interactionLoading.value = true
   interactionError.value = ''
 
@@ -121,12 +140,11 @@ async function sendPrompt() {
   try {
     const ensuredChat = await withSingleRetry(() =>
       store.ensureActiveChat({
-        id: createId(),
         title: cleanPrompt.slice(0, 60),
-        start: new Date().toISOString(),
+        started_at: new Date().toISOString(),
         model: store.selectedModel || 'General',
-        class: store.selectedClass?.name || '',
-        user: store.role
+        class_id: classIdForChat,
+        user_id: store.currentUser?.id
       })
     )
 
@@ -222,4 +240,14 @@ async function saveCurrentChatAsNote() {
 
   await store.createNote(payload)
 }
+
+onMounted(async () => {
+  const promptFromQuery = route.query?.prompt
+  if (typeof promptFromQuery !== 'string' || !promptFromQuery.trim()) return
+
+  prompt.value = promptFromQuery
+  if (route.path === '/' && Object.keys(route.query).length) {
+    await router.replace({ path: '/', query: {} })
+  }
+})
 </script>
