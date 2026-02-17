@@ -138,7 +138,6 @@ export const useAppStore = defineStore('app', {
     },
     parseCollectionItems(payload) {
       if (Array.isArray(payload)) return payload
-      if (payload && Array.isArray(payload.items)) return payload.items
       return null
     },
     persistSession() {

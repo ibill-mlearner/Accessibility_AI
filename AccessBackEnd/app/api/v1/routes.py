@@ -341,7 +341,7 @@ def list_chats():
         .order_by(Chat.started_at.desc(), Chat.id.desc())
         .all()
     )
-    return jsonify({"items": [_serialize_record("chat", chat) for chat in chats]}), 200
+    return jsonify([_serialize_record("chat", chat) for chat in chats]), 200
 
 
 @api_v1_bp.post("/chats")
