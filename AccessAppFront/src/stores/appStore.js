@@ -1,77 +1,50 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
 
+const SESSION_STORAGE_KEY = 'accessapp:session'
+
 /**
- * App Store Refactor Design (pre-implementation)
+ * App Store architecture notes
  *
- * Goal: Move from a single bootstrap-centric loading flow to resource-oriented
- * actions with explicit selection derivation, mutation strategy, and rollback.
+ * This store centralizes auth/session state, resource fetching, and
+ * optimistic/pessimistic mutation handling for core app entities.
  *
- * Planned resource actions
- * - Chats:
- *   - fetchChats()
- *   - createChat(payload)
- *   - updateChat(chatId, patch)
- *   - deleteChat(chatId)
- * - Classes:
- *   - fetchClasses()
- *   - createClass(payload)
- *   - updateClass(classId, patch)
- *   - deleteClass(classId)
- * - Notes:
- *   - fetchNotes()
- *   - createNote(payload)
- *   - updateNote(noteId, patch)
- *   - deleteNote(noteId)
- * - Features:
- *   - fetchFeatures()
- *   - updateFeature(featureId, patch)
+ * Resource action groups
+ * - Chats: fetch/create/update/delete
+ * - Classes: fetch/create/update/delete
+ * - Notes: fetch/create/update/delete
+ * - Features: fetch/update
  *
- * bootstrap() becomes an orchestration utility only:
- * - Promise.all([fetchChats, fetchClasses, fetchNotes, fetchFeatures])
- * - no direct assignment or implicit first-item selection logic.
+ * bootstrap() orchestration
+ * - Runs fetchChats/fetchClasses/fetchNotes/fetchFeatures in parallel.
+ * - Aggregates auth/resource failures into user-facing top-level messages.
  *
- * Mutation strategy by path (optimistic vs pessimistic)
- * - createChat: optimistic insert with temporary id, reconcile with server id.
- * - updateChat: optimistic patch + rollback snapshot on failure.
- * - deleteChat: optimistic remove + rollback on failure.
- * - createClass: pessimistic (permission/role sensitivity), append on success.
- * - updateClass: pessimistic to avoid invalid role/class visibility flicker.
- * - deleteClass: pessimistic because it can invalidate selectedClassId.
- * - createNote/updateNote/deleteNote: optimistic for fast editing UX,
- *   rollback on API failure.
- * - updateFeature: pessimistic until feature-gating side effects are isolated.
+ * Mutation strategy highlights
+ * - Chats/notes favor optimistic UX where rollback is practical.
+ * - Classes/features remain more pessimistic where permission or gating
+ *   side effects can cause misleading intermediate UI.
  *
- * Selected-id derivation/revalidation plan
- * - Derive selectedChatId via deriveSelectedChatId(prevSelectedId, chats):
- *   1) preserve previous selection if still present
- *   2) otherwise choose first stable item by explicit sort key (not array order)
- *   3) else null
- * - Derive selectedClassId similarly via deriveSelectedClassId(...).
- * - Revalidate selected ids after every fetch* and delete* action.
- * - When role changes, selectedClassId resets and is re-derived from roleClasses
- *   after fetchClasses() completes.
+ * Selection derivation and revalidation
+ * - selected ids are re-derived after relevant fetch/delete updates.
+ * - previous valid selection is preserved when still present.
+ * - fallback selection uses stable sort keys (createdAt/start/id).
  *
- * Error and rollback strategy (per-action, not global-only)
- * - Add actionStatus map keyed by action name/resource id:
- *   e.g. actionStatus['updateChat:12'] = { loading, error, rollbackToken }.
- * - Keep global error only for page-level fallback messaging.
- * - Each mutation stores rollback snapshot/token before optimistic write.
- * - On failure: rollback local state, set action-scoped error, preserve UX context.
- * - On success: clear action-scoped error and rollback token.
+ * Action-level status and errors
+ * - actionStatus is keyed per action/resource id for granular loading/error UI.
+ * - global `error` is reserved for broader page-level fallback messaging.
  *
- * Migration compatibility note
- * - Current selection relies on seeded mock ordering (chats[0]).
- * - Refactor must remove implicit ordering assumptions by introducing
- *   deterministic sort keys (createdAt/id) and explicit derivation helpers.
- * - During migration, keep a compatibility fallback to first item only when
- *   no stable key exists, then remove after data contract is updated.
+ * Migration context
+ * - Legacy behavior relied on implicit first-item ordering.
+ * - Current helpers aim to keep selection deterministic while backend
+ *   contracts converge on stable ordering keys.
  */
 
 export const useAppStore = defineStore('app', {
   state: () => ({
     role: 'guest',
     user: null,
+    currentUser: null,
+    isAuthenticated: false,
     authError: '',
     selectedChatId: null,
     selectedClassId: null,
@@ -167,6 +140,40 @@ export const useAppStore = defineStore('app', {
       if (Array.isArray(payload)) return payload
       if (payload && Array.isArray(payload.items)) return payload.items
       return null
+    },
+    persistSession() {
+      if (typeof window === 'undefined' || !window.sessionStorage) return
+
+      const payload = {
+        role: this.role,
+        currentUser: this.currentUser,
+        isAuthenticated: this.isAuthenticated
+      }
+
+      window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload))
+    },
+    hydrateSession() {
+      if (typeof window === 'undefined' || !window.sessionStorage) return
+
+      const rawSession = window.sessionStorage.getItem(SESSION_STORAGE_KEY)
+      if (!rawSession) return
+
+      try {
+        const parsed = JSON.parse(rawSession)
+        const hydratedUser = parsed?.currentUser || null
+
+        this.currentUser = hydratedUser
+        this.user = hydratedUser
+        this.isAuthenticated = Boolean(parsed?.isAuthenticated && hydratedUser)
+        this.role = parsed?.role || (this.isAuthenticated ? 'authenticated' : 'guest')
+        this.authError = ''
+      } catch {
+        this.logout()
+      }
+    },
+    clearSession() {
+      if (typeof window === 'undefined' || !window.sessionStorage) return
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY)
     },
     // ---------------------------------------------------------------------
     // Chat + AI interaction resource actions
@@ -479,16 +486,22 @@ export const useAppStore = defineStore('app', {
         const authenticatedUser = response?.data?.user || {}
         const hasAuthenticatedIdentity = Boolean(authenticatedUser.id && authenticatedUser.email)
 
-        this.user = {
+        this.currentUser = {
           id: authenticatedUser.id,
           email: authenticatedUser.email
         }
+        this.user = this.currentUser
+        this.isAuthenticated = hasAuthenticatedIdentity
 
         this.role = authenticatedUser.role || (hasAuthenticatedIdentity ? 'authenticated' : 'guest')
+        this.persistSession()
         return true
       } catch (error) {
+        this.currentUser = null
         this.user = null
+        this.isAuthenticated = false
         this.role = 'guest'
+        this.clearSession()
         const status = error?.response?.status
         if (status === 400 || status === 401) {
           this.authError = 'Invalid email or password.'
@@ -500,14 +513,20 @@ export const useAppStore = defineStore('app', {
     },
     logout() {
       this.role = 'guest'
+      this.currentUser = null
       this.user = null
+      this.isAuthenticated = false
       this.authError = ''
       this.selectedClassId = null
+      this.clearSession()
     },
     setRole(role) {
       this.role = role
       this.selectedClassId = null
       this.selectedClassId = this.deriveSelectedId(this.selectedClassId, this.roleClasses)
+      if (this.isAuthenticated) {
+        this.persistSession()
+      }
     }
   }
 })

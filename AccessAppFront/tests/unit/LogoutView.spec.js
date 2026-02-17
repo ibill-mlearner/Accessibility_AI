@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LogoutView from '../../src/views/LogoutView.vue'
 import { useAppStore } from '../../src/stores/appStore'
 
@@ -15,15 +15,27 @@ vi.mock('vue-router', async (importOriginal) => {
 })
 
 describe('LogoutView.vue', () => {
-  it('logs out and routes home when completing logout', async () => {
+  beforeEach(() => {
     setActivePinia(createPinia())
+    push.mockReset()
+    window.sessionStorage.clear()
+  })
+
+  it('logs out, clears persisted session, and routes home when completing logout', async () => {
     const store = useAppStore()
     store.role = 'student'
+    store.currentUser = { id: 9, email: 'student@example.com' }
+    store.user = store.currentUser
+    store.isAuthenticated = true
+    store.persistSession()
 
     const wrapper = mount(LogoutView)
     await wrapper.find('button.btn').trigger('click')
 
     expect(store.role).toBe('guest')
+    expect(store.currentUser).toBeNull()
+    expect(store.isAuthenticated).toBe(false)
+    expect(window.sessionStorage.getItem('accessapp:session')).toBeNull()
     expect(push).toHaveBeenCalledWith('/')
   })
 })
