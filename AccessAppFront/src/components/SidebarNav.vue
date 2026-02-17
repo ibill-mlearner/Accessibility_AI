@@ -14,7 +14,7 @@
       </RouterLink>
     </nav>
 
-    <section v-if="store.role !== 'guest'" class="chat-list">
+    <section v-if="store.role !== 'guest'" class="chat-list chat-list--sessions">
       <h3>Chats</h3>
       <ul>
         <li v-for="chat in store.chats" :key="chat.id" :class="{ active: chat.id === store.selectedChatId }">
@@ -24,11 +24,22 @@
         </li>
       </ul>
     </section>
+
+    <AccountActionsCard
+      :is-logged-in="isLoggedIn"
+      @profile="router.push('/profile')"
+      @logout="router.push('/logout')"
+    />
   </aside>
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import AccountActionsCard from './auth/AccountActionsCard.vue'
 import { useAppStore } from '../stores/appStore'
 
+const router = useRouter()
 const store = useAppStore()
+const isLoggedIn = computed(() => store.isAuthenticated && store.role !== 'guest')
 </script>

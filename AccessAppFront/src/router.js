@@ -6,6 +6,7 @@ import ClassesView from './views/ClassesView.vue'
 import LoginView from './views/LoginView.vue'
 import LogoutView from './views/LogoutView.vue'
 import ErrorView from './views/ErrorView.vue'
+import ProfileView from './views/ProfileView.vue'
 import HeaderBarPreview from './views/component_previews/HeaderBarPreview.vue'
 import SidebarNavPreview from './views/component_previews/SidebarNavPreview.vue'
 import LoginFormCardPreview from './views/component_previews/LoginFormCardPreview.vue'
@@ -24,6 +25,7 @@ const routes = [
   { path: '/classes/:role', name: 'classes', component: ClassesView, props: true },
   { path: '/login', name: 'login', component: LoginView },
   { path: '/logout', name: 'logout', component: LogoutView },
+  { path: '/profile', name: 'profile', component: ProfileView },
   { path: '/error', name: 'error', component: ErrorView },
   { path: '/:pathMatch(.*)*', name: 'not-found', redirect: '/error' },
   { path: '/component-previews/header-bar', name: 'preview-header-bar', component: HeaderBarPreview },

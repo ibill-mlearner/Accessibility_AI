@@ -104,4 +104,5 @@ describe('HomeView.vue', () => {
     expect(loginBtn).toBeUndefined()
     expect(wrapper.find('select').exists()).toBe(true)
   })
+
 })
