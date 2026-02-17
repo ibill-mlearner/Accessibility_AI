@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date, datetime
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
@@ -12,7 +13,7 @@ from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import AIInteraction, Chat, CourseClass, Message, User
+from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note, User
 from ...models.identity_defaults import build_transitional_identity_defaults
 from ...services.chat_access_service import ChatAccessService
 from ...services.logging import DomainEvent
@@ -39,6 +40,15 @@ _RESOURCE_API_TO_MODEL_FIELDS: dict[str, dict[str, str]] = {
         "note": "note",
         "help_intent": "help_intent",
     },
+    "note": {
+        "class": "class_id",
+        "class_id": "class_id",
+        "chat": "chat_id",
+        "chat_id": "chat_id",
+        "date": "noted_on",
+        "noted_on": "noted_on",
+        "content": "content",
+    },
 }
 
 
@@ -53,10 +63,13 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
     if resource == "chat":
         return {
             "id": record.id,
+            "class": record.class_id,
             "class_id": record.class_id,
+            "user": record.user_id,
             "user_id": record.user_id,
             "title": record.title,
             "model": record.model,
+            "start": record.started_at.isoformat() if record.started_at else None,
             "started_at": record.started_at.isoformat() if record.started_at else None,
         }
 
@@ -68,6 +81,48 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
             "vote": record.vote,
             "note": record.note,
             "help_intent": record.help_intent,
+        }
+
+    if resource == "class":
+        return {
+            "id": record.id,
+            "role": record.role,
+            "name": record.name,
+            "description": record.description,
+            "instructor_id": record.instructor_id,
+            "term": record.term,
+            "section_code": record.section_code,
+            "external_class_key": record.external_class_key,
+            "section": {
+                "term": record.term,
+                "section_code": record.section_code,
+            },
+            "instructor": {
+                "id": record.instructor_id,
+            },
+        }
+
+    if resource == "feature":
+        return {
+            "id": record.id,
+            "title": record.title,
+            "description": record.description,
+            "enabled": record.enabled,
+            "instructor_id": record.instructor_id,
+            "class_id": record.class_id,
+        }
+
+    if resource == "note":
+        noted_on = record.noted_on.isoformat() if getattr(record, "noted_on", None) else None
+        return {
+            "id": record.id,
+            "class": record.class_id,
+            "class_id": record.class_id,
+            "chat": record.chat_id,
+            "chat_id": record.chat_id,
+            "date": noted_on,
+            "noted_on": noted_on,
+            "content": record.content,
         }
 
     return {}
@@ -103,25 +158,99 @@ def _forbidden_response(message: str = "access denied"):
     )
 
 
-def _todo_response(
-    *,
-    endpoint: str,
-    next_steps: list[str],
-    payload: dict[str, Any] | None = None,
-    status_code: int = 501,
-):
-    """Return explicit placeholder output for handlers that are intentionally unimplemented."""
-    return (
-        jsonify(
-            {
-                "message": "TODO: implement",
-                "endpoint": endpoint,
-                "next_steps": next_steps,
-                "payload": payload or {},
-            }
-        ),
-        status_code,
-    )
+def _parse_optional_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise BadRequestError("started_at must be an ISO-8601 datetime") from exc
+    raise BadRequestError("started_at must be an ISO-8601 datetime")
+
+
+def _parse_required_date(value: Any, *, field_name: str = "noted_on") -> date:
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise BadRequestError(f"{field_name} must be YYYY-MM-DD") from exc
+    raise BadRequestError(f"{field_name} must be YYYY-MM-DD")
+
+
+def _require_record(resource_name: str, model: Any, record_id: int) -> Any:
+    record = db.session.get(model, record_id)
+    if record is None:
+        raise NotFoundError(f"{resource_name} not found", details={"id": record_id})
+    return record
+
+
+def _apply_chat_mutations(chat: Chat, payload: dict[str, Any]) -> None:
+    if "class_id" in payload:
+        class_record = _require_record("class", CourseClass, int(payload["class_id"]))
+        chat.class_id = int(class_record.id)
+
+    if "user_id" in payload:
+        _require_record("user", User, int(payload["user_id"]))
+        chat.user_id = int(payload["user_id"])
+
+    if "title" in payload:
+        chat.title = str(payload["title"] or "").strip() or chat.title
+
+    if "model" in payload:
+        chat.model = str(payload["model"] or "").strip() or chat.model
+
+    if "started_at" in payload:
+        parsed = _parse_optional_datetime(payload["started_at"])
+        if parsed is not None:
+            chat.started_at = parsed
+
+
+def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
+    if "chat_id" in payload:
+        _require_record("chat", Chat, int(payload["chat_id"]))
+        message.chat_id = int(payload["chat_id"])
+    if "message_text" in payload:
+        message.message_text = str(payload["message_text"] or "").strip()
+    if "vote" in payload:
+        message.vote = str(payload["vote"] or "").strip() or message.vote
+    if "note" in payload:
+        message.note = str(payload["note"] or "").strip() or message.note
+    if "help_intent" in payload:
+        message.help_intent = str(payload["help_intent"] or "").strip()
+
+
+def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -> None:
+    for field in ("role", "name", "description", "term", "section_code", "external_class_key"):
+        if field in payload:
+            setattr(class_record, field, payload[field])
+
+    if "instructor_id" in payload:
+        _require_record("user", User, int(payload["instructor_id"]))
+        class_record.instructor_id = int(payload["instructor_id"])
+
+
+def _apply_feature_mutations(feature: Feature, payload: dict[str, Any]) -> None:
+    for field in ("title", "description", "enabled", "instructor_id", "class_id"):
+        if field in payload:
+            setattr(feature, field, payload[field])
+
+
+def _apply_note_mutations(note: Note, payload: dict[str, Any]) -> None:
+    if "class_id" in payload:
+        _require_record("class", CourseClass, int(payload["class_id"]))
+        note.class_id = int(payload["class_id"])
+    if "chat_id" in payload:
+        _require_record("chat", Chat, int(payload["chat_id"]))
+        note.chat_id = int(payload["chat_id"])
+    if "noted_on" in payload:
+        note.noted_on = _parse_required_date(payload["noted_on"])
+    if "content" in payload:
+        note.content = str(payload["content"] or "").strip()
 
 
 @api_v1_bp.post("/auth/register")
@@ -212,7 +341,7 @@ def list_chats():
         .order_by(Chat.started_at.desc(), Chat.id.desc())
         .all()
     )
-    return jsonify({"items": [_serialize_record("chat", chat) for chat in chats], "next_cursor": None}), 200
+    return jsonify([_serialize_record("chat", chat) for chat in chats]), 200
 
 
 @api_v1_bp.post("/chats")
@@ -226,9 +355,7 @@ def create_chat():
     if class_id is None:
         raise BadRequestError("class_id is required")
 
-    class_record = db.session.get(CourseClass, int(class_id))
-    if class_record is None:
-        raise NotFoundError("class not found")
+    class_record = _require_record("class", CourseClass, int(class_id))
 
     requested_user_id = payload.get("user_id")
     try:
@@ -246,18 +373,158 @@ def create_chat():
         title=(payload.get("title") or "New Chat").strip(),
         model=(payload.get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown").strip(),
     )
+    started_at = _parse_optional_datetime(payload.get("started_at"))
+    if started_at is not None:
+        chat.started_at = started_at
+
     db.session.add(chat)
     db.session.commit()
     return jsonify(_serialize_record("chat", chat)), 201
+
+
+@api_v1_bp.get("/chats/<int:chat_id>")
+@login_required
+def get_chat(chat_id: int):
+    chat = _require_record("chat", Chat, chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("user is not authorized for this chat")
+    return jsonify(_serialize_record("chat", chat)), 200
+
+
+@api_v1_bp.put("/chats/<int:chat_id>")
+@api_v1_bp.patch("/chats/<int:chat_id>")
+@login_required
+def update_chat(chat_id: int):
+    chat = _require_record("chat", Chat, chat_id)
+    try:
+        ChatAccessService.assert_chat_owner(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("user is not authorized for this chat")
+
+    payload = _deserialize_payload("chat", _read_json_object())
+    _apply_chat_mutations(chat, payload)
+    db.session.commit()
+    return jsonify(_serialize_record("chat", chat)), 200
+
+
+@api_v1_bp.delete("/chats/<int:chat_id>")
+@login_required
+def delete_chat(chat_id: int):
+    chat = _require_record("chat", Chat, chat_id)
+    try:
+        ChatAccessService.assert_chat_owner(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("user is not authorized for this chat")
+
+    response_payload = _serialize_record("chat", chat)
+    db.session.delete(chat)
+    db.session.commit()
+    return jsonify(response_payload), 200
+
+
+@api_v1_bp.get("/messages")
+@login_required
+def list_messages():
+    user_id = ChatAccessService.get_authenticated_user_id()
+    messages = (
+        db.session.query(Message)
+        .join(Chat, Chat.id == Message.chat_id)
+        .filter(Chat.user_id == user_id)
+        .order_by(Message.id.asc())
+        .all()
+    )
+    return jsonify([_serialize_record("message", m) for m in messages]), 200
+
+
+@api_v1_bp.post("/messages")
+@login_required
+def create_message():
+    payload = _deserialize_payload("message", _read_json_object())
+    chat_id = payload.get("chat_id")
+    if chat_id is None:
+        raise BadRequestError("chat_id is required")
+
+    chat = _require_record("chat", Chat, int(chat_id))
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    message = Message(
+        chat_id=chat.id,
+        message_text=str(payload.get("message_text") or "").strip(),
+        vote=str(payload.get("vote") or "good").strip() or "good",
+        note=str(payload.get("note") or "no").strip() or "no",
+        help_intent=str(payload.get("help_intent") or "").strip(),
+    )
+    if not message.message_text:
+        raise BadRequestError("message_text is required")
+    if not message.help_intent:
+        raise BadRequestError("help_intent is required")
+
+    db.session.add(message)
+    db.session.commit()
+    return jsonify(_serialize_record("message", message)), 201
+
+
+@api_v1_bp.get("/messages/<int:message_id>")
+@login_required
+def get_message(message_id: int):
+    message = _require_record("message", Message, message_id)
+    chat = _require_record("chat", Chat, message.chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    return jsonify(_serialize_record("message", message)), 200
+
+
+@api_v1_bp.put("/messages/<int:message_id>")
+@api_v1_bp.patch("/messages/<int:message_id>")
+@login_required
+def update_message(message_id: int):
+    message = _require_record("message", Message, message_id)
+    chat = _require_record("chat", Chat, message.chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    payload = _deserialize_payload("message", _read_json_object())
+    _apply_message_mutations(message, payload)
+    if not message.message_text:
+        raise BadRequestError("message_text is required")
+    if not message.help_intent:
+        raise BadRequestError("help_intent is required")
+
+    db.session.commit()
+    return jsonify(_serialize_record("message", message)), 200
+
+
+@api_v1_bp.delete("/messages/<int:message_id>")
+@login_required
+def delete_message(message_id: int):
+    message = _require_record("message", Message, message_id)
+    chat = _require_record("chat", Chat, message.chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    response_payload = _serialize_record("message", message)
+    db.session.delete(message)
+    db.session.commit()
+    return jsonify(response_payload), 200
 
 
 @api_v1_bp.get("/chats/<int:chat_id>/messages")
 @login_required
 def list_chat_messages(chat_id: int):
     """List messages for a target chat when visible to the authenticated user."""
-    chat = db.session.get(Chat, chat_id)
-    if chat is None:
-        raise NotFoundError("chat not found")
+    chat = _require_record("chat", Chat, chat_id)
     try:
         ChatAccessService.assert_can_access_chat(
             chat=chat,
@@ -272,25 +539,14 @@ def list_chat_messages(chat_id: int):
         .order_by(Message.id.asc())
         .all()
     )
-    return (
-        jsonify(
-            {
-                "chat_id": chat_id,
-                "items": [_serialize_record("message", message) for message in messages],
-                "next_cursor": None,
-            }
-        ),
-        200,
-    )
+    return jsonify([_serialize_record("message", message) for message in messages]), 200
 
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
 def create_chat_message(chat_id: int):
     """Create a message on a target chat when writable by the current user."""
-    chat = db.session.get(Chat, chat_id)
-    if chat is None:
-        raise NotFoundError("chat not found")
+    chat = _require_record("chat", Chat, chat_id)
     try:
         ChatAccessService.assert_can_access_chat(
             chat=chat,
@@ -318,6 +574,211 @@ def create_chat_message(chat_id: int):
     db.session.add(message)
     db.session.commit()
     return jsonify(_serialize_record("message", message)), 201
+
+
+@api_v1_bp.get("/classes")
+@login_required
+def list_classes():
+    classes = db.session.query(CourseClass).order_by(CourseClass.id.asc()).all()
+    return jsonify([_serialize_record("class", c) for c in classes]), 200
+
+
+@api_v1_bp.post("/classes")
+@login_required
+def create_class():
+    payload = _read_json_object()
+    if payload.get("instructor_id") is None:
+        payload["instructor_id"] = ChatAccessService.get_authenticated_user_id()
+
+    class_record = CourseClass(
+        role=str(payload.get("role") or "student"),
+        name=str(payload.get("name") or "").strip(),
+        description=str(payload.get("description") or "").strip(),
+        instructor_id=int(payload["instructor_id"]),
+        term=payload.get("term"),
+        section_code=payload.get("section_code"),
+        external_class_key=payload.get("external_class_key"),
+    )
+    if not class_record.name or not class_record.description:
+        raise BadRequestError("name and description are required")
+
+    _require_record("user", User, class_record.instructor_id)
+    db.session.add(class_record)
+    db.session.commit()
+    return jsonify(_serialize_record("class", class_record)), 201
+
+
+@api_v1_bp.get("/classes/<int:class_id>")
+@login_required
+def get_class(class_id: int):
+    class_record = _require_record("class", CourseClass, class_id)
+    return jsonify(_serialize_record("class", class_record)), 200
+
+
+@api_v1_bp.put("/classes/<int:class_id>")
+@api_v1_bp.patch("/classes/<int:class_id>")
+@login_required
+def update_class(class_id: int):
+    class_record = _require_record("class", CourseClass, class_id)
+    payload = _read_json_object()
+    _apply_class_mutations(class_record, payload)
+    db.session.commit()
+    return jsonify(_serialize_record("class", class_record)), 200
+
+
+@api_v1_bp.delete("/classes/<int:class_id>")
+@login_required
+def delete_class(class_id: int):
+    class_record = _require_record("class", CourseClass, class_id)
+    response_payload = _serialize_record("class", class_record)
+    db.session.delete(class_record)
+    db.session.commit()
+    return jsonify(response_payload), 200
+
+
+@api_v1_bp.get("/features")
+@login_required
+def list_features():
+    features = db.session.query(Feature).order_by(Feature.id.asc()).all()
+    return jsonify([_serialize_record("feature", feature) for feature in features]), 200
+
+
+@api_v1_bp.post("/features")
+@login_required
+def create_feature():
+    payload = _read_json_object()
+    feature = Feature(
+        title=str(payload.get("title") or "").strip(),
+        description=str(payload.get("description") or "").strip(),
+        enabled=bool(payload.get("enabled", False)),
+        instructor_id=payload.get("instructor_id"),
+        class_id=payload.get("class_id"),
+    )
+    if not feature.title or not feature.description:
+        raise BadRequestError("title and description are required")
+    db.session.add(feature)
+    db.session.commit()
+    return jsonify(_serialize_record("feature", feature)), 201
+
+
+@api_v1_bp.get("/features/<int:feature_id>")
+@login_required
+def get_feature(feature_id: int):
+    feature = _require_record("feature", Feature, feature_id)
+    return jsonify(_serialize_record("feature", feature)), 200
+
+
+@api_v1_bp.put("/features/<int:feature_id>")
+@api_v1_bp.patch("/features/<int:feature_id>")
+@login_required
+def update_feature(feature_id: int):
+    feature = _require_record("feature", Feature, feature_id)
+    payload = _read_json_object()
+    _apply_feature_mutations(feature, payload)
+    db.session.commit()
+    return jsonify(_serialize_record("feature", feature)), 200
+
+
+@api_v1_bp.delete("/features/<int:feature_id>")
+@login_required
+def delete_feature(feature_id: int):
+    feature = _require_record("feature", Feature, feature_id)
+    response_payload = _serialize_record("feature", feature)
+    db.session.delete(feature)
+    db.session.commit()
+    return jsonify(response_payload), 200
+
+
+@api_v1_bp.get("/notes")
+@login_required
+def list_notes():
+    user_id = ChatAccessService.get_authenticated_user_id()
+    notes = (
+        db.session.query(Note)
+        .join(Chat, Chat.id == Note.chat_id)
+        .filter(Chat.user_id == user_id)
+        .order_by(Note.id.asc())
+        .all()
+    )
+    return jsonify([_serialize_record("note", note) for note in notes]), 200
+
+
+@api_v1_bp.post("/notes")
+@login_required
+def create_note():
+    payload = _deserialize_payload("note", _read_json_object())
+    class_id = payload.get("class_id")
+    chat_id = payload.get("chat_id")
+    if class_id is None or chat_id is None:
+        raise BadRequestError("class_id and chat_id are required")
+
+    _require_record("class", CourseClass, int(class_id))
+    chat = _require_record("chat", Chat, int(chat_id))
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    note = Note(
+        class_id=int(class_id),
+        chat_id=int(chat_id),
+        noted_on=_parse_required_date(payload.get("noted_on"), field_name="noted_on"),
+        content=str(payload.get("content") or "").strip(),
+    )
+    if not note.content:
+        raise BadRequestError("content is required")
+
+    db.session.add(note)
+    db.session.commit()
+    return jsonify(_serialize_record("note", note)), 201
+
+
+@api_v1_bp.get("/notes/<int:note_id>")
+@login_required
+def get_note(note_id: int):
+    note = _require_record("note", Note, note_id)
+    chat = _require_record("chat", Chat, note.chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+    return jsonify(_serialize_record("note", note)), 200
+
+
+@api_v1_bp.put("/notes/<int:note_id>")
+@api_v1_bp.patch("/notes/<int:note_id>")
+@login_required
+def update_note(note_id: int):
+    note = _require_record("note", Note, note_id)
+    chat = _require_record("chat", Chat, note.chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    payload = _deserialize_payload("note", _read_json_object())
+    _apply_note_mutations(note, payload)
+    if not note.content:
+        raise BadRequestError("content is required")
+
+    db.session.commit()
+    return jsonify(_serialize_record("note", note)), 200
+
+
+@api_v1_bp.delete("/notes/<int:note_id>")
+@login_required
+def delete_note(note_id: int):
+    note = _require_record("note", Note, note_id)
+    chat = _require_record("chat", Chat, note.chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    response_payload = _serialize_record("note", note)
+    db.session.delete(note)
+    db.session.commit()
+    return jsonify(response_payload), 200
 
 
 @api_v1_bp.get("/health")
