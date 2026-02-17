@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import sys
 import time
 import urllib.error
@@ -112,6 +113,9 @@ class SmokeRunner:
         return f"{self.frontend_base}{path}"
 
     def run(self) -> None:
+        self.frontend_base = self._resolve_frontend_base(self.frontend_base)
+        self._preflight_http_target("Backend", self.backend_base)
+
         print("[1/8] Checking frontend is reachable...")
         frontend = self.client.request_text("GET", self._web("/"))
         self._assert(frontend.status == 200, f"Frontend check failed with HTTP {frontend.status}")
@@ -215,6 +219,120 @@ class SmokeRunner:
         if not domain:
             domain = "example.com"
         return f"{local}+{suffix}@{domain}"
+
+    def _resolve_frontend_base(self, base_url: str) -> str:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname
+        port = parsed.port or (443 if (parsed.scheme or "http") == "https" else 80)
+        scheme = parsed.scheme or "http"
+
+        self._assert(bool(host), f"Frontend base URL is missing a hostname: {base_url}")
+
+        if self._is_tcp_reachable(host, port):
+            return base_url
+
+        if host in {"127.0.0.1", "localhost"}:
+            sibling_host = "localhost" if host == "127.0.0.1" else "127.0.0.1"
+            if self._is_tcp_reachable(sibling_host, port):
+                resolved = self._replace_host(base_url, sibling_host)
+                print(f"Frontend detected on {resolved} (auto-switched from {base_url}).")
+                return resolved
+
+        if host in {"127.0.0.1", "localhost"} and port == 5173:
+            discovered = self._discover_listening_local_port(host, [5174, 4173, 3000])
+            if discovered is not None:
+                resolved = self._replace_port(base_url, discovered)
+                print(f"Frontend detected on {resolved} (auto-switched from {base_url}).")
+                return resolved
+
+        self._preflight_http_target("Frontend", base_url)
+        return base_url
+
+    def _preflight_http_target(self, name: str, base_url: str) -> None:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname
+        port = parsed.port
+        scheme = parsed.scheme or "http"
+
+        self._assert(bool(host), f"{name} base URL is missing a hostname: {base_url}")
+
+        if port is None:
+            port = 443 if scheme == "https" else 80
+
+        try:
+            with socket.create_connection((host, port), timeout=self.client.timeout):
+                return
+        except OSError as exc:
+            hints: list[str] = []
+            if name == "Frontend" and host in {"127.0.0.1", "localhost"}:
+                sibling_host = "localhost" if host == "127.0.0.1" else "127.0.0.1"
+                if self._is_tcp_reachable(sibling_host, port):
+                    hints.append(
+                        f"Frontend is reachable on {sibling_host}:{port}. "
+                        f"Try --frontend-base {self._replace_host(base_url, sibling_host)}"
+                    )
+            if name == "Frontend" and host in {"127.0.0.1", "localhost"} and port == 5173:
+                discovered = self._discover_listening_local_port(host, [5174, 4173, 3000])
+                if discovered is not None:
+                    hints.append(
+                        f"Detected an open frontend-like port at {host}:{discovered}. "
+                        f"Try --frontend-base {self._replace_port(base_url, discovered)}"
+                    )
+                else:
+                    hints.append("Start frontend: npm run dev --prefix AccessAppFront")
+
+            if name == "Backend" and host in {"127.0.0.1", "localhost"} and port == 5000:
+                hints.append("Start backend: python AccessBackEnd/manage.py --config development")
+
+            hint_text = f" Hints: {' | '.join(hints)}" if hints else ""
+            raise SmokeTestError(
+                f"{name} is unreachable at {base_url} (host={host}, port={port}, reason={exc}).{hint_text}"
+            ) from exc
+
+    def _discover_listening_local_port(self, host: str, ports: list[int]) -> int | None:
+        for candidate in ports:
+            if self._is_tcp_reachable(host, candidate, timeout=0.4):
+                return candidate
+        return None
+
+    @staticmethod
+    def _replace_host(base_url: str, new_host: str) -> str:
+        parsed = urllib.parse.urlparse(base_url)
+        host_port = parsed.netloc
+        if "@" in host_port:
+            auth, _, host_port = host_port.rpartition("@")
+        else:
+            auth = ""
+        if ":" in host_port and not host_port.startswith("["):
+            _, _, port_text = host_port.partition(":")
+            host_port = f"{new_host}:{port_text}"
+        elif host_port.startswith("[") and "]" in host_port:
+            after = host_port.split("]", 1)[1]
+            host_port = f"{new_host}{after}"
+        else:
+            host_port = new_host
+        if auth:
+            host_port = f"{auth}@{host_port}"
+        return urllib.parse.urlunparse(parsed._replace(netloc=host_port))
+
+    @staticmethod
+    def _replace_port(base_url: str, new_port: int) -> str:
+        parsed = urllib.parse.urlparse(base_url)
+        host = parsed.hostname or ""
+        auth = ""
+        if "@" in parsed.netloc:
+            auth, _, _ = parsed.netloc.rpartition("@")
+        netloc = f"{host}:{new_port}"
+        if auth:
+            netloc = f"{auth}@{netloc}"
+        return urllib.parse.urlunparse(parsed._replace(netloc=netloc))
+
+    def _is_tcp_reachable(self, host: str, port: int, timeout: float | None = None) -> bool:
+        try:
+            with socket.create_connection((host, port), timeout=timeout or self.client.timeout):
+                return True
+        except OSError:
+            return False
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
