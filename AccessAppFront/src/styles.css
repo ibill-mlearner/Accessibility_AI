@@ -11,7 +11,8 @@ body { margin: 0; background: #ececec; }
 .menu-card { display: flex; flex-direction: column; padding: 12px; }
 .menu-item { text-decoration: none; color: #111; padding: 8px 4px; font-size: 40px; }
 .menu-item.router-link-active { background: #b6a4c4; }
-.chat-list { padding: 10px; flex: 1; }
+.chat-list { padding: 10px; }
+.chat-list--sessions { flex: 1; min-height: 0; overflow-y: auto; }
 .chat-list h3 { margin: 0 0 10px; font-size: 38px; }
 .chat-list li { font-size: 40px; margin: 6px 0; list-style: none; }
 .chat-list li.active { background: #b6a4c4; }
@@ -23,6 +24,21 @@ body { margin: 0; background: #ececec; }
   font: inherit;
   cursor: pointer;
   padding: 0;
+}
+
+.account-action-btn {
+  width: 100%;
+  text-align: left;
+  font-size: 40px;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #efefef;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.account-action-btn:hover {
+  background: #e5e5e5;
 }
 .content { display: flex; flex-direction: column; gap: 20px; }
 .chat-thread {

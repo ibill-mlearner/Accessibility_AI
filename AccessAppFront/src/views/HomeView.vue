@@ -43,6 +43,7 @@ const interactionError = ref('')
 const timelineMessages = ref([])
 const messageListRef = ref(null)
 
+
 const selectedChat = computed(() => store.chats.find((chat) => chat.id === store.selectedChatId) || null)
 const activeChatText = computed(() => {
   if (!selectedChat.value) return "System's response . . ."
