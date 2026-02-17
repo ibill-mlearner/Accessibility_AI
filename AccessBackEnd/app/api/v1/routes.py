@@ -782,7 +782,7 @@ def delete_note(note_id: int):
 
 
 @api_v1_bp.get("/health")
-@login_required
+# Intentionally unauthenticated for liveness/readiness checks; rate limiting will follow.
 def health():
     """Service heartbeat endpoint for deployment/readiness checks."""
     _publish("api.health_checked")

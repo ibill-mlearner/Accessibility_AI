@@ -79,16 +79,16 @@ def test_initialize_logging_is_idempotent():
     ) == 1
 
 
-def test_health_endpoint_requires_authentication(client):
+def test_health_endpoint_is_public(client):
     response = client.get("/api/v1/health")
-    assert response.status_code == 401
+    assert response.status_code == 200
     body = response.get_json()
-    assert body["error"]["code"] == "unauthorized"
+    assert body["status"] == "ok"
+    assert "ai_provider" in body
 
 
 def test_health_endpoint(app, client):
     app.config["AI_PROVIDER"] = "ollama"
-    _authenticate_api_client(app, client)
 
     response = client.get("/api/v1/health")
     assert response.status_code == 200
