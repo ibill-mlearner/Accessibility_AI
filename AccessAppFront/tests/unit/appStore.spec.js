@@ -18,9 +18,9 @@ describe('appStore actions', () => {
     vi.clearAllMocks()
   })
 
-  it('bootstrap loads chats/classes/notes/features and selects first chat', async () => {
+  it('bootstrap loads chats/classes/notes/features and selects first chat from items envelope', async () => {
     api.get
-      .mockResolvedValueOnce({ data: [{ id: 101, name: 'Chat A' }] })
+      .mockResolvedValueOnce({ data: { items: [{ id: 101, name: 'Chat A' }] } })
       .mockResolvedValueOnce({ data: [{ id: 1, role: 'student', name: 'Biology 103' }] })
       .mockResolvedValueOnce({ data: [{ id: 501, text: 'Saved note' }] })
       .mockResolvedValueOnce({ data: [{ id: 801, name: 'VoiceOver' }] })
@@ -43,9 +43,22 @@ describe('appStore actions', () => {
     expect(store.loading).toBe(false)
   })
 
+  it('fetchChats fails when collection payload is malformed', async () => {
+    api.get.mockResolvedValueOnce({ data: { wrong: [] } })
+    const store = useAppStore()
+
+    await expect(store.fetchChats()).rejects.toMatchObject({
+      message: 'Chats response payload was malformed.',
+      kind: 'resource',
+      resource: 'chats'
+    })
+
+    expect(store.actionStatus.fetchChats.error).toBe('Chats response payload was malformed.')
+  })
+
   it('bootstrap sets selectedChatId to null when chats are empty', async () => {
     api.get
-      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: { items: [] } })
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] })
       .mockResolvedValueOnce({ data: [] })
@@ -58,16 +71,37 @@ describe('appStore actions', () => {
     expect(store.loading).toBe(false)
   })
 
-  it('bootstrap sets user-facing error when any request fails', async () => {
+  it('fetchClasses sets actionable endpoint-unavailable error and preserves state', async () => {
+    const store = useAppStore()
+    store.classes = [{ id: 22, role: 'student', name: 'Existing class' }]
+
+    api.get.mockRejectedValueOnce({ response: { status: 404 } })
+
+    await expect(store.fetchClasses()).rejects.toMatchObject({
+      kind: 'unavailable',
+      resource: 'classes',
+      status: 404
+    })
+
+    expect(store.classes).toEqual([{ id: 22, role: 'student', name: 'Existing class' }])
+    expect(store.actionStatus.fetchClasses.error).toBe(
+      'Classes endpoint is unavailable. Enable /api/v1/classes or disable class-dependent UI.'
+    )
+  })
+
+  it('bootstrap distinguishes auth errors from resource errors', async () => {
     api.get
-      .mockResolvedValueOnce({ data: [{ id: 101, name: 'Chat A' }] })
-      .mockRejectedValueOnce(new Error('classes request failed'))
+      .mockRejectedValueOnce({ response: { status: 401 } })
+      .mockRejectedValueOnce({ response: { status: 503 } })
+      .mockResolvedValueOnce({ data: [] })
+      .mockResolvedValueOnce({ data: [] })
 
     const store = useAppStore()
 
     await store.bootstrap()
 
-    expect(store.error).toBe('Unable to load data from the backend service. Please try again.')
+    expect(store.authError).toBe('Your session is invalid or expired. Please sign in again.')
+    expect(store.error).toBe('Some application resources could not be loaded from the backend service.')
     expect(store.loading).toBe(false)
   })
 
