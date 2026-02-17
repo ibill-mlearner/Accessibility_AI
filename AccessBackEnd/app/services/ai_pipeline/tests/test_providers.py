@@ -5,7 +5,7 @@ import json
 import pytest
 
 from app.services.ai_pipeline.bootstrap import HuggingFaceModelBootstrap
-from app.services.ai_pipeline.providers import HTTPEndpointProvider, HuggingFaceLangChainProvider
+from app.services.ai_pipeline.providers import HTTPEndpointProvider, HuggingFaceLangChainProvider, OllamaProvider
 from app.services.ai_pipeline.types import PipelineRequest
 
 
@@ -66,3 +66,11 @@ def test_huggingface_bootstrap_requires_model_id() -> None:
 
     with pytest.raises(ValueError, match="model_id must be configured"):
         bootstrap.ensure_model()
+
+
+def test_ollama_provider_normalizes_endpoint_to_chat() -> None:
+    provider = OllamaProvider(endpoint="http://localhost:11434/api/generate", model_id="llama3.1")
+
+    assert provider._resolve_chat_endpoint("http://localhost:11434/api/generate") == "http://localhost:11434/api/chat"
+    assert provider._resolve_chat_endpoint("http://localhost:11434/api/chat") == "http://localhost:11434/api/chat"
+    assert provider._resolve_chat_endpoint("http://localhost:11434") == "http://localhost:11434/api/chat"

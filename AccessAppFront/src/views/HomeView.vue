@@ -96,9 +96,15 @@ async function withSingleRetry(task) {
 }
 
 function readAssistantText(aiPayload) {
+  if (typeof aiPayload?.result === 'string' && aiPayload.result.trim()) return aiPayload.result
+  if (typeof aiPayload?.answer === 'string' && aiPayload.answer.trim()) return aiPayload.answer
   if (aiPayload?.response?.summary) return aiPayload.response.summary
   if (typeof aiPayload?.response === 'string' && aiPayload.response.trim()) return aiPayload.response
   if (typeof aiPayload?.summary === 'string' && aiPayload.summary.trim()) return aiPayload.summary
+  if (Array.isArray(aiPayload?.notes) && aiPayload.notes.length) {
+    const normalized = aiPayload.notes.map((note) => String(note).trim()).filter(Boolean)
+    if (normalized.length) return normalized.join('\n')
+  }
   if (typeof aiPayload === 'string' && aiPayload.trim()) return aiPayload
   try {
     return JSON.stringify(aiPayload)
@@ -106,6 +112,7 @@ function readAssistantText(aiPayload) {
     return 'Assistant response unavailable.'
   }
 }
+
 
 async function sendPrompt() {
   if (interactionLoading.value) return
@@ -161,7 +168,15 @@ async function sendPrompt() {
 
     let aiResponse
     try {
-      aiResponse = await store.requestAiInteraction({ prompt: cleanPrompt })
+      aiResponse = await store.requestAiInteraction({
+        prompt: cleanPrompt,
+        chat_id: ensuredChat.id,
+        context: {
+          chat_id: ensuredChat.id,
+          class_id: classIdForChat,
+          messages: [{ role: 'user', content: cleanPrompt }]
+        }
+      })
     } catch (error) {
       const status = error?.response?.status
       interactionError.value =

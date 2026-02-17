@@ -18,8 +18,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", choices=["development", "testing", "production"], help="Application config profile")
     parser.add_argument(
         "--ai-provider",
-        choices=["mock_json", "live_agent", "ollama"],
-        help="AI provider mode. Defaults to Ollama runtime; use mock_json for fixtures or live_agent for external HTTP providers.",
+        choices=["live_agent", "ollama", "huggingface"],
+        help="AI provider mode. Defaults to HuggingFace runtime; use ollama for local endpoint-based inference, or live_agent for external HTTP providers.",
     )
     parser.add_argument("--ai-endpoint", help="AI endpoint URL override (required for --ai-provider=ollama or --ai-provider=live_agent)")
     parser.add_argument("--host", default="0.0.0.0")
@@ -32,8 +32,6 @@ def _validate_args(args: argparse.Namespace) -> None:
     if args.ai_provider in {"live_agent", "ollama"} and not args.ai_endpoint:
         raise SystemExit("--ai-endpoint is required when --ai-provider is ollama or live_agent")
 
-    if args.ai_provider == "mock_json" and args.ai_endpoint:
-        raise SystemExit("--ai-endpoint cannot be used with --ai-provider=mock_json")
 
 
 def _sqlite_database_path(database_uri: str) -> Path | None:

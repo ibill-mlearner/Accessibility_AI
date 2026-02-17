@@ -28,6 +28,8 @@ def _register_cli_commands(app: Flask) -> None:
 
 
 def build_ai_service(app: Flask) -> AIPipelineService:
+    # Default provider is HuggingFace (`AI_PROVIDER=huggingface`) so local downloaded
+    # model snapshots can be used without Ollama endpoint dependencies.
     provider = app.config["AI_PROVIDER"]
     ollama_endpoint = app.config.get("AI_OLLAMA_ENDPOINT")
     live_endpoint = app.config.get("AI_LIVE_ENDPOINT")

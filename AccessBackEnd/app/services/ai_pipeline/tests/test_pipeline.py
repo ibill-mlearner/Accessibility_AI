@@ -55,7 +55,7 @@ def test_pipeline_recovers_when_provider_returns_invalid_meta_type() -> None:
 def test_build_provider_uses_ollama_aliases() -> None:
     config = AIPipelineConfig(
         provider="ollama_local",
-        live_endpoint="http://localhost:11434/api/generate",
+        live_endpoint="http://localhost:11434/api/chat",
         model_name="llama3:8b",
         huggingface_model_id="llama3:8b",
     )
@@ -87,8 +87,12 @@ def test_ollama_provider_parses_nested_json_response(monkeypatch: pytest.MonkeyP
     def _fake_urlopen(req, timeout):  # noqa: ANN001
         assert timeout == 1
         body = json.loads(req.data.decode("utf-8"))
+        assert req.full_url == "http://localhost:11434/api/chat"
         assert body["model"] == "llama3:8b"
         assert body["stream"] is False
+        assert isinstance(body["messages"], list)
+        assert body["messages"][0]["role"] == "user"
+        assert "User prompt:" in body["messages"][0]["content"]
         return _FakeHTTPResponse(json.dumps(response_payload).encode("utf-8"))
 
     monkeypatch.setattr("app.services.ai_pipeline.providers.urlopen", _fake_urlopen)
