@@ -24,9 +24,10 @@ describe('LoginView.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    window.sessionStorage.clear()
   })
 
-  it('routes home only after login API success', async () => {
+  it('routes home only after login API success and persists session', async () => {
     let resolveLogin
     api.post.mockReturnValue(
       new Promise((resolve) => {
@@ -50,9 +51,15 @@ describe('LoginView.vue', () => {
     await flushPromises()
 
     expect(push).toHaveBeenCalledWith('/')
+    const persisted = JSON.parse(window.sessionStorage.getItem('accessapp:session'))
+    expect(persisted).toMatchObject({
+      role: 'student',
+      currentUser: { id: 7, email: 'student@example.com' },
+      isAuthenticated: true
+    })
   })
 
-  it('stays on login and shows auth error when login fails', async () => {
+  it('stays on login, shows auth error, and does not persist session when login fails', async () => {
     api.post.mockRejectedValue({ response: { status: 401 } })
 
     const wrapper = mount(LoginView)
@@ -63,6 +70,7 @@ describe('LoginView.vue', () => {
     await flushPromises()
 
     expect(push).not.toHaveBeenCalled()
+    expect(window.sessionStorage.getItem('accessapp:session')).toBeNull()
     expect(wrapper.find('.auth-error').exists()).toBe(true)
     expect(wrapper.find('.auth-error').text()).toContain('Invalid email or password.')
   })

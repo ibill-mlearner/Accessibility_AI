@@ -16,6 +16,7 @@ describe('appStore actions', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    window.sessionStorage.clear()
   })
 
   it('bootstrap loads chats/classes/notes/features and selects first chat from items envelope', async () => {
@@ -105,6 +106,34 @@ describe('appStore actions', () => {
     expect(store.loading).toBe(false)
   })
 
+  it('hydrateSession and persistSession round-trip authenticated state', () => {
+    const store = useAppStore()
+    store.currentUser = { id: 55, email: 'persisted@example.com' }
+    store.user = store.currentUser
+    store.role = 'student'
+    store.isAuthenticated = true
+
+    store.persistSession()
+
+    const payload = JSON.parse(window.sessionStorage.getItem('accessapp:session'))
+    expect(payload).toEqual({
+      role: 'student',
+      currentUser: { id: 55, email: 'persisted@example.com' },
+      isAuthenticated: true
+    })
+
+    const hydratedStore = useAppStore()
+    hydratedStore.logout()
+
+    window.sessionStorage.setItem('accessapp:session', JSON.stringify(payload))
+    hydratedStore.hydrateSession()
+
+    expect(hydratedStore.currentUser).toEqual({ id: 55, email: 'persisted@example.com' })
+    expect(hydratedStore.user).toEqual({ id: 55, email: 'persisted@example.com' })
+    expect(hydratedStore.role).toBe('student')
+    expect(hydratedStore.isAuthenticated).toBe(true)
+  })
+
   it('login, logout, and setRole update auth state and selectedClassId as expected', async () => {
     const store = useAppStore()
     store.selectedClassId = 42
@@ -118,8 +147,11 @@ describe('appStore actions', () => {
     })
     expect(store.role).toBe('student')
     expect(store.user).toEqual({ id: 5, email: 'student@example.com' })
+    expect(store.currentUser).toEqual({ id: 5, email: 'student@example.com' })
+    expect(store.isAuthenticated).toBe(true)
     expect(store.authError).toBe('')
     expect(store.selectedClassId).toBe(42)
+    expect(window.sessionStorage.getItem('accessapp:session')).not.toBeNull()
 
     store.setRole('instructor')
     expect(store.role).toBe('instructor')
@@ -129,8 +161,11 @@ describe('appStore actions', () => {
     store.logout()
     expect(store.role).toBe('guest')
     expect(store.user).toBeNull()
+    expect(store.currentUser).toBeNull()
+    expect(store.isAuthenticated).toBe(false)
     expect(store.authError).toBe('')
     expect(store.selectedClassId).toBeNull()
+    expect(window.sessionStorage.getItem('accessapp:session')).toBeNull()
   })
 
   it('login sets auth-specific error on 401/400 failures', async () => {
@@ -143,5 +178,7 @@ describe('appStore actions', () => {
 
     expect(store.authError).toBe('Invalid email or password.')
     expect(store.role).toBe('guest')
+    expect(store.isAuthenticated).toBe(false)
+    expect(window.sessionStorage.getItem('accessapp:session')).toBeNull()
   })
 })
