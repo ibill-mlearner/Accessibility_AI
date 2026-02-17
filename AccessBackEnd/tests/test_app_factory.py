@@ -97,8 +97,21 @@ def test_health_endpoint(app, client):
     assert body["ai_provider"] == "ollama"
 
 
-def test_resource_endpoints_return_seed_data(app, client):
+def test_resource_endpoints_return_user_chats(app, client):
     _authenticate_api_client(app, client)
+
+    class_response = client.post(
+        "/api/v1/classes",
+        json={"name": "Bio 103", "description": "lecture recap context", "role": "student"},
+    )
+    assert class_response.status_code == 201
+    class_id = class_response.get_json()["id"]
+
+    created = client.post(
+        "/api/v1/chats",
+        json={"title": "Bio 103 lecture recap", "class_id": class_id, "model": "gpt-4o-mini"},
+    )
+    assert created.status_code == 201
 
     response = client.get("/api/v1/chats")
     assert response.status_code == 200
@@ -108,31 +121,62 @@ def test_resource_endpoints_return_seed_data(app, client):
     assert {"id", "title", "start", "model", "class", "user"}.issubset(data[0].keys())
 
 
-def test_resource_create_is_passthrough(app, client):
+def test_resource_create_returns_serialized_chat(app, client):
     _authenticate_api_client(app, client)
 
-    payload = {"id": 99, "title": "Chat 99", "meta": {"tag": "passthrough"}}
-    response = client.post("/api/v1/chats", json=payload)
+    class_response = client.post(
+        "/api/v1/classes",
+        json={"name": "Physics 100", "description": "chat create", "role": "student"},
+    )
+    class_id = class_response.get_json()["id"]
+
+    response = client.post(
+        "/api/v1/chats",
+        json={"title": "Chat 99", "class_id": class_id, "model": "gpt-4o-mini"},
+    )
     assert response.status_code == 201
-    assert response.get_json() == payload
+    payload = response.get_json()
+    assert payload["title"] == "Chat 99"
+    assert payload["class_id"] == class_id
 
 
-def test_resource_update_replaces_record_without_transform(app, client):
+def test_resource_update_changes_chat_fields(app, client):
     _authenticate_api_client(app, client)
 
-    payload = {"id": 1, "title": "Renamed Chat", "extra": ["a", "b"]}
-    response = client.put("/api/v1/chats/1", json=payload)
+    class_response = client.post(
+        "/api/v1/classes",
+        json={"name": "Chem 101", "description": "chat update", "role": "student"},
+    )
+    class_id = class_response.get_json()["id"]
+    create_response = client.post(
+        "/api/v1/chats",
+        json={"title": "Original", "class_id": class_id, "model": "gpt-4o-mini"},
+    )
+    chat_id = create_response.get_json()["id"]
+
+    response = client.put(f"/api/v1/chats/{chat_id}", json={"title": "Renamed Chat"})
     assert response.status_code == 200
-    assert response.get_json() == payload
+    assert response.get_json()["title"] == "Renamed Chat"
 
 
 def test_resource_delete_returns_deleted_record(app, client):
     _authenticate_api_client(app, client)
 
-    response = client.delete("/api/v1/chats/2")
+    class_response = client.post(
+        "/api/v1/classes",
+        json={"name": "Calc 1", "description": "chat delete", "role": "student"},
+    )
+    class_id = class_response.get_json()["id"]
+    create_response = client.post(
+        "/api/v1/chats",
+        json={"title": "Delete Me", "class_id": class_id, "model": "gpt-4o-mini"},
+    )
+    chat_id = create_response.get_json()["id"]
+
+    response = client.delete(f"/api/v1/chats/{chat_id}")
     assert response.status_code == 200
     body = response.get_json()
-    assert body["id"] == 2
+    assert body["id"] == chat_id
 
 
 def test_ai_interaction_requires_authentication(client):
@@ -229,11 +273,28 @@ def test_unmatched_route_returns_json_error(client):
 def test_messages_resource_has_chat_relationship(app, client):
     _authenticate_api_client(app, client)
 
+    class_response = client.post(
+        "/api/v1/classes",
+        json={"name": "Bio 110", "description": "messages", "role": "student"},
+    )
+    class_id = class_response.get_json()["id"]
+    chat_response = client.post(
+        "/api/v1/chats",
+        json={"title": "Message chat", "class_id": class_id, "model": "gpt-4o-mini"},
+    )
+    chat_id = chat_response.get_json()["id"]
+
+    create_message = client.post(
+        "/api/v1/messages",
+        json={"chat_id": chat_id, "message_text": "What is ATP?", "help_intent": "summarization"},
+    )
+    assert create_message.status_code == 201
+
     response = client.get("/api/v1/messages")
     assert response.status_code == 200
     data = response.get_json()
     assert isinstance(data, list)
-    assert data and data[0]["chat_id"] == 1
+    assert data and data[0]["chat_id"] == chat_id
     assert {"id", "chat_id", "message_text", "vote", "note", "help_intent"}.issubset(data[0].keys())
 
 
@@ -261,11 +322,23 @@ def test_create_resource_requires_json_object(app, client):
 def test_features_resource_includes_instructor_and_class_associations(app, client):
     _authenticate_api_client(app, client)
 
+    feature_create = client.post(
+        "/api/v1/features",
+        json={
+            "title": "Outline mode",
+            "description": "Concise bulleted responses",
+            "enabled": True,
+            "instructor_id": 1,
+            "class_id": 1,
+        },
+    )
+    assert feature_create.status_code == 201
+
     response = client.get("/api/v1/features")
     assert response.status_code == 200
     data = response.get_json()
     assert isinstance(data, list)
-    assert data and data[0]["instructor_id"] == 4
+    assert data and data[0]["instructor_id"] == 1
     assert data and data[0]["class_id"] == 1
     assert {"id", "title", "description", "enabled", "instructor_id", "class_id"}.issubset(data[0].keys())
 
