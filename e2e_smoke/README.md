@@ -27,6 +27,11 @@ python e2e_smoke/run_e2e_smoke.py \
   --backend-base http://127.0.0.1:5000
 ```
 
+## Result behavior
+- The runner executes all 8 checks and does not stop at the first failure.
+- A PASS/FAIL line is printed for each step, followed by a final summary.
+- Process exit code is `0` only if all 8 checks pass; otherwise `1`.
+
 ## What it verifies
 1. Frontend root page returns HTML.
 2. Backend `/api/v1/health` is up.
