@@ -113,6 +113,12 @@ async function sendPrompt() {
   const cleanPrompt = prompt.value.trim()
   if (!cleanPrompt) return
 
+  // TODO(security-plan): Consider an optional preflight adversarial prompt-injection check
+  // before creating/storing messages. Proposed flow: (1) send `cleanPrompt` to a
+  // lightweight classifier policy prompt (same model or dedicated guardrail model),
+  // (2) require a structured verdict like {allow, risk_level, reason}, and
+  // (3) block or require confirmation on medium/high risk while logging the verdict
+  // for audit analysis. This is a planning note and may be toggled via feature flag.
   if (store.role === 'guest') {
     interactionError.value = 'Please log in to send a prompt.'
     await router.push({ path: '/login', query: { next: '/', prompt: cleanPrompt } })
