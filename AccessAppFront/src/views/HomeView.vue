@@ -126,6 +126,12 @@ async function sendPrompt() {
   }
 
   const draftPrompt = prompt.value
+  const classIdForChat = store.selectedClassId || store.classes[0]?.id
+  if (!classIdForChat) {
+    interactionError.value = 'No class is available for this account yet.'
+    return
+  }
+
   interactionLoading.value = true
   interactionError.value = ''
 
@@ -134,12 +140,11 @@ async function sendPrompt() {
   try {
     const ensuredChat = await withSingleRetry(() =>
       store.ensureActiveChat({
-        id: createId(),
         title: cleanPrompt.slice(0, 60),
-        start: new Date().toISOString(),
+        started_at: new Date().toISOString(),
         model: store.selectedModel || 'General',
-        class: store.selectedClass?.name || '',
-        user: store.role
+        class_id: classIdForChat,
+        user_id: store.currentUser?.id
       })
     )
 

@@ -73,7 +73,8 @@ export const useAppStore = defineStore('app', {
     },
     roleClasses(state) {
       if (state.role === 'guest') return []
-      return state.classes.filter((item) => item.role === state.role)
+      const matchingClasses = state.classes.filter((item) => item.role === state.role)
+      return matchingClasses.length ? matchingClasses : state.classes
     }
   },
   actions: {

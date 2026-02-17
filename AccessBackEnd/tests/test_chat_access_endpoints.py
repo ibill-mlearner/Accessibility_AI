@@ -150,3 +150,22 @@ def test_chat_create_allows_instructor_or_active_enrollment_and_denies_otherwise
 
     assert outsider_create.status_code == 403
     assert outsider_create.get_json()["error"]["message"] == "access denied"
+
+
+def test_chat_create_backfills_default_class_for_legacy_payload_and_validates_user_id(app):
+    context = _seed_chat_context(app)
+
+    empty_class_response = context["owner_client"].post(
+        "/api/v1/chats",
+        json={"class": "", "title": "legacy payload"},
+    )
+    assert empty_class_response.status_code == 201
+    assert empty_class_response.get_json()["class_id"] == context["class_id"]
+    assert empty_class_response.get_json()["user_id"] == context["owner_id"]
+
+    invalid_user_response = context["owner_client"].post(
+        "/api/v1/chats",
+        json={"class_id": context["class_id"], "user": "authenticated", "title": "bad payload"},
+    )
+    assert invalid_user_response.status_code == 400
+    assert invalid_user_response.get_json()["error"]["message"] == "user_id must be an integer"

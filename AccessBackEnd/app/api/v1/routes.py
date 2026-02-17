@@ -6,6 +6,7 @@ from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_required, login_user
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..errors import BadRequestError, NotFoundError
@@ -13,7 +14,7 @@ from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note, User
+from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note, User, UserClassEnrollment
 from ...models.identity_defaults import build_transitional_identity_defaults
 from ...services.chat_access_service import ChatAccessService
 from ...services.logging import DomainEvent
@@ -182,6 +183,45 @@ def _parse_required_date(value: Any, *, field_name: str = "noted_on") -> date:
     raise BadRequestError(f"{field_name} must be YYYY-MM-DD")
 
 
+def _resolve_default_class_id_for_user(user_id: int) -> int | None:
+    class_record = (
+        db.session.query(CourseClass)
+        .outerjoin(UserClassEnrollment, UserClassEnrollment.class_id == CourseClass.id)
+        .filter(
+            or_(
+                CourseClass.instructor_id == user_id,
+                and_(
+                    UserClassEnrollment.user_id == user_id,
+                    UserClassEnrollment.dropped_at.is_(None),
+                ),
+            )
+        )
+        .order_by(CourseClass.id.asc())
+        .first()
+    )
+    return None if class_record is None else int(class_record.id)
+
+
+def _parse_int_field(value: Any, *, field_name: str, required: bool = False) -> int | None:
+    if value is None:
+        if required:
+            raise BadRequestError(f"{field_name} is required")
+        return None
+
+    if isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            if required:
+                raise BadRequestError(f"{field_name} is required")
+            return None
+        value = trimmed
+
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise BadRequestError(f"{field_name} must be an integer") from exc
+
+
 def _require_record(resource_name: str, model: Any, record_id: int) -> Any:
     record = db.session.get(model, record_id)
     if record is None:
@@ -327,7 +367,7 @@ def login_auth_user():
     login_user(user)
     db.session.commit()
 
-    return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email}}), 200
+    return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email, "role": user.role}}), 200
 
 
 @api_v1_bp.get("/chats")
@@ -351,18 +391,20 @@ def create_chat():
     payload = _deserialize_payload("chat", _read_json_object())
     authenticated_user_id = ChatAccessService.get_authenticated_user_id()
 
-    class_id = payload.get("class_id")
+    class_id = _parse_int_field(payload.get("class_id"), field_name="class_id", required=False)
     if class_id is None:
-        raise BadRequestError("class_id is required")
+        class_id = _resolve_default_class_id_for_user(authenticated_user_id)
+        if class_id is None:
+            raise BadRequestError("class_id is required")
 
-    class_record = _require_record("class", CourseClass, int(class_id))
+    class_record = _require_record("class", CourseClass, class_id)
 
-    requested_user_id = payload.get("user_id")
+    requested_user_id = _parse_int_field(payload.get("user_id"), field_name="user_id", required=False)
     try:
         owner_user_id = ChatAccessService.assert_can_create_chat(
             class_record=class_record,
             actor_user_id=authenticated_user_id,
-            requested_user_id=None if requested_user_id is None else int(requested_user_id),
+            requested_user_id=requested_user_id,
         )
     except PermissionError:
         return _forbidden_response("access denied")
