@@ -49,7 +49,16 @@ describe('HomeView.vue', () => {
       })
     )
     expect(store.createMessage).toHaveBeenCalled()
-    expect(store.requestAiInteraction).toHaveBeenCalledWith({ prompt: 'Help me summarize chapter 1' })
+    expect(store.requestAiInteraction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: 'Help me summarize chapter 1',
+        chat_id: 9001,
+        context: expect.objectContaining({
+          chat_id: 9001,
+          class_id: 42
+        })
+      })
+    )
   })
   it('redirects guests to login with prompt when send is clicked', async () => {
     setActivePinia(createPinia())

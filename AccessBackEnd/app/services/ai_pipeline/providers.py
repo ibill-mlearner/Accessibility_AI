@@ -108,37 +108,29 @@ class OllamaProvider:
 
     def invoke(self, request: PipelineRequest) -> dict:
         # Logic intent:
-        # 1) Detect Ollama contract (`/api/generate` vs `/api/chat`).
-        # 2) Send request payload with selected model.
+        # 1) Normalize endpoint to Ollama chat API (`/api/chat`).
+        # 2) Send request payload with selected model + chat messages.
         # 3) Parse JSON robustly and normalize metadata.
         if not self.endpoint:
             raise ValueError("Ollama endpoint must be configured")
         if not self.model_id:
             raise ValueError("Ollama model_id must be configured")
 
-        endpoint_lower = self.endpoint.lower()
-        if endpoint_lower.endswith("/api/chat"):
-            body_payload = {
-                "model": self.model_id,
-                "stream": False,
-                "options": self.options,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": self._compose_prompt(request),
-                    }
-                ],
-            }
-        else:
-            body_payload = {
-                "model": self.model_id,
-                "stream": False,
-                "options": self.options,
-                "prompt": self._compose_prompt(request),
-            }
+        request_endpoint = self._resolve_chat_endpoint(self.endpoint)
+        body_payload = {
+            "model": self.model_id,
+            "stream": False,
+            "options": self.options,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": self._compose_prompt(request),
+                }
+            ],
+        }
 
         req = Request(
-            self.endpoint,
+            request_endpoint,
             data=json.dumps(body_payload).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
@@ -157,10 +149,32 @@ class OllamaProvider:
                 "provider": "ollama",
                 "model": self.model_id,
                 "model_id": self.model_id,
-                "endpoint": self.endpoint,
+                "endpoint": request_endpoint,
             }
         )
         return parsed_payload
+
+    def _resolve_chat_endpoint(self, endpoint: str) -> str:
+        """Resolve configured endpoint to Ollama's chat path.
+
+        Accepts either a full `/api/chat` URL, a legacy `/api/generate` URL,
+        or a base Ollama host URL.
+        """
+
+        cleaned = (endpoint or "").strip().rstrip("/")
+        if not cleaned:
+            return "/api/chat"
+
+        lowered = cleaned.lower()
+        if lowered.endswith("/api/chat"):
+            return cleaned
+        if lowered.endswith("/api/generate"):
+            return f"{cleaned[:-len('/api/generate')]}/api/chat"
+
+        if lowered.endswith("/api"):
+            return f"{cleaned}/chat"
+
+        return f"{cleaned}/api/chat"
 
     def _compose_prompt(self, request: PipelineRequest) -> str:
         return (

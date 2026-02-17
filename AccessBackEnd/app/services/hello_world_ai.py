@@ -2,10 +2,13 @@
 
 Run from the backend folder:
     python app/services/hello_world_ai.py
+
+Default behavior uses the HuggingFace provider and local downloaded model snapshots.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,6 +19,7 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 INSTANCE_DIR = BACKEND_ROOT / "app" / "instance"
 DEMO_MODEL_REPO_ID = os.getenv("AI_DEMO_MODEL_REPO", "NousResearch/Meta-Llama-3-8B-Instruct")
 DEMO_MODEL_LOCAL_DIR = INSTANCE_DIR / "models" / "meta-llama-3-8b-instruct"
+DEFAULT_PROVIDER = os.getenv("AI_DEMO_PROVIDER", "huggingface").strip().lower()
 
 
 def _configure_import_path() -> None:
@@ -36,6 +40,10 @@ def _configure_import_path() -> None:
     backend_root = str(BACKEND_ROOT)
     if backend_root not in sys.path:
         sys.path.insert(0, backend_root)
+
+
+def _module_available(module_name: str) -> bool:
+    return importlib.util.find_spec(module_name) is not None
 
 
 def ensure_demo_model() -> Path:
@@ -81,30 +89,76 @@ def build_prompt_with_system_instructions(system_prompt: str, user_prompt: str) 
     return f"System instructions:\n{system_prompt}\n\nUser request:\n{user_prompt}".strip()
 
 
-def main() -> None:
-    model_path = ensure_demo_model()
+def _build_pipeline() -> tuple[AIPipelineService, dict[str, str]]:
+    """Create a demo pipeline with safe defaults for local script execution."""
 
-    pipeline = AIPipelineService(
-        AIPipelineConfig(
-            provider="huggingface",
-            huggingface_model_id=str(model_path),
-            max_new_tokens=192,
-            temperature=0.2,
+    if DEFAULT_PROVIDER in {"hf", "huggingface", "langchain_hf"}:
+        if not (_module_available("transformers") and _module_available("langchain_community")):
+            raise RuntimeError(
+                "HuggingFace demo provider requires `transformers` and `langchain_community`. "
+                "Install backend AI dependencies to run this demo."
+            )
+
+        model_path = ensure_demo_model()
+        return (
+            AIPipelineService(
+                AIPipelineConfig(
+                    provider="huggingface",
+                    huggingface_model_id=str(model_path),
+                    max_new_tokens=192,
+                    temperature=0.2,
+                )
+            ),
+            {"provider": "huggingface", "model_path": str(model_path)},
         )
+
+    if DEFAULT_PROVIDER in {"ollama", "ollama_local"}:
+        ollama_endpoint = os.getenv("OLLAMA_ENDPOINT", "http://127.0.0.1:11434/api/chat")
+        ollama_model = os.getenv("OLLAMA_MODEL", "llama3.1")
+        return (
+            AIPipelineService(
+                AIPipelineConfig(
+                    provider="ollama",
+                    ollama_endpoint=ollama_endpoint,
+                    ollama_model_id=ollama_model,
+                    timeout_seconds=90,
+                )
+            ),
+            {"provider": "ollama", "endpoint": ollama_endpoint, "model": ollama_model},
+        )
+
+    raise ValueError(
+        "Unsupported AI_DEMO_PROVIDER value. Use `huggingface` (default) or `ollama`."
     )
+
+
+def main() -> None:
+    pipeline, provider_info = _build_pipeline()
 
     user_prompt = "Generate accessibility support suggestions for a lecture chat tool."
     composed_prompt = build_prompt_with_system_instructions(DEFAULT_SYSTEM_PROMPT, user_prompt)
 
     context = {
         "system_prompt": DEFAULT_SYSTEM_PROMPT,
-        "sprint_note": "Demo uses a local 8B HuggingFace model in app/instance/models.",
+        "sprint_note": "Demo uses production-style providers (huggingface/ollama), no mock fixtures.",
+        # TODO(data-persistence): route this interaction through the Flask API endpoint
+        # so request/response records are persisted via repositories/DB instead of
+        # being a standalone service invocation script.
     }
 
     response = pipeline.run_interaction(composed_prompt, context=context)
 
     print("=== Pipeline input payload (demo) ===")
-    print(json.dumps({"prompt": composed_prompt, "context": context, "model_path": str(model_path)}, indent=2))
+    print(
+        json.dumps(
+            {
+                "prompt": composed_prompt,
+                "context": context,
+                "provider_info": provider_info,
+            },
+            indent=2,
+        )
+    )
     print("\n=== Pipeline response ===")
     print(json.dumps(response, indent=2))
 

@@ -92,12 +92,12 @@ class BaseConfig:
 
     DATA_BACKEND_FACTORY = None
 
-    AI_PROVIDER = _env("AI_PROVIDER", "ollama")
-    AI_MODEL_NAME = _env("AI_MODEL_NAME", "llama3:8b")
+    AI_PROVIDER = _env("AI_PROVIDER", "huggingface")
+    AI_MODEL_NAME = _env("AI_MODEL_NAME", "NousResearch/Meta-Llama-3-8B-Instruct")
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
     AI_OLLAMA_ENDPOINT = _env(
         "AI_OLLAMA_ENDPOINT",
-        "http://localhost:11434/api/generate",
+        "http://localhost:11434/api/chat",
     )
     AI_OLLAMA_MODEL = _env("AI_OLLAMA_MODEL", AI_MODEL_NAME)
     AI_OLLAMA_OPTIONS = _env_json("AI_OLLAMA_OPTIONS", {})
@@ -115,7 +115,7 @@ class DevelopmentConfig(BaseConfig):
 class TestingConfig(BaseConfig):
     TESTING = True
     DEBUG = False
-    AI_PROVIDER = _env("TEST_AI_PROVIDER", "mock_json")
+    AI_PROVIDER = _env("TEST_AI_PROVIDER", "huggingface")
     SQLALCHEMY_DATABASE_URI = _env("TEST_DATABASE_URL", "sqlite:///:memory:")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(minutes=10)

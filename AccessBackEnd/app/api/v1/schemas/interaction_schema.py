@@ -9,6 +9,13 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 
+class ChatMessage(TypedDict):
+    """Backwards-compatible chat message for AI interaction request payloads."""
+
+    role: str
+    content: str
+
+
 class RetrievalContext(TypedDict, total=False):
     """Placeholder contract for future Retrieval-Augmented Generation inputs."""
 
@@ -31,6 +38,8 @@ class AIInteractionRequest(TypedDict, total=False):
     context: dict[str, Any]
     rag: RetrievalContext
     conversation_id: str
+    chat_id: int
+    messages: list[ChatMessage]
 
 
 class AIInteractionResponse(TypedDict, total=False):

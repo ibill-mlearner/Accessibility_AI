@@ -929,12 +929,32 @@ def _persist_ai_interaction(
 def create_ai_interaction():
     """Run a single AI interaction."""
     payload = request.get_json(silent=True) or {}
-    prompt = payload.get("prompt") or ""
+
+    prompt = (payload.get("prompt") or "").strip()
+    raw_messages = payload.get("messages")
+    messages = raw_messages if isinstance(raw_messages, list) else []
+    if not prompt:
+        for message in reversed(messages):
+            if not isinstance(message, dict):
+                continue
+            if (message.get("role") or "").lower() != "user":
+                continue
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                prompt = content.strip()
+                break
+
+    context_payload = payload.get("context")
+    if not isinstance(context_payload, dict):
+        context_payload = {}
+    if messages and "messages" not in context_payload:
+        context_payload["messages"] = messages
 
     _publish(
         "api.ai_interaction_requested",
         {
             "has_prompt": bool(prompt),
+            "has_messages": bool(messages),
             "has_system_prompt": bool(payload.get("system_prompt")),
             "has_rag": bool(payload.get("rag")),
         },
@@ -942,10 +962,19 @@ def create_ai_interaction():
 
     initiated_by = _resolve_initiated_by(payload)
 
+    # `ai_service` is registered during app startup in `app/__init__.py` via
+    # `build_ai_service(...)`, which constructs `AIPipelineService` from
+    # `app.services.ai_pipeline` and stores it at `app.extensions["ai_service"]`.
+    #
+    # Logging bootstrap may wrap that pipeline service in
+    # `InteractionLoggingService`, but `run_interaction(...)` still delegates to
+    # the same underlying `AIPipelineService` implementation.
+    ai_service = current_app.extensions["ai_service"]
+
     try:
-        result = current_app.extensions["ai_service"].run_interaction(
+        result = ai_service.run_interaction(
             prompt=prompt,
-            context=payload.get("context"),
+            context=context_payload,
             initiated_by=initiated_by,
         )
     except (FileNotFoundError, ValueError) as exc:
