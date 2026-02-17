@@ -43,11 +43,21 @@ def wait_for_backend(timeout_s: float = 20.0) -> None:
 
 
 
-def _vite_node_command(frontend_dir: Path) -> list[str]:
-    npx_path = shutil.which("npx") or shutil.which("npx.cmd")
-    if npx_path:
-        return [npx_path, "vite-node"]
+def ensure_frontend_deps(frontend_dir: Path) -> None:
+    node_modules = frontend_dir / "node_modules"
+    has_vite = (node_modules / "vite" / "package.json").exists()
+    has_vite_node = (node_modules / "vite-node" / "package.json").exists()
+    if has_vite and has_vite_node:
+        return
 
+    npm = shutil.which("npm") or shutil.which("npm.cmd")
+    if not npm:
+        raise RuntimeError("npm was not found. Install Node.js/npm to run tests.py")
+
+    subprocess.run([npm, "install"], cwd=str(frontend_dir), check=True)
+
+
+def _vite_node_command(frontend_dir: Path) -> list[str]:
     local_bin = frontend_dir / "node_modules" / ".bin" / ("vite-node.cmd" if os.name == "nt" else "vite-node")
     if local_bin.exists():
         return [str(local_bin)]
@@ -56,6 +66,10 @@ def _vite_node_command(frontend_dir: Path) -> list[str]:
     node_path = shutil.which("node") or shutil.which("node.exe")
     if node_path and local_cli.exists():
         return [node_path, str(local_cli)]
+
+    npx_path = shutil.which("npx") or shutil.which("npx.cmd")
+    if npx_path:
+        return [npx_path, "vite-node"]
 
     raise RuntimeError("Could not find vite-node runner. Install Node.js and run npm install in AccessAppFront.")
 
@@ -73,6 +87,7 @@ def run() -> int:
 
     try:
         wait_for_backend()
+        ensure_frontend_deps(FRONTEND_DIR)
 
         js_test = textwrap.dedent(
             f"""
