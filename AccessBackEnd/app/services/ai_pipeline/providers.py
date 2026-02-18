@@ -14,6 +14,16 @@ from .types import PipelineRequest
 _MAX_CONTEXT_MESSAGES = 4
 _MAX_TEXT_CHARS = 500
 _JSON_PRIORITY_KEYS = ("assistant_text", "result", "answer", "response_text")
+# Keep the HuggingFace prompt template at module scope so invoke() stays focused on flow,
+# and future prompt edits are easier to review without digging through method internals.
+_HUGGINGFACE_PROMPT_TEMPLATE = """
+You are a concise assistant for accessibility learning support.
+{response_contract}
+User prompt:
+{prompt}
+Context summary:
+{context_summary}
+""".strip()
 
 
 def _clip_text(value: object, *, limit: int = _MAX_TEXT_CHARS) -> str:
@@ -346,16 +356,8 @@ class HuggingFaceLangChainProvider:
         )
 
         llm = HuggingFacePipeline(pipeline=generator)
-        prompt_template = PromptTemplate.from_template(
-            """
-You are a concise assistant for accessibility learning support.
-{response_contract}
-User prompt:
-{prompt}
-Context summary:
-{context_summary}
-""".strip()
-        )
+        # Use the shared module-level template for readability and centralized prompt maintenance.
+        prompt_template = PromptTemplate.from_template(_HUGGINGFACE_PROMPT_TEMPLATE)
         chain = prompt_template | llm | StrOutputParser()
         raw_text = chain.invoke(
             {
