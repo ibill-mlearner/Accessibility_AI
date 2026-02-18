@@ -48,7 +48,7 @@ describe('SidebarNav.vue', () => {
   })
 
 
-  it('renders account actions for logged-in users and routes to profile/logout', async () => {
+  it('renders account actions for logged-in users and routes to profile/home on logout', async () => {
     setActivePinia(createPinia())
     const store = useAppStore()
     store.role = 'student'
@@ -66,7 +66,9 @@ describe('SidebarNav.vue', () => {
     await logoutBtn.trigger('click')
 
     expect(push).toHaveBeenNthCalledWith(1, '/profile')
-    expect(push).toHaveBeenNthCalledWith(2, '/logout')
+    expect(push).toHaveBeenNthCalledWith(2, '/')
+    expect(store.role).toBe('guest')
+    expect(store.isAuthenticated).toBe(false)
   })
 
   it('hides account actions when user is not logged in', () => {

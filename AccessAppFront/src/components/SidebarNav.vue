@@ -28,7 +28,7 @@
     <AccountActionsCard
       :is-logged-in="isLoggedIn"
       @profile="router.push('/profile')"
-      @logout="router.push('/logout')"
+      @logout="handleLogout"
     />
   </aside>
 </template>
@@ -42,4 +42,9 @@ import { useAppStore } from '../stores/appStore'
 const router = useRouter()
 const store = useAppStore()
 const isLoggedIn = computed(() => store.isAuthenticated && store.role !== 'guest')
+
+function handleLogout() {
+  store.logout()
+  router.push('/')
+}
 </script>

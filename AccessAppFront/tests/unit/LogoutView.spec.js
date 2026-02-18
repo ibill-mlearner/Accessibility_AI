@@ -21,7 +21,7 @@ describe('LogoutView.vue', () => {
     window.sessionStorage.clear()
   })
 
-  it('logs out, clears persisted session, and routes home when completing logout', async () => {
+  it('logs out, clears persisted session, and routes home immediately on mount', async () => {
     const store = useAppStore()
     store.role = 'student'
     store.currentUser = { id: 9, email: 'student@example.com' }
@@ -29,8 +29,7 @@ describe('LogoutView.vue', () => {
     store.isAuthenticated = true
     store.persistSession()
 
-    const wrapper = mount(LogoutView)
-    await wrapper.find('button.btn').trigger('click')
+    mount(LogoutView)
 
     expect(store.role).toBe('guest')
     expect(store.currentUser).toBeNull()
