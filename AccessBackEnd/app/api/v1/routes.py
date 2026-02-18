@@ -860,23 +860,64 @@ def health():
 
 def _extract_response_text(result: Any) -> str:
     """Normalize provider payload into a storable interaction response string."""
+    normalized = _normalize_interaction_response(result)
+    return normalized["assistant_text"]
+
+
+def _truncate_debug_payload(value: Any, *, limit: int = 1200) -> str:
+    """Safely serialize payload snippets for metadata without exposing oversized blobs."""
+    serialized = value if isinstance(value, str) else json.dumps(value, default=str)
+    return serialized if len(serialized) <= limit else f"{serialized[:limit]}… [truncated]"
+
+
+def _strip_prompt_template_echo(text: str) -> str:
+    """Drop obvious prompt-template scaffolding from assistant output fields."""
+    template_tokens = ("{prompt}", "{context}", "{question}", "{{", "}}")
+    cleaned_lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not any(token in line.lower() for token in template_tokens)
+    ]
+    cleaned = "\n".join(cleaned_lines).strip()
+    return cleaned.removeprefix("Answer:").strip()
+
+
+def _normalize_interaction_response(result: Any) -> dict[str, Any]:
+    """Normalize provider payload into canonical UI response shape."""
+    normalized_response: dict[str, Any] = {
+        "assistant_text": "",
+        "confidence": None,
+        "notes": [],
+        "meta": {},
+    }
+
     if isinstance(result, dict):
-        for key in ("response_text", "response", "answer", "result"):
-            value = result.get(key)
-            if value is not None:
-                return str(value)
+        candidate = next(
+            (result.get(key) for key in ("assistant_text", "result", "answer", "response_text", "response", "output", "text") if result.get(key) is not None),
+            "",
+        )
+        normalized_response["assistant_text"] = _strip_prompt_template_echo(str(candidate))
 
-        if "data" in result:
-            data_value = result["data"]
-            if isinstance(data_value, str):
-                return data_value
-            if data_value is not None:
-                return json.dumps(data_value, default=str)
+        confidence = result.get("confidence")
+        normalized_response["confidence"] = float(confidence) if isinstance(confidence, (int, float)) else None
 
-    if isinstance(result, str):
-        return result
+        notes = result.get("notes")
+        if isinstance(notes, list):
+            normalized_response["notes"] = [str(note) for note in notes]
+        elif isinstance(notes, str) and notes.strip():
+            normalized_response["notes"] = [notes.strip()]
 
-    return json.dumps(result, default=str)
+        meta_payload = result.get("meta")
+        normalized_response["meta"] = meta_payload.copy() if isinstance(meta_payload, dict) else {}
+    else:
+        normalized_response["assistant_text"] = _strip_prompt_template_echo(str(result or ""))
+
+    # Keep raw provider payload only in debug metadata for investigation.
+    if not normalized_response["assistant_text"]:
+        normalized_response["notes"].append("Assistant response was empty after normalization.")
+        normalized_response["meta"].setdefault("debug", {})["raw_payload_preview"] = _truncate_debug_payload(result)
+
+    return normalized_response
 
 
 def _resolve_initiated_by(payload: dict[str, Any]) -> str:
@@ -926,10 +967,11 @@ def _persist_ai_interaction(
     interaction_repo = AIInteractionRepository(AIInteraction)
 
     try:
+        normalized = _normalize_interaction_response(result)
         interaction_repo.create(
             db.session,
             prompt=prompt,
-            response_text=_extract_response_text(result),
+            response_text=normalized["assistant_text"],
             provider=_resolve_provider(result),
             chat_id=_resolve_chat_id(payload),
         )
@@ -1018,11 +1060,14 @@ def create_ai_interaction():
             ),
             502,
         )
-    persistence_error = _persist_ai_interaction(payload, prompt, result)
+    normalized_result = _normalize_interaction_response(result)
+    normalized_result["meta"]["provider"] = _resolve_provider(result)
+
+    persistence_error = _persist_ai_interaction(payload, prompt, normalized_result)
     if persistence_error is not None:
         return persistence_error
 
-    return jsonify(result), 200
+    return jsonify(normalized_result), 200
 
 
 register_api_view_route(api_v1_bp)
