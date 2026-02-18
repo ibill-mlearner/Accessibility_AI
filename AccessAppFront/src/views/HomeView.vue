@@ -179,6 +179,7 @@ async function sendPrompt() {
         }
       })
     } catch (error) {
+      console.info('[AI interaction error payload]', error?.response?.data)
       const status = error?.response?.status
       interactionError.value =
         status === 400

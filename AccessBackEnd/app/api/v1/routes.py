@@ -159,6 +159,18 @@ def _forbidden_response(message: str = "access denied"):
     )
 
 
+def _raise_bad_request_from_exception(
+    exc: Exception,
+    *,
+    source: str | None = None,
+    message: str | None = None,
+) -> None:
+    details = {"exception": exc.__class__.__name__}
+    if source:
+        details["source"] = source
+    raise BadRequestError(message or str(exc), details=details) from exc
+
+
 def _parse_optional_datetime(value: Any) -> datetime | None:
     if value in (None, ""):
         return None
@@ -168,7 +180,10 @@ def _parse_optional_datetime(value: Any) -> datetime | None:
         try:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError as exc:
-            raise BadRequestError("started_at must be an ISO-8601 datetime") from exc
+            _raise_bad_request_from_exception(
+                exc,
+                message="started_at must be an ISO-8601 datetime",
+            )
     raise BadRequestError("started_at must be an ISO-8601 datetime")
 
 
@@ -179,7 +194,10 @@ def _parse_required_date(value: Any, *, field_name: str = "noted_on") -> date:
         try:
             return date.fromisoformat(value)
         except ValueError as exc:
-            raise BadRequestError(f"{field_name} must be YYYY-MM-DD") from exc
+            _raise_bad_request_from_exception(
+                exc,
+                message=f"{field_name} must be YYYY-MM-DD",
+            )
     raise BadRequestError(f"{field_name} must be YYYY-MM-DD")
 
 
@@ -219,7 +237,10 @@ def _parse_int_field(value: Any, *, field_name: str, required: bool = False) -> 
     try:
         return int(value)
     except (TypeError, ValueError) as exc:
-        raise BadRequestError(f"{field_name} must be an integer") from exc
+        _raise_bad_request_from_exception(
+            exc,
+            message=f"{field_name} must be an integer",
+        )
 
 
 def _require_record(resource_name: str, model: Any, record_id: int) -> Any:
@@ -888,7 +909,10 @@ def _resolve_chat_id(payload: dict[str, Any]) -> int | None:
     try:
         return int(chat_id)
     except (TypeError, ValueError) as exc:
-        raise BadRequestError("chat_id must be an integer") from exc
+        _raise_bad_request_from_exception(
+            exc,
+            message="chat_id must be an integer",
+        )
 
 
 def _persist_ai_interaction(
@@ -977,8 +1001,10 @@ def create_ai_interaction():
             context=context_payload,
             initiated_by=initiated_by,
         )
-    except (FileNotFoundError, ValueError) as exc:
-        raise BadRequestError(str(exc)) from exc
+    except FileNotFoundError as exc:
+        _raise_bad_request_from_exception(exc)
+    except ValueError as exc:
+        _raise_bad_request_from_exception(exc, source="hf_output_parse")
     except RuntimeError as exc:
         return (
             jsonify(
