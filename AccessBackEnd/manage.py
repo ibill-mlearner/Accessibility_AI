@@ -10,7 +10,16 @@ from app.db import init_flask_database
 from app.extensions import db
 
 
-_SEED_USERS_SQL = Path(__file__).resolve().parent / "instance" / "seed_users.sql"
+_INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
+_SEED_SQL_FILES = [
+    _INSTANCE_DIR / "seed_users.sql",
+    _INSTANCE_DIR / "seed_accommodations.sql",
+    _INSTANCE_DIR / "seed_ai_models.sql",
+    _INSTANCE_DIR / "seed_classes.sql",
+    _INSTANCE_DIR / "seed_user_class_enrollments.sql",
+    _INSTANCE_DIR / "seed_chats.sql",
+    _INSTANCE_DIR / "seed_ai_interactions.sql",
+]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -52,15 +61,44 @@ def _seed_users_from_sql(database_uri: str) -> bool:
         print("Skipping user seed prompt: SQL seed currently supports only file-based SQLite databases.")
         return False
 
-    if not _SEED_USERS_SQL.exists():
-        print(f"Skipping user seed prompt: seed file not found at {_SEED_USERS_SQL}.")
+    seed_users_sql = _SEED_SQL_FILES[0]
+    if not seed_users_sql.exists():
+        print(f"Skipping user seed prompt: seed file not found at {seed_users_sql}.")
         return False
 
-    script = _SEED_USERS_SQL.read_text(encoding="utf-8")
+    script = seed_users_sql.read_text(encoding="utf-8")
     with sqlite3.connect(database_path.as_posix()) as conn:
         conn.executescript(script)
 
-    print(f"Seeded users from {_SEED_USERS_SQL.relative_to(Path(__file__).resolve().parent)}")
+    print(f"Seeded users from {seed_users_sql.relative_to(Path(__file__).resolve().parent)}")
+    return True
+
+
+def _seed_all_from_sql(database_uri: str) -> bool:
+    database_path = _sqlite_database_path(database_uri)
+    if database_path is None:
+        print("Skipping seed prompt: SQL seeds currently support only file-based SQLite databases.")
+        return False
+
+    missing = [seed_file for seed_file in _SEED_SQL_FILES if not seed_file.exists()]
+    if missing:
+        missing_list = ", ".join(path.as_posix() for path in missing)
+        print(f"Skipping seed prompt: seed file(s) not found: {missing_list}.")
+        return False
+
+    with sqlite3.connect(database_path.as_posix()) as conn:
+        for seed_file in _SEED_SQL_FILES:
+            conn.executescript(seed_file.read_text(encoding="utf-8"))
+
+    base_dir = Path(__file__).resolve().parent
+
+    def _display_path(seed_file: Path) -> str:
+        try:
+            return seed_file.relative_to(base_dir).as_posix()
+        except ValueError:
+            return seed_file.as_posix()
+
+    print("Seeded baseline data from: " + ", ".join(_display_path(seed_file) for seed_file in _SEED_SQL_FILES))
     return True
 
 
@@ -69,12 +107,12 @@ def _prompt_for_seed_users(database_uri: str) -> None:
         print("Skipping interactive seed prompt (non-interactive session).")
         return
 
-    answer = input("Seed default users now? [y/N]: ").strip().lower()
+    answer = input("Seed default baseline data now? [y/N]: ").strip().lower()
     if answer not in {"y", "yes"}:
-        print("Skipping seed users.")
+        print("Skipping seed data.")
         return
 
-    _seed_users_from_sql(database_uri)
+    _seed_all_from_sql(database_uri)
 
 
 def build_runtime_app(args: argparse.Namespace):
