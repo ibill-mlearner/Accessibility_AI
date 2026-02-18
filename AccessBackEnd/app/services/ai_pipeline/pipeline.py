@@ -13,6 +13,16 @@ from .providers import (
 )
 from .types import PipelineRequest, PipelineResponse
 
+_ASSISTANT_TEXT_KEYS: tuple[str, ...] = (
+    "assistant_text",
+    "result",
+    "answer",
+    "response_text",
+    "response",
+    "output",
+    "text",
+)
+
 
 @dataclass(slots=True)
 class AIPipelineConfig:
@@ -74,8 +84,11 @@ class AIPipelineService:
             payload["meta"] = {"warning": "provider returned invalid meta payload"}
             meta = payload["meta"]
 
+        # Keep canonical response keys centralized so API routes can pass through safely.
+        response_data = self._canonicalize_provider_payload(payload)
+
         response = PipelineResponse(
-            data={k: v for k, v in payload.items() if k != "meta"},
+            data=response_data,
             meta={
                 **meta,
                 "model": meta.get("model") or meta.get("model_id") or self.config.model_name,
@@ -84,6 +97,33 @@ class AIPipelineService:
             },
         )
         return {**response.data, "meta": response.meta}
+
+    @staticmethod
+    def _canonicalize_provider_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        """Map provider-specific payload keys into a stable UI contract."""
+        assistant_text = ""
+        for key in _ASSISTANT_TEXT_KEYS:
+            value = payload.get(key)
+            if value is not None:
+                assistant_text = str(value)
+                break
+
+        confidence_value = payload.get("confidence")
+        confidence = float(confidence_value) if isinstance(confidence_value, (int, float)) else None
+
+        notes_value = payload.get("notes")
+        if isinstance(notes_value, list):
+            notes = [str(note) for note in notes_value]
+        elif isinstance(notes_value, str) and notes_value.strip():
+            notes = [notes_value.strip()]
+        else:
+            notes = []
+
+        return {
+            "assistant_text": assistant_text,
+            "confidence": confidence,
+            "notes": notes,
+        }
 
     def _build_provider(self, config: AIPipelineConfig) -> AIProvider:
         # Logic intent:

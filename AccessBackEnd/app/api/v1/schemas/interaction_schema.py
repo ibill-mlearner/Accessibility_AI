@@ -42,9 +42,14 @@ class AIInteractionRequest(TypedDict, total=False):
     messages: list[ChatMessage]
 
 
-class AIInteractionResponse(TypedDict, total=False):
-    """Pass-through response returned from the AI service."""
+class AIInteractionResponse(TypedDict):
+    """Canonical response shape consumed by UI clients."""
 
-    data: Any
-    error: str
+    # Logic intent:
+    # - Keep user-visible output in a single stable text field.
+    # - Preserve optional scoring and notes for incremental UX improvements.
+    # - Reserve provider-specific details for metadata/debug rendering.
+    assistant_text: str
+    confidence: float | None
+    notes: list[str]
     meta: dict[str, Any]
