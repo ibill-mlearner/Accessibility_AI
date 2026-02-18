@@ -28,7 +28,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '../stores/appStore'
 import ChatBubbleCard from '../components/chat/ChatBubbleCard.vue'
@@ -270,6 +270,16 @@ async function saveCurrentChatAsNote() {
 
   await store.createNote(payload)
 }
+
+
+watch(
+  () => store.newChatRequestId,
+  () => {
+    timelineMessages.value = []
+    interactionError.value = ''
+    interactionLoading.value = false
+  }
+)
 
 onMounted(async () => {
   const promptFromQuery = route.query?.prompt

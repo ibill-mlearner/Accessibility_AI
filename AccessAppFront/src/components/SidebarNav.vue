@@ -6,7 +6,7 @@
     </div>
 
     <nav class="menu-card">
-      <RouterLink to="/" class="menu-item">New Chat</RouterLink>
+      <button class="menu-item" type="button" @click="handleNewChatClick">New Chat</button>
       <RouterLink to="/accessibility" class="menu-item">Accessibility Features</RouterLink>
       <RouterLink to="/saved-notes" class="menu-item">Saved Notes</RouterLink>
       <RouterLink :to="`/classes/${store.role === 'instructor' ? 'instructor' : 'student'}`" class="menu-item">
@@ -45,6 +45,11 @@ const isLoggedIn = computed(() => store.isAuthenticated && store.role !== 'guest
 
 function handleLogout() {
   store.logout()
+  router.push('/')
+}
+
+function handleNewChatClick() {
+  store.prepareNewChat()
   router.push('/')
 }
 </script>

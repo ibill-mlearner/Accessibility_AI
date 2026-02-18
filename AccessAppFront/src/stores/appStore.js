@@ -49,6 +49,7 @@ export const useAppStore = defineStore('app', {
     selectedChatId: null,
     selectedClassId: null,
     selectedModel: '',
+    newChatRequestId: 0,
     chats: [],
     classes: [],
     notes: [],
@@ -275,6 +276,10 @@ export const useAppStore = defineStore('app', {
         this.selectedChatId = this.deriveSelectedId(this.selectedChatId, this.chats)
         this.setActionError(actionKey, 'Unable to create chat.')
       }
+    },
+    prepareNewChat() {
+      this.selectedChatId = null
+      this.newChatRequestId += 1
     },
     async ensureActiveChat(payload) {
       const existing = this.chats.find((chat) => chat.id === this.selectedChatId)
