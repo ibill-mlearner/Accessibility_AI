@@ -97,6 +97,7 @@ def test_build_runtime_app_first_run_prompts_for_seed(monkeypatch, tmp_path):
         host="0.0.0.0",
         port=5000,
         init_db=True,
+        seed="prompt",
     )
 
     prompted = {"called": False}
@@ -110,6 +111,8 @@ def test_build_runtime_app_first_run_prompts_for_seed(monkeypatch, tmp_path):
 
     monkeypatch.setattr(module, "create_app", lambda _config: app)
     monkeypatch.setattr(module, "_prompt_for_seed_users", _prompt)
+    monkeypatch.setattr(module.sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr(module.sys.stdout, "isatty", lambda: True)
 
     module.build_runtime_app(args)
 
@@ -134,6 +137,7 @@ def test_build_runtime_app_init_db_prompts_even_when_db_exists(monkeypatch, tmp_
         host="0.0.0.0",
         port=5000,
         init_db=True,
+        seed="prompt",
     )
 
     prompted = {"called": False}
@@ -192,9 +196,89 @@ def test_build_runtime_app_sets_only_ollama_endpoint(monkeypatch):
         host="0.0.0.0",
         port=5000,
         init_db=False,
+        seed="prompt",
     )
 
     app = module.build_runtime_app(args)
 
     assert app.config["AI_PROVIDER"] == "ollama"
     assert app.config["AI_OLLAMA_ENDPOINT"] == "http://localhost:11434/api/chat"
+
+
+def test_build_runtime_app_non_interactive_new_db_auto_seeds(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_runtime_auto_seed", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    db_path = tmp_path / "auto-seed.db"
+    args = Namespace(
+        config="testing",
+        ai_provider=None,
+        ai_endpoint=None,
+        host="0.0.0.0",
+        port=5000,
+        init_db=True,
+        seed="prompt",
+    )
+
+    app = module.create_app("testing")
+    app.config.update(SQLALCHEMY_DATABASE_URI=f"sqlite+pysqlite:///{db_path.as_posix()}")
+
+    monkeypatch.setattr(module, "create_app", lambda _config: app)
+    monkeypatch.setattr(module.sys.stdin, "isatty", lambda: False)
+    monkeypatch.setattr(module.sys.stdout, "isatty", lambda: False)
+
+    seeded = {"called": False}
+
+    def _seed(database_uri: str) -> bool:
+        seeded["called"] = True
+        assert database_uri == f"sqlite+pysqlite:///{db_path.as_posix()}"
+        return True
+
+    monkeypatch.setattr(module, "_seed_all_from_sql", _seed)
+
+    module.build_runtime_app(args)
+
+    assert seeded["called"] is True
+
+
+def test_build_runtime_app_seed_never_skips_prompt_and_seed(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_runtime_seed_never", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    db_path = tmp_path / "seed-never.db"
+    args = Namespace(
+        config="testing",
+        ai_provider=None,
+        ai_endpoint=None,
+        host="0.0.0.0",
+        port=5000,
+        init_db=True,
+        seed="never",
+    )
+
+    app = module.create_app("testing")
+    app.config.update(SQLALCHEMY_DATABASE_URI=f"sqlite+pysqlite:///{db_path.as_posix()}")
+
+    monkeypatch.setattr(module, "create_app", lambda _config: app)
+
+    prompted = {"called": False}
+    seeded = {"called": False}
+
+    def _prompt(_database_uri: str) -> None:
+        prompted["called"] = True
+
+    def _seed(_database_uri: str) -> bool:
+        seeded["called"] = True
+        return True
+
+    monkeypatch.setattr(module, "_prompt_for_seed_users", _prompt)
+    monkeypatch.setattr(module, "_seed_all_from_sql", _seed)
+
+    module.build_runtime_app(args)
+
+    assert prompted["called"] is False
+    assert seeded["called"] is False

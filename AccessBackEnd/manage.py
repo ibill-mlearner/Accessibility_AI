@@ -35,6 +35,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--init-db", action="store_true", help="Initialize database tables before starting the server")
+    parser.add_argument(
+        "--seed",
+        choices=["prompt", "always", "never"],
+        default="prompt",
+        help="Control baseline SQL seeding when used with --init-db (default: prompt).",
+    )
     return parser
 
 
@@ -105,11 +111,22 @@ def build_runtime_app(args: argparse.Namespace):
 
     if args.init_db:
         print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        database_path = _sqlite_database_path(database_uri)
+        database_existed_before_init = database_path.exists() if database_path else True
         init_flask_database(app)
 
         # Avoid duplicate prompt when Flask debug reloader spawns a child process.
         if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
-            _prompt_for_seed_users(app.config["SQLALCHEMY_DATABASE_URI"])
+            if args.seed == "always":
+                _seed_all_from_sql(database_uri)
+            elif args.seed == "never":
+                print("Skipping seed data (--seed=never).")
+            elif not (sys.stdin.isatty() and sys.stdout.isatty()) and not database_existed_before_init:
+                print("Non-interactive session with newly created database; applying baseline seed data.")
+                _seed_all_from_sql(database_uri)
+            else:
+                _prompt_for_seed_users(database_uri)
 
     return app
 
