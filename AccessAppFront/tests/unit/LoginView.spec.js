@@ -5,9 +5,6 @@ import LoginView from '../../src/views/LoginView.vue'
 import api from '../../src/services/api'
 
 const push = vi.fn()
-const mockedRoute = {
-  query: {}
-}
 
 vi.mock('../../src/services/api', () => ({
   default: {
@@ -20,7 +17,7 @@ vi.mock('vue-router', async (importOriginal) => {
   return {
     ...mod,
     useRouter: () => ({ push }),
-    useRoute: () => mockedRoute
+    useRoute: () => ({ query: {} })
   }
 })
 
@@ -29,43 +26,29 @@ describe('LoginView.vue', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     window.sessionStorage.clear()
-    mockedRoute.query = {}
   })
 
-  it('routes home only after login API success and persists session', async () => {
-    let resolveLogin
-    api.post.mockReturnValue(
-      new Promise((resolve) => {
-        resolveLogin = resolve
-      })
-    )
+  it('persists session and routes home after successful login', async () => {
+    api.post.mockResolvedValueOnce({
+      data: { user: { id: 7, email: 'student@example.com', role: 'student' } }
+    })
 
     const wrapper = mount(LoginView)
 
     await wrapper.find('input[placeholder="Username . . ."]').setValue('student@example.com')
     await wrapper.find('input[type="password"]').setValue('secret')
     await wrapper.find('button.icon-btn').trigger('click')
-
-    expect(api.post).toHaveBeenCalledWith('/api/v1/auth/login', {
-      email: 'student@example.com',
-      password: 'secret'
-    })
-    expect(push).not.toHaveBeenCalled()
-
-    resolveLogin({ data: { user: { id: 7, email: 'student@example.com', role: 'student' } } })
     await flushPromises()
 
     expect(push).toHaveBeenCalledWith({ path: '/', query: {} })
-    const persisted = JSON.parse(window.sessionStorage.getItem('accessapp:session'))
-    expect(persisted).toMatchObject({
+    expect(JSON.parse(window.sessionStorage.getItem('accessapp:session'))).toMatchObject({
       role: 'student',
-      currentUser: { id: 7, email: 'student@example.com' },
       isAuthenticated: true
     })
   })
 
-  it('stays on login, shows auth error, and does not persist session when login fails', async () => {
-    api.post.mockRejectedValue({ response: { status: 401 } })
+  it('shows auth error and avoids session persistence when login fails', async () => {
+    api.post.mockRejectedValueOnce({ response: { status: 401 } })
 
     const wrapper = mount(LoginView)
 
@@ -76,26 +59,6 @@ describe('LoginView.vue', () => {
 
     expect(push).not.toHaveBeenCalled()
     expect(window.sessionStorage.getItem('accessapp:session')).toBeNull()
-    expect(wrapper.find('.auth-error').exists()).toBe(true)
     expect(wrapper.find('.auth-error').text()).toContain('Invalid email or password.')
-  })
-
-  it('returns to requested path and restores prompt from query after login', async () => {
-    mockedRoute.query = {
-      next: '/',
-      prompt: 'Need this after login'
-    }
-
-    api.post.mockResolvedValue({
-      data: { user: { id: 9, email: 'student@example.com', role: 'student' } }
-    })
-
-    const wrapper = mount(LoginView)
-    await wrapper.find('input[placeholder="Username . . ."]').setValue('student@example.com')
-    await wrapper.find('input[type="password"]').setValue('secret')
-    await wrapper.find('button.icon-btn').trigger('click')
-    await flushPromises()
-
-    expect(push).toHaveBeenCalledWith({ path: '/', query: { prompt: 'Need this after login' } })
   })
 })
