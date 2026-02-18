@@ -8,7 +8,7 @@ from . import config
 from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
 from .blueprints.auth.routes import auth_bp
-from .db import init_flask_database
+from .db import ensure_sqlite_compat_schema, init_flask_database
 from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
 from .services.logging import initialize_logging
@@ -80,6 +80,7 @@ def create_app(config_name: str | None = None) -> Flask:
         app.extensions["data_backend"] = app.config["DATA_BACKEND_FACTORY"]()
 
     db_ext.init_app(app)
+    ensure_sqlite_compat_schema(app)
     migrate.init_app(app, db_ext)
     jwt.init_app(app)
     cors.init_app(
