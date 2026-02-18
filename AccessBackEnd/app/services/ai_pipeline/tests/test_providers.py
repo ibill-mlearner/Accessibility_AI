@@ -61,6 +61,23 @@ def test_huggingface_provider_parse_json_handles_embedded_object() -> None:
     assert parsed["confidence"] == 0.9
 
 
+def test_huggingface_provider_parse_json_handles_prose_plus_json_code_block() -> None:
+    provider = HuggingFaceLangChainProvider(model_id="demo/model")
+
+    parsed = provider._parse_json(
+        """
+        Here's your answer.
+        ```json
+        {"assistant_text": "Structured response", "confidence": 0.8, "notes": []}
+        ```
+        Thanks!
+        """
+    )
+
+    assert parsed["assistant_text"] == "Structured response"
+    assert parsed["confidence"] == 0.8
+
+
 def test_huggingface_provider_parse_json_raises_on_invalid_json() -> None:
     provider = HuggingFaceLangChainProvider(model_id="demo/model")
 
@@ -100,9 +117,11 @@ def test_huggingface_provider_invoke_returns_non_json_fallback(monkeypatch: pyte
 
     payload = provider.invoke(PipelineRequest(prompt="hello", context={"k": "v"}))
 
-    assert payload["result"] == "plain text response"
+    assert payload["assistant_text"] == ""
+    assert "result" not in payload
     assert payload["notes"] == ["non_json_fallback"]
     assert payload["meta"]["provider"] == "huggingface_langchain:non_json_fallback"
+    assert payload["meta"]["debug"]["raw_payload_preview"] == "plain text response"
     assert payload["meta"]["model"] == "demo/model"
 
 

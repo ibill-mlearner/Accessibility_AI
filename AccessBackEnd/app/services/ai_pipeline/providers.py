@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Protocol
 from urllib.error import URLError
@@ -12,6 +13,7 @@ from .types import PipelineRequest
 
 _MAX_CONTEXT_MESSAGES = 4
 _MAX_TEXT_CHARS = 500
+_JSON_PRIORITY_KEYS = ("assistant_text", "result", "answer", "response_text")
 
 
 def _clip_text(value: object, *, limit: int = _MAX_TEXT_CHARS) -> str:
@@ -21,32 +23,37 @@ def _clip_text(value: object, *, limit: int = _MAX_TEXT_CHARS) -> str:
     return f"{text[:limit]}… [truncated]"
 
 
+def _normalize_context_messages(messages: object) -> list[dict[str, str]]:
+    if not isinstance(messages, list):
+        return []
+
+    normalized_messages: list[dict[str, str]] = []
+    for message in messages[-_MAX_CONTEXT_MESSAGES:]:
+        if not isinstance(message, dict):
+            continue
+        role = str(message.get("role") or "").strip().lower()
+        content = _clip_text(message.get("content"), limit=300)
+        if not role or not content:
+            continue
+        normalized_messages.append({"role": role, "content": content})
+
+    return normalized_messages
+
+
 def _sanitize_context(context: dict | None) -> dict:
     """Keep context compact and predictable for provider prompts."""
     if not isinstance(context, dict):
         return {}
 
-    sanitized: dict[str, object] = {}
+    sanitized: dict[str, object] = {
+        key: context[key]
+        for key in ("chat_id", "class_id")
+        if context.get(key) is not None
+    }
 
-    if context.get("chat_id") is not None:
-        sanitized["chat_id"] = context.get("chat_id")
-    if context.get("class_id") is not None:
-        sanitized["class_id"] = context.get("class_id")
-
-    messages = context.get("messages")
-    if isinstance(messages, list):
-        normalized_messages: list[dict[str, str]] = []
-        for message in messages[-_MAX_CONTEXT_MESSAGES:]:
-            if not isinstance(message, dict):
-                continue
-            role = str(message.get("role") or "").strip().lower()
-            content = _clip_text(message.get("content"), limit=300)
-            if not role or not content:
-                continue
-            normalized_messages.append({"role": role, "content": content})
-
-        if normalized_messages:
-            sanitized["messages"] = normalized_messages
+    normalized_messages = _normalize_context_messages(context.get("messages"))
+    if normalized_messages:
+        sanitized["messages"] = normalized_messages
 
     return sanitized
 
@@ -362,9 +369,12 @@ Context summary:
             parsed = self._parse_json(raw_text)
         except ValueError:
             parsed = {
-                "result": raw_text,
+                "assistant_text": "",
                 "notes": ["non_json_fallback"],
-                "meta": {"provider": f"{provider_tag}:non_json_fallback"},
+                "meta": {
+                    "provider": f"{provider_tag}:non_json_fallback",
+                    "debug": {"raw_payload_preview": _clip_text(raw_text)},
+                },
             }
         parsed.setdefault("meta", {})
         parsed["meta"].update(
@@ -380,20 +390,76 @@ Context summary:
         # Logic intent:
         # - Robustly parse model output even when extra text appears around JSON.
         # - Fail loudly when model output is not JSON, keeping pipeline behavior explicit.
-        raw_text = (raw_text or "").strip()
-        try:
-            parsed = json.loads(raw_text)
-            if isinstance(parsed, dict):
-                return parsed
-        except json.JSONDecodeError:
-            pass
+        normalized_text = (raw_text or "").strip()
 
-        start = raw_text.find("{")
-        end = raw_text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            candidate = raw_text[start : end + 1]
-            parsed = json.loads(candidate)
-            if isinstance(parsed, dict):
-                return parsed
+        direct_parsed = self._parse_dict_or_none(normalized_text)
+        if direct_parsed is not None:
+            return direct_parsed
+
+        candidates = self._extract_candidate_objects(normalized_text)
+        selected_candidate = self._select_preferred_candidate(candidates)
+        if selected_candidate is not None:
+            return selected_candidate
+
+        braced_candidate = self._parse_braced_json_candidate(normalized_text)
+        if braced_candidate is not None:
+            return braced_candidate
 
         raise ValueError("Model output is not valid JSON object")
+
+    def _extract_candidate_objects(self, raw_text: str) -> list[dict]:
+        candidates: list[dict] = []
+        candidates.extend(self._extract_fenced_json_candidates(raw_text))
+        candidates.extend(self._extract_raw_decode_candidates(raw_text))
+        return candidates
+
+    def _extract_fenced_json_candidates(self, raw_text: str) -> list[dict]:
+        fenced_pattern = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
+        candidates: list[dict] = []
+        for block in fenced_pattern.findall(raw_text):
+            parsed = self._parse_dict_or_none((block or "").strip())
+            if parsed is not None:
+                candidates.append(parsed)
+        return candidates
+
+    def _extract_raw_decode_candidates(self, raw_text: str) -> list[dict]:
+        decoder = json.JSONDecoder()
+        candidates: list[dict] = []
+        idx = 0
+        while idx < len(raw_text):
+            try:
+                parsed, end_idx = decoder.raw_decode(raw_text, idx)
+            except json.JSONDecodeError:
+                idx += 1
+                continue
+
+            if isinstance(parsed, dict):
+                candidates.append(parsed)
+            idx = max(end_idx, idx + 1)
+
+        return candidates
+
+    def _select_preferred_candidate(self, candidates: list[dict]) -> dict | None:
+        for key in _JSON_PRIORITY_KEYS:
+            for candidate in candidates:
+                if key in candidate:
+                    return candidate
+        if candidates:
+            return candidates[0]
+        return None
+
+    def _parse_braced_json_candidate(self, raw_text: str) -> dict | None:
+        start = raw_text.find("{")
+        end = raw_text.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return None
+        return self._parse_dict_or_none(raw_text[start : end + 1])
+
+    def _parse_dict_or_none(self, candidate: str) -> dict | None:
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+        return None
