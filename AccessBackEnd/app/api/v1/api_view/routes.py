@@ -76,6 +76,7 @@ def register() -> tuple[Response, int]:
 
     user.mark_login_success()
     login_user(user)
+    session["security_stamp"] = user.security_stamp
     db.session.commit()
     session_token = _current_session_token()
 
@@ -109,6 +110,7 @@ def login() -> tuple[Response, int]:
 
     user.mark_login_success()
     login_user(user)
+    session["security_stamp"] = user.security_stamp
     db.session.commit()
     session_token = _current_session_token()
 
@@ -133,6 +135,7 @@ def login() -> tuple[Response, int]:
 def logout() -> tuple[Response, int]:
     """Clear the current auth session for API view testing flows."""
     logout_user()
+    session.pop("security_stamp", None)
     session.clear()
 
     current_app.extensions["event_bus"].publish(DomainEvent("api.view_logout_succeeded"))

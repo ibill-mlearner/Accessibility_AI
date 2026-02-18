@@ -7,8 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy.sql import func
 
 from .accommodations import Accommodation
-from .ai_interaction import AIInteraction, SystemPrompt
-from .ai_models import AIModel, Feature
+from .ai_interaction import AIInteraction, AccommodationSystemPrompt, SystemPrompt
+from .ai_models import AIModel
 from .audit_log import AuditLog
 from .base import Base
 from .chats import Chat, CourseClass, Message, Note, UserClassEnrollment
@@ -56,7 +56,6 @@ class DBUser(Base):
     class_enrollments: Mapped[list[UserClassEnrollment]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
-    accommodations: Mapped[list[Accommodation]] = relationship(back_populates="user", cascade="all, delete-orphan")
     sessions: Mapped[list[UserSession]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
     @staticmethod
@@ -81,9 +80,9 @@ DB_MODELS = {
     "message": Message,
     "note": Note,
     "user_class_enrollment": UserClassEnrollment,
-    "feature": Feature,
     "ai_model": AIModel,
     "system_prompt": SystemPrompt,
+    "accommodation_system_prompt": AccommodationSystemPrompt,
     "ai_interaction": AIInteraction,
     "accommodation": Accommodation,
     "user_session": UserSession,

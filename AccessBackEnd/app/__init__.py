@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from flask import Flask
-from flask import jsonify
+from flask import jsonify, request, session
+from flask_login import current_user, logout_user
 
 from . import config
 from .api.errors import register_api_error_handlers
@@ -89,6 +90,32 @@ def create_app(config_name: str | None = None) -> Flask:
     )
     login_manager.init_app(app)
     # Flask-Login manages server-side session identity via Flask session cookies.
+
+
+    @app.before_request
+    def _validate_session_security_stamp():
+        if not request.path.startswith("/api/"):
+            return None
+        if not getattr(current_user, "is_authenticated", False):
+            return None
+
+        user_stamp = getattr(current_user, "security_stamp", None)
+        session_stamp = session.get("security_stamp")
+        if not user_stamp or not session_stamp or session_stamp != user_stamp:
+            logout_user()
+            return (
+                jsonify(
+                    {
+                        "error": {
+                            "code": "unauthorized",
+                            "message": "session expired; please log in again",
+                            "details": {},
+                        }
+                    }
+                ),
+                401,
+            )
+        return None
 
     @login_manager.unauthorized_handler
     def _unauthorized_response():

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import current_user, login_user, logout_user
 
 from ...extensions import db
@@ -66,6 +66,7 @@ def login():
 
     user.mark_login_success()
     login_user(user)
+    session["security_stamp"] = user.security_stamp
     db.session.commit()
     current_app.extensions["event_bus"].publish(
         DomainEvent("auth.user_logged_in", {"user_id": user.id, "email": user.email})
@@ -79,6 +80,7 @@ def login():
 @auth_bp.post("/logout")
 def logout():
     user_id = current_user.get_id() if current_user.is_authenticated else None
+    session.pop("security_stamp", None)
     logout_user()
 
     current_app.extensions["event_bus"].publish(

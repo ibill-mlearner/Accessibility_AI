@@ -16,14 +16,16 @@ class AIInteractionRepository:
         *,
         prompt: str,
         response_text: str,
-        provider: str,
         chat_id: int | None = None,
+        ai_model_id: int | None = None,
+        accommodations_id_system_prompts_id: int | None = None,
     ):
         interaction = self.interaction_model(
             prompt=prompt,
             response_text=response_text,
-            provider=provider,
             chat_id=chat_id,
+            ai_model_id=ai_model_id,
+            accommodations_id_system_prompts_id=accommodations_id_system_prompts_id,
         )
         session.add(interaction)
         session.flush()

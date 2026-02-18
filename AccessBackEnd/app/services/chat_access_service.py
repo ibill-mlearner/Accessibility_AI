@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from flask_login import current_user
 
-from ..models.role import Role
 from ..models import Chat, CourseClass, UserClassEnrollment
 
 
 class ChatAccessService:
     """Authorization checks for chat read/create operations."""
 
-    ENROLLMENT_ACCESS_ROLES = {Role.STUDENT.value, "ta"}
 
     @staticmethod
     def get_authenticated_user_id() -> int:
@@ -40,17 +38,12 @@ class ChatAccessService:
         *,
         enrollments: list[UserClassEnrollment],
         user_id: int,
-        allowed_roles: set[str] | None = None,
     ) -> UserClassEnrollment:
-        """Ensure user has active class enrollment and optional role membership."""
-        effective_allowed_roles = allowed_roles or cls.ENROLLMENT_ACCESS_ROLES
-
+        """Ensure user has active class enrollment."""
         for enrollment in enrollments:
             if int(enrollment.user_id) != int(user_id):
                 continue
-            if enrollment.dropped_at is not None:
-                continue
-            if enrollment.role not in effective_allowed_roles:
+            if not enrollment.active:
                 continue
             return enrollment
 
