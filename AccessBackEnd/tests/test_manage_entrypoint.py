@@ -83,7 +83,35 @@ def test_seed_all_from_sql_runs_all_seed_scripts(tmp_path):
     assert row_count == 1
 
 
-def test_build_runtime_app_first_run_prompts_for_seed(monkeypatch, tmp_path):
+def test_should_run_init_db_for_process_non_debug(monkeypatch):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_run_main_non_debug", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    app = module.create_app("testing")
+
+    monkeypatch.delenv("WERKZEUG_RUN_MAIN", raising=False)
+    assert module._should_run_init_db_for_process(app) is True
+
+
+def test_should_run_init_db_for_process_debug_parent_vs_child(monkeypatch):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_run_main_debug", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    app = module.create_app("testing")
+    app.debug = True
+
+    monkeypatch.delenv("WERKZEUG_RUN_MAIN", raising=False)
+    assert module._should_run_init_db_for_process(app) is False
+
+    monkeypatch.setenv("WERKZEUG_RUN_MAIN", "true")
+    assert module._should_run_init_db_for_process(app) is True
+
+
+def test_build_runtime_app_first_run_seeds_without_prompt(monkeypatch, tmp_path):
     spec = importlib.util.spec_from_file_location("backend_manage_module_runtime", MANAGE_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
@@ -100,20 +128,30 @@ def test_build_runtime_app_first_run_prompts_for_seed(monkeypatch, tmp_path):
     )
 
     prompted = {"called": False}
+    seeded = {"called": False}
 
     def _prompt(database_uri: str) -> None:
         prompted["called"] = True
         assert database_uri == f"sqlite+pysqlite:///{db_path.as_posix()}"
+
+    def _seed(database_uri: str) -> bool:
+        seeded["called"] = True
+        assert database_uri == f"sqlite+pysqlite:///{db_path.as_posix()}"
+        return True
 
     app = module.create_app("testing")
     app.config.update(SQLALCHEMY_DATABASE_URI=f"sqlite+pysqlite:///{db_path.as_posix()}")
 
     monkeypatch.setattr(module, "create_app", lambda _config: app)
     monkeypatch.setattr(module, "_prompt_for_seed_users", _prompt)
+    monkeypatch.setattr(module, "_seed_all_from_sql", _seed)
+
+    monkeypatch.delenv("WERKZEUG_RUN_MAIN", raising=False)
 
     module.build_runtime_app(args)
 
-    assert prompted["called"] is True
+    assert seeded["called"] is True
+    assert prompted["called"] is False
 
 
 
@@ -147,10 +185,45 @@ def test_build_runtime_app_init_db_prompts_even_when_db_exists(monkeypatch, tmp_
 
     monkeypatch.setattr(module, "create_app", lambda _config: app)
     monkeypatch.setattr(module, "_prompt_for_seed_users", _prompt)
+    monkeypatch.delenv("WERKZEUG_RUN_MAIN", raising=False)
 
     module.build_runtime_app(args)
 
     assert prompted["called"] is True
+
+def test_build_runtime_app_skips_init_db_in_debug_reloader_parent(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_runtime_reloader_parent", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    db_path = tmp_path / "reloader-parent.db"
+    args = Namespace(
+        config="testing",
+        ai_provider=None,
+        ai_endpoint=None,
+        host="0.0.0.0",
+        port=5000,
+        init_db=True,
+    )
+
+    app = module.create_app("testing")
+    app.debug = True
+    app.config.update(SQLALCHEMY_DATABASE_URI=f"sqlite+pysqlite:///{db_path.as_posix()}")
+
+    init_called = {"called": False}
+
+    def _init(_app):
+        init_called["called"] = True
+
+    monkeypatch.setattr(module, "create_app", lambda _config: app)
+    monkeypatch.setattr(module, "init_flask_database", _init)
+    monkeypatch.setenv("WERKZEUG_RUN_MAIN", "false")
+
+    module.build_runtime_app(args)
+
+    assert init_called["called"] is False
+
 
 def test_prompt_for_seed_users_skips_non_interactive(monkeypatch, capsys):
     spec = importlib.util.spec_from_file_location("backend_manage_module_prompt", MANAGE_PATH)

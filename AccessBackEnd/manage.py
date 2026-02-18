@@ -87,6 +87,19 @@ def _prompt_for_seed_users(database_uri: str) -> None:
     _seed_all_from_sql(database_uri)
 
 
+def _should_run_init_db_for_process(app) -> bool:
+    """Return True only in the process that should execute one-time init DB tasks.
+
+    Werkzeug debug reloader starts a parent watchdog process and then a child app
+    process. We only run init/seeding in the child (WERKZEUG_RUN_MAIN=true) so
+    `--init-db` side effects are not executed twice.
+    """
+
+    if not app.debug:
+        return True
+    return os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+
+
 def build_runtime_app(args: argparse.Namespace):
     _validate_args(args)
 
@@ -103,13 +116,18 @@ def build_runtime_app(args: argparse.Namespace):
     # Rebuild service with runtime overrides from parsed args.
     app.extensions["ai_service"] = build_ai_service(app)
 
-    if args.init_db:
+    if args.init_db and _should_run_init_db_for_process(app):
+        database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        db_path = _sqlite_database_path(database_uri)
+        db_missing_before_init = db_path is not None and not db_path.exists()
+
         print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
         init_flask_database(app)
 
-        # Avoid duplicate prompt when Flask debug reloader spawns a child process.
-        if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
-            _prompt_for_seed_users(app.config["SQLALCHEMY_DATABASE_URI"])
+        if db_missing_before_init:
+            _seed_all_from_sql(database_uri)
+        else:
+            _prompt_for_seed_users(database_uri)
 
     return app
 
