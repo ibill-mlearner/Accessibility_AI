@@ -17,6 +17,7 @@ from ...extensions import db
 from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note, User, UserClassEnrollment
 from ...models.identity_defaults import build_transitional_identity_defaults
 from ...services.chat_access_service import ChatAccessService
+from ...services.ai_pipeline import AIPipelineUpstreamError
 from ...services.logging import DomainEvent
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -1001,24 +1002,19 @@ def create_ai_interaction():
             context=context_payload,
             initiated_by=initiated_by,
         )
-    except FileNotFoundError as exc:
-        _raise_bad_request_from_exception(exc)
-    except ValueError as exc:
-        _raise_bad_request_from_exception(exc, source="hf_output_parse")
-    except RuntimeError as exc:
+    except AIPipelineUpstreamError as exc:
         return (
             jsonify(
                 {
                     "error": {
                         "code": "upstream_error",
                         "message": str(exc),
-                        "details": {},
+                        "details": exc.details,
                     }
                 }
             ),
             502,
         )
-
     persistence_error = _persist_ai_interaction(payload, prompt, result)
     if persistence_error is not None:
         return persistence_error

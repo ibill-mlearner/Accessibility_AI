@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .exceptions import invoke_provider_or_raise
 from .providers import (
     AIProvider,
     HTTPEndpointProvider,
@@ -66,10 +67,7 @@ class AIPipelineService:
         # 4) Return a normalized dictionary with consistent metadata.
         _ = metadata
         request = PipelineRequest(prompt=prompt, context=context or {})
-        payload = self._provider.invoke(request)
-
-        if not isinstance(payload, dict):
-            raise TypeError("Pipeline provider must return a dictionary")
+        payload = invoke_provider_or_raise(self._provider, request)
 
         meta = payload.setdefault("meta", {})
         if not isinstance(meta, dict):
