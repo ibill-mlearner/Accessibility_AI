@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from app.db import init_flask_database
 from app.extensions import db
-from app.models import Chat, CourseClass, Message, UserClassEnrollment
+from app.models import AIInteraction, Chat, CourseClass, Message, UserClassEnrollment
 
 
 def _register(client, email: str, role: str = "student") -> int:
@@ -66,6 +66,14 @@ def _seed_chat_context(app):
                 vote="good",
                 note="no",
                 help_intent="homework",
+            )
+        )
+        db.session.add(
+            AIInteraction(
+                chat_id=chat.id,
+                prompt="Explain factoring",
+                response_text="Factoring rewrites an expression as multiplied terms.",
+                provider="mock_json",
             )
         )
         db.session.commit()
@@ -169,3 +177,38 @@ def test_chat_create_backfills_default_class_for_legacy_payload_and_validates_us
     )
     assert invalid_user_response.status_code == 400
     assert invalid_user_response.get_json()["error"]["message"] == "user_id must be an integer"
+
+
+def test_chat_ai_interaction_access_for_owner_instructor_and_active_enrollment(app):
+    context = _seed_chat_context(app)
+    chat_id = context["chat_id"]
+
+    owner_response = context["owner_client"].get(f"/api/v1/chats/{chat_id}/ai/interactions")
+    instructor_response = context["instructor_client"].get(f"/api/v1/chats/{chat_id}/ai/interactions")
+    peer_response = context["peer_client"].get(f"/api/v1/chats/{chat_id}/ai/interactions")
+
+    assert owner_response.status_code == 200
+    assert instructor_response.status_code == 200
+    assert peer_response.status_code == 200
+
+    payload = owner_response.get_json()
+    assert isinstance(payload, list)
+    assert payload
+    assert payload[0]["chat_id"] == chat_id
+    assert payload[0]["provider"] == "mock_json"
+
+
+def test_chat_ai_interaction_access_denies_dropped_or_non_enrolled_users(app):
+    context = _seed_chat_context(app)
+    chat_id = context["chat_id"]
+
+    dropped_response = context["dropped_client"].get(f"/api/v1/chats/{chat_id}/ai/interactions")
+    outsider_response = context["outsider_client"].get(f"/api/v1/chats/{chat_id}/ai/interactions")
+
+    assert dropped_response.status_code == 403
+    assert dropped_response.get_json()["error"]["code"] == "forbidden"
+    assert dropped_response.get_json()["error"]["message"] == "access denied"
+
+    assert outsider_response.status_code == 403
+    assert outsider_response.get_json()["error"]["code"] == "forbidden"
+    assert outsider_response.get_json()["error"]["message"] == "access denied"

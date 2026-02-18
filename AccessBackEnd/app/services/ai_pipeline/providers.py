@@ -10,6 +10,55 @@ from .bootstrap import HuggingFaceModelBootstrap
 from .types import PipelineRequest
 
 
+_MAX_CONTEXT_MESSAGES = 4
+_MAX_TEXT_CHARS = 500
+
+
+def _clip_text(value: object, *, limit: int = _MAX_TEXT_CHARS) -> str:
+    text = str(value or "").strip()
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}… [truncated]"
+
+
+def _sanitize_context(context: dict | None) -> dict:
+    """Keep context compact and predictable for provider prompts."""
+    if not isinstance(context, dict):
+        return {}
+
+    sanitized: dict[str, object] = {}
+
+    if context.get("chat_id") is not None:
+        sanitized["chat_id"] = context.get("chat_id")
+    if context.get("class_id") is not None:
+        sanitized["class_id"] = context.get("class_id")
+
+    messages = context.get("messages")
+    if isinstance(messages, list):
+        normalized_messages: list[dict[str, str]] = []
+        for message in messages[-_MAX_CONTEXT_MESSAGES:]:
+            if not isinstance(message, dict):
+                continue
+            role = str(message.get("role") or "").strip().lower()
+            content = _clip_text(message.get("content"), limit=300)
+            if not role or not content:
+                continue
+            normalized_messages.append({"role": role, "content": content})
+
+        if normalized_messages:
+            sanitized["messages"] = normalized_messages
+
+    return sanitized
+
+
+def _json_response_contract() -> str:
+    return (
+        'Return only JSON with keys: '
+        '{"assistant_text": string, "confidence": number|null, "notes": [string]}.'
+    )
+
+
+
 class AIProvider(Protocol):
     """Provider contract for pipeline execution.
 
@@ -121,12 +170,7 @@ class OllamaProvider:
             "model": self.model_id,
             "stream": False,
             "options": self.options,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": self._compose_prompt(request),
-                }
-            ],
+            "messages": self._build_messages(request),
         }
 
         req = Request(
@@ -176,12 +220,31 @@ class OllamaProvider:
 
         return f"{cleaned}/api/chat"
 
-    def _compose_prompt(self, request: PipelineRequest) -> str:
-        return (
-            "You are a JSON API assistant. Return only a valid JSON object.\n"
-            f"User prompt: {request.prompt}\n"
-            f"Context JSON: {json.dumps(request.context)}"
-        )
+    def _build_messages(self, request: PipelineRequest) -> list[dict[str, str]]:
+        sanitized_context = _sanitize_context(request.context)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a concise assistant for accessibility learning support. "
+                    f"{_json_response_contract()}"
+                ),
+            },
+            {
+                "role": "user",
+                "content": _clip_text(request.prompt),
+            },
+        ]
+
+        if sanitized_context:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"Context summary: {json.dumps(sanitized_context, ensure_ascii=False)}",
+                }
+            )
+
+        return messages
 
     def _parse_ollama_payload(self, content: str) -> dict:
         parsed = json.loads(content or "{}")
@@ -278,14 +341,22 @@ class HuggingFaceLangChainProvider:
         llm = HuggingFacePipeline(pipeline=generator)
         prompt_template = PromptTemplate.from_template(
             """
-You are a JSON API assistant. Return only valid JSON object without markdown.
-User prompt: {prompt}
-Context JSON: {context_json}
-Required response schema: {{"result": string, "confidence": number, "notes": [string]}}
+You are a concise assistant for accessibility learning support.
+{response_contract}
+User prompt:
+{prompt}
+Context summary:
+{context_summary}
 """.strip()
         )
         chain = prompt_template | llm | StrOutputParser()
-        raw_text = chain.invoke({"prompt": request.prompt, "context_json": json.dumps(request.context)})
+        raw_text = chain.invoke(
+            {
+                "prompt": _clip_text(request.prompt),
+                "context_summary": json.dumps(_sanitize_context(request.context), ensure_ascii=False),
+                "response_contract": _json_response_contract(),
+            }
+        )
         provider_tag = "huggingface_langchain"
         try:
             parsed = self._parse_json(raw_text)

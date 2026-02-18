@@ -330,6 +330,32 @@ export const useAppStore = defineStore('app', {
         throw error
       }
     },
+    async fetchChatMessages(chatId) {
+      const actionKey = `fetchChatMessages:${chatId}`
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.get(`/api/v1/chats/${chatId}/messages`)
+        const records = Array.isArray(response?.data) ? response.data : []
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+        return records
+      } catch {
+        this.setActionError(actionKey, 'Unable to load chat messages.')
+        throw new Error('Unable to load chat messages.')
+      }
+    },
+    async fetchChatInteractions(chatId) {
+      const actionKey = `fetchChatInteractions:${chatId}`
+      this.setActionStatus(actionKey, { loading: true, error: '' })
+      try {
+        const response = await api.get(`/api/v1/chats/${chatId}/ai/interactions`)
+        const records = Array.isArray(response?.data) ? response.data : []
+        this.setActionStatus(actionKey, { loading: false, error: '' })
+        return records
+      } catch {
+        this.setActionError(actionKey, 'Unable to load chat interactions.')
+        throw new Error('Unable to load chat interactions.')
+      }
+    },
     async updateChat(chatId, patch) {
       const actionKey = `updateChat:${chatId}`
       const snapshot = [...this.chats]

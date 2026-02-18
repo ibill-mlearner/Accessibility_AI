@@ -181,4 +181,27 @@ describe('appStore actions', () => {
     expect(store.isAuthenticated).toBe(false)
     expect(window.sessionStorage.getItem('accessapp:session')).toBeNull()
   })
+
+  it('fetchChatMessages returns chat message records from chat-specific endpoint', async () => {
+    const store = useAppStore()
+    api.get.mockResolvedValueOnce({ data: [{ id: 7, chat_id: 10, message_text: 'Hello' }] })
+
+    const records = await store.fetchChatMessages(10)
+
+    expect(api.get).toHaveBeenCalledWith('/api/v1/chats/10/messages')
+    expect(records).toEqual([{ id: 7, chat_id: 10, message_text: 'Hello' }])
+    expect(store.actionStatus['fetchChatMessages:10'].error).toBe('')
+  })
+
+  it('fetchChatInteractions returns interaction records from chat-specific endpoint', async () => {
+    const store = useAppStore()
+    api.get.mockResolvedValueOnce({ data: [{ id: 3, chat_id: 10, prompt: 'Hi', response_text: 'Hello' }] })
+
+    const records = await store.fetchChatInteractions(10)
+
+    expect(api.get).toHaveBeenCalledWith('/api/v1/chats/10/ai/interactions')
+    expect(records).toEqual([{ id: 3, chat_id: 10, prompt: 'Hi', response_text: 'Hello' }])
+    expect(store.actionStatus['fetchChatInteractions:10'].error).toBe('')
+  })
+
 })
