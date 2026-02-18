@@ -286,10 +286,22 @@ Required response schema: {{"result": string, "confidence": number, "notes": [st
         )
         chain = prompt_template | llm | StrOutputParser()
         raw_text = chain.invoke({"prompt": request.prompt, "context_json": json.dumps(request.context)})
-        parsed = self._parse_json(raw_text)
+        provider_tag = "huggingface_langchain"
+        try:
+            parsed = self._parse_json(raw_text)
+        except ValueError:
+            parsed = {
+                "result": raw_text,
+                "notes": ["non_json_fallback"],
+                "meta": {"provider": f"{provider_tag}:non_json_fallback"},
+            }
         parsed.setdefault("meta", {})
         parsed["meta"].update(
-            {"provider": "huggingface_langchain", "model": self.model_id, "model_id": self.model_id}
+            {
+                "provider": parsed["meta"].get("provider", provider_tag),
+                "model": self.model_id,
+                "model_id": self.model_id,
+            }
         )
         return parsed
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 
 import pytest
 
@@ -59,6 +61,44 @@ def test_huggingface_provider_parse_json_raises_on_invalid_json() -> None:
 
     with pytest.raises(ValueError, match="not valid JSON"):
         provider._parse_json("this is not json")
+
+
+def test_huggingface_provider_invoke_returns_non_json_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    provider = HuggingFaceLangChainProvider(model_id="demo/model")
+    monkeypatch.setattr(provider._bootstrap, "ensure_model", lambda: "/tmp/model")
+
+    class _FakeChain:
+        def __or__(self, _other):  # noqa: ANN001
+            return self
+
+        def invoke(self, _input):  # noqa: ANN001
+            return "plain text response"
+
+    class _FakePromptTemplate:
+        @staticmethod
+        def from_template(_template: str) -> _FakeChain:
+            return _FakeChain()
+
+    fake_transformers = types.SimpleNamespace(
+        AutoModelForCausalLM=types.SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: object()),
+        AutoTokenizer=types.SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: object()),
+        pipeline=lambda *_args, **_kwargs: object(),
+    )
+    fake_langchain_llms = types.SimpleNamespace(HuggingFacePipeline=lambda **_kwargs: object())
+    fake_langchain_prompts = types.SimpleNamespace(PromptTemplate=_FakePromptTemplate)
+    fake_langchain_parsers = types.SimpleNamespace(StrOutputParser=lambda: object())
+
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
+    monkeypatch.setitem(sys.modules, "langchain_community.llms", fake_langchain_llms)
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", fake_langchain_prompts)
+    monkeypatch.setitem(sys.modules, "langchain_core.output_parsers", fake_langchain_parsers)
+
+    payload = provider.invoke(PipelineRequest(prompt="hello", context={"k": "v"}))
+
+    assert payload["result"] == "plain text response"
+    assert payload["notes"] == ["non_json_fallback"]
+    assert payload["meta"]["provider"] == "huggingface_langchain:non_json_fallback"
+    assert payload["meta"]["model"] == "demo/model"
 
 
 def test_huggingface_bootstrap_requires_model_id() -> None:
