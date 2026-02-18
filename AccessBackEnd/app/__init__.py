@@ -45,7 +45,6 @@ def build_ai_service(app: Flask) -> AIPipelineService:
         AIPipelineConfig(
             provider=provider,
             model_name=app.config["AI_MODEL_NAME"],
-            mock_resource_path=app.config["AI_MOCK_RESOURCE_PATH"],
             live_endpoint=live_endpoint or "",
             ollama_endpoint=ollama_endpoint or "",
             ollama_model_id=app.config.get("AI_OLLAMA_MODEL", app.config.get("AI_MODEL_NAME", "")),
@@ -93,6 +92,7 @@ def create_app(config_name: str | None = None) -> Flask:
     # Flask-Login manages server-side session identity via Flask session cookies.
 
 
+    #wrapper to validate against common entity fiels setup in the users model
     @app.before_request
     def _validate_session_security_stamp():
         if not request.path.startswith("/api/"):

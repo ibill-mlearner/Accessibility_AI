@@ -14,7 +14,19 @@ class DomainEvent:
     payload: dict[str, Any] = field(default_factory=dict)
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
+#todo: this is not actualy an Observer pattern right now
+# need to debug further why, it is likely because the wrong package was used
+# I was expecting flask.logging to be used which is an API observer
+"""
+Issue: Event bus logging is tightly coupled through API ingestion
+this causes an overreliance on a single package that was built.
 
+Solution: Register routes when app is stood up and not through the logging extension
+Add actual system logging to file storage/db storage.
+May be able to just switch the methods over to flask.logging and have pass through if else return with error handling
+to avoid full refactor
+
+"""
 class EventObserver:
     def on_event(
         self, event: DomainEvent

@@ -12,6 +12,17 @@ def role_guard(*allowed_roles: str):
 
     allowed = {role.strip().lower() for role in allowed_roles if role}
 
+    #todo: decorator not needed, flask can enforce RBAC. The wraper pattern has no issues though
+    """
+    Issue: custom wrapper is correct for RBAC BUT not for authentication. So this needs a bit of logic
+    disconnection.
+    
+    Solution:
+    Remove authentication from this wrapper and use flask-jwt decorator @require_jwt instead and move 
+    the role check ito auth/routes.py this will be a safer role enforcement if I add a role column to users
+    
+    """
+
     def decorator(func: Callable[..., Any]):
         @wraps(func)
         def wrapped(*args: Any, **kwargs: Any):

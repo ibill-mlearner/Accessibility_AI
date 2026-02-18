@@ -89,7 +89,7 @@ def _prompt_for_seed_users(database_uri: str) -> None:
 
 def _should_run_init_db_for_process(app) -> bool:
     """Return True only in the process that should execute one-time init DB tasks.
-
+    Bruteforce approach to stop the database from trying to instantiate twice on inital run.
     Werkzeug debug reloader starts a parent watchdog process and then a child app
     process. We only run init/seeding in the child (WERKZEUG_RUN_MAIN=true) so
     `--init-db` side effects are not executed twice.

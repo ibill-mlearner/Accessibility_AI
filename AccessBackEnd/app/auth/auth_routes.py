@@ -14,7 +14,7 @@ def create_auth_blueprint(auth_service: AuthService, url_prefix: str = "/auth") 
     """Create a framework adapter around the standalone auth service."""
 
     auth_bp = Blueprint("standalone_auth", __name__, url_prefix=url_prefix)
-
+    # let codex fill in 20X, 40X and 50X error codes with no correction, generic enough to expect them to be correct
     @auth_bp.post("/register")
     def register() -> tuple[object, int]:
         payload = request.get_json(silent=True) or {}
@@ -60,6 +60,7 @@ def create_auth_blueprint(auth_service: AuthService, url_prefix: str = "/auth") 
         token = auth_header.replace("Bearer", "", 1).strip() if auth_header else ""
 
         try:
+            # single path is why i want to move to Flask-JWT
             claims = auth_service.verify_access_token(token)
         except InvalidCredentialsError as exc:
             return jsonify({"error": str(exc)}), 401

@@ -60,7 +60,7 @@ class PasswordHasher(Protocol):
     def verify_password(self, password: str, encoded_hash: str) -> bool:
         ...
 
-
+#convert this over to using hashlib instead. No point in using some algorithm found online
 class PBKDF2PasswordHasher:
     """Framework-independent password hasher using stdlib primitives."""
 
@@ -71,6 +71,16 @@ class PBKDF2PasswordHasher:
         self.salt_length = salt_length
 
     def hash_password(self, password: str) -> str:
+        # if salt is None:
+        #     salt = secrets.token_hex(16)
+        # assert salt and isinstance(salt, str) and "$" not in salt
+        # assert isinstance(password, str)
+        # pw_hash = hashlib.pbkdf2_hmac(
+        #     "sha256", password.encode("utf-8"), salt.encode("utf-8"), iterations
+        # )
+        # b64_hash = base64.b64encode(pw_hash).decode("ascii").strip()
+        # return "{}${}${}${}".format(ALGORITHM, iterations, salt, b64_hash)
+
         if not password:
             raise ValidationError("password is required")
 
@@ -92,6 +102,14 @@ class PBKDF2PasswordHasher:
         )
 
     def verify_password(self, password: str, encoded_hash: str) -> bool:
+        # if (password_hash or "").count("$") != 3:
+        #     return False
+        # algorithm, iterations, salt, b64_hash = password_hash.split("$", 3)
+        # iterations = int(iterations)
+        # assert algorithm == ALGORITHM
+        # compare_hash = hash_password(password, salt, iterations)
+        # return secrets.compare_digest(password_hash, compare_hash)
+
         try:
             _prefix, algorithm, iterations, salt_b64, digest_b64 = encoded_hash.split("$", maxsplit=4)
             salt = base64.urlsafe_b64decode(salt_b64.encode("ascii"))
@@ -107,7 +125,9 @@ class PBKDF2PasswordHasher:
 
         return hmac.compare_digest(expected_digest, computed_digest)
 
-
+#This is not a good way to handle JWTokens
+# need to move this over to Flask-JWT-Extended
+# JWTManager will handle token and user_loader cleaner, less code, less coupling
 class StatelessTokenManager:
     """Small signed token manager that is independent from Flask/JWT libs."""
 
@@ -188,6 +208,7 @@ class AuthService:
         self.password_hasher = password_hasher
         self.token_manager = token_manager
 
+    # needed to add registration to project to make adding users easier
     def register(self, identifier: str, password: str) -> AuthUser:
         normalized_identifier = self._normalize_identifier(identifier)
         if self.user_store.get_by_identifier(normalized_identifier):

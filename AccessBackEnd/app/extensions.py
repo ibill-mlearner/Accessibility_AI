@@ -1,7 +1,18 @@
-"""Shared Flask extension singletons.
+"""
 
+Shared Flask extension singletons.
+
+.. dev note
+These were made as single entry points for readability
+Issues:
+flask_jwt_extended was not fully implemented
+flask_login is not the best use for session management, should just be using flask_jwt
+no migration setup yet
+
+.. codex note
 These are initialized in :func:`app.create_app` to keep the application
-factory pattern clean and test-friendly.
+factory pattern clean and test-friendly. (instantiate here, make available everywhere)
+
 """
 
 from flask_cors import CORS

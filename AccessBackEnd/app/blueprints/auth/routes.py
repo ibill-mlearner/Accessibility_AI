@@ -29,6 +29,10 @@ def register():
 
     if not email or not password:
         return jsonify({"error": "email and password are required"}), 400
+
+    #Register has to be done through the api_view page right now. I did not add a register page for the MVP
+    # todo: add a register page
+    # this was missed during planning
     if role not in _ALLOWED_ROLES:
         return (
             jsonify(
@@ -42,6 +46,7 @@ def register():
         return jsonify({"error": "email already registered"}), 409
 
     user = User(email=email, **build_transitional_identity_defaults(email))
+    # reminder this has method needs to be replaced
     user.set_password(password)
     user.role = role
     db.session.add(user)

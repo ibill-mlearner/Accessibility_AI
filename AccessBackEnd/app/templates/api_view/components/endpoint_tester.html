@@ -1,3 +1,16 @@
+<!--Flask is using handlebars style logic, only backend webpage is for exploring API methods.
+This was blindly made with codex for the sake of testing since it is generic enough to expect no errors
+
+Issues:
+Authentication not enforced strong enough, some auth bypass is possible
+when a cookie is saved/persisted then reused in a new browser
+
+Plan:
+Authentication should use a bearer token unique to the user or a specificly provided
+auth token aside from the JWT session token.
+
+-->
+
 <div class="api-tester" data-tester-id="{{ tester_id }}">
   <label for="method-{{ tester_id }}">Method</label><br />
   <select id="method-{{ tester_id }}" class="api-tester-method">

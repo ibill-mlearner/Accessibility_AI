@@ -34,7 +34,7 @@ class APIError(Exception):
             }
         }
 
-
+# used in api routes imports but may just removed these
 class BadRequestError(APIError):
     """400 error used when the client request is malformed or incomplete."""
 

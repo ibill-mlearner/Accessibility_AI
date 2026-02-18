@@ -48,11 +48,13 @@ class BaseConfig:
     DEBUG = _env("FLASK_DEBUG", False, bool)
     TESTING = False
 
+    # dev secret
     SECRET_KEY = _env("SECRET_KEY", "catsaregreat  ")
     JSON_SORT_KEYS = False
 
     APP_NAME = _env("APP_NAME", "AIAccess")
 
+    # API routing prefixes
     API_PREFIX = _env("API_PREFIX", "/api")
     API_V1_PREFIX = _env("API_V1_PREFIX", "/api/v1")
 
@@ -95,6 +97,8 @@ class BaseConfig:
 
     DATA_BACKEND_FACTORY = None
 
+    # static control on model's used right now since model runtime is not sent through cuda or numa
+    #todo: need to switch entirely over to model names from DB ai_models.py ai_models should reflect app/instance saved models
     AI_PROVIDER = _env("AI_PROVIDER", "huggingface")
     # Common local model options (toggle by setting AI_MODEL_NAME in env):
     # - "Qwen/Qwen2.5-0.5B-Instruct" (default, very small CPU-friendly baseline)
@@ -106,13 +110,11 @@ class BaseConfig:
         "AI_OLLAMA_ENDPOINT",
         "http://localhost:11434/api/chat",
     )
+
+    # old AI configs,
     AI_OLLAMA_MODEL = _env("AI_OLLAMA_MODEL", AI_MODEL_NAME)
     AI_OLLAMA_OPTIONS = _env_json("AI_OLLAMA_OPTIONS", {})
     AI_LIVE_ENDPOINT = _env("AI_LIVE_ENDPOINT", AI_OLLAMA_ENDPOINT)
-    AI_MOCK_RESOURCE_PATH = _env(
-        "AI_MOCK_RESOURCE_PATH",
-        (_BASE_DIR / "resources" / "mock_ai_response.json").as_posix(),
-    )
     AI_INTERACTION_LOG_DIR = _env("AI_INTERACTION_LOG_DIR") or _env("INTERACTION_LOG_DIR")
     DB_LOG_DIRECTORY = _env("DB_LOG_DIRECTORY")  # Deprecated: use AI_INTERACTION_LOG_DIR
 

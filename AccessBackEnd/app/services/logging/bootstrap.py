@@ -11,6 +11,12 @@ from .interaction_file_logger import InteractionLoggingService, RotatingTextLogW
 
 DEFAULT_OBSERVER_TYPES = (LoggingObserver,)
 
+"""
+Don't know why Codex decided to use system logging instead of Flask.logging instead.
+from flask.logging . . .
+Smaller footprint and easier to implement, not going to spend time on this unless I need to.
+"""
+
 
 def _ensure_default_observers(event_bus: EventBus) -> None:
     observers = getattr(event_bus, "_observers", [])

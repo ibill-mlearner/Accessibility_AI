@@ -4,4 +4,5 @@ dist
 npm-debug.log*
 __pycache__/
 *.pyc
+.venv
 AccessBackEnd/app/instance/
