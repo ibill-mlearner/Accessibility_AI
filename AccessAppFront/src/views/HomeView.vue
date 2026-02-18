@@ -115,6 +115,14 @@ function readAssistantText(aiPayload) {
 }
 
 
+function buildFirstChatTitle(cleanPrompt, fallbackIndex) {
+  // Normalize prompt whitespace and keep only meaningful words.
+  const titleTokens = cleanPrompt.trim().split(/\s+/).filter(Boolean).slice(0, 3)
+  // Use an indexed fallback when no words are present after trimming.
+  return titleTokens.join(' ') || `New Chat ${fallbackIndex}`
+}
+
+
 async function sendPrompt() {
   if (interactionLoading.value) return
 
@@ -146,9 +154,14 @@ async function sendPrompt() {
   const messageIntent = 'summarization'
 
   try {
+    // Generate title only for first-chat initialization; existing titles are not overwritten here.
+    const firstChatTitle = buildFirstChatTitle(cleanPrompt, store.chats.length + 1)
+
+    // Pass generated title through ensureActiveChat creation path.
     const ensuredChat = await withSingleRetry(() =>
       store.ensureActiveChat({
-        title: cleanPrompt.slice(0, 60),
+        // Use helper-derived token title in place of character slicing.
+        title: firstChatTitle,
         started_at: new Date().toISOString(),
         model: store.selectedModel || 'General',
         class_id: classIdForChat,
