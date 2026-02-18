@@ -10,7 +10,16 @@ from app.db import init_flask_database
 from app.extensions import db
 
 
-_SEED_USERS_SQL = Path(__file__).resolve().parent / "instance" / "seed_users.sql"
+_INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
+_SEED_SQL_FILES = [
+    _INSTANCE_DIR / "seed_users.sql",
+    _INSTANCE_DIR / "seed_accommodations.sql",
+    _INSTANCE_DIR / "seed_ai_models.sql",
+    _INSTANCE_DIR / "seed_classes.sql",
+    _INSTANCE_DIR / "seed_user_class_enrollments.sql",
+    _INSTANCE_DIR / "seed_chats.sql",
+    _INSTANCE_DIR / "seed_ai_interactions.sql",
+]
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -46,21 +55,21 @@ def _sqlite_database_path(database_uri: str) -> Path | None:
     return Path(sqlite_db)
 
 
-def _seed_users_from_sql(database_uri: str) -> bool:
+def _seed_all_from_sql(database_uri: str) -> bool:
     database_path = _sqlite_database_path(database_uri)
     if database_path is None:
-        print("Skipping user seed prompt: SQL seed currently supports only file-based SQLite databases.")
+        print("Skipping seed prompt: SQL seeds currently support only file-based SQLite databases.")
         return False
 
-    if not _SEED_USERS_SQL.exists():
-        print(f"Skipping user seed prompt: seed file not found at {_SEED_USERS_SQL}.")
+    try:
+        with sqlite3.connect(database_path.as_posix()) as conn:
+            for seed_file in _SEED_SQL_FILES:
+                conn.executescript(seed_file.read_text(encoding="utf-8"))
+    except Exception:
+        print("Error in seed files. Skipping baseline seed data.")
         return False
 
-    script = _SEED_USERS_SQL.read_text(encoding="utf-8")
-    with sqlite3.connect(database_path.as_posix()) as conn:
-        conn.executescript(script)
-
-    print(f"Seeded users from {_SEED_USERS_SQL.relative_to(Path(__file__).resolve().parent)}")
+    print("Seeded baseline data.")
     return True
 
 
@@ -69,12 +78,12 @@ def _prompt_for_seed_users(database_uri: str) -> None:
         print("Skipping interactive seed prompt (non-interactive session).")
         return
 
-    answer = input("Seed default users now? [y/N]: ").strip().lower()
+    answer = input("Seed default baseline data now? [y/N]: ").strip().lower()
     if answer not in {"y", "yes"}:
-        print("Skipping seed users.")
+        print("Skipping seed data.")
         return
 
-    _seed_users_from_sql(database_uri)
+    _seed_all_from_sql(database_uri)
 
 
 def build_runtime_app(args: argparse.Namespace):
