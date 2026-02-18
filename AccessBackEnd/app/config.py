@@ -78,8 +78,11 @@ class BaseConfig:
 
     SESSION_COOKIE_NAME = _env("SESSION_COOKIE_NAME", "aiaccess_session")
     SESSION_COOKIE_HTTPONLY = True
+    # HttpOnly prevents JavaScript from reading the session cookie directly.
     SESSION_COOKIE_SAMESITE = _env("SESSION_COOKIE_SAMESITE", "Lax")
+    # SameSite controls whether browser sends the cookie on cross-site requests.
     SESSION_COOKIE_SECURE = _env("SESSION_COOKIE_SECURE", False, bool)
+    # Secure=True restricts cookie transmission to HTTPS contexts.
 
     AUTH_PROVIDER = _env("AUTH_PROVIDER", "local")
     PASSWORD_MIN_LENGTH = _env("PASSWORD_MIN_LENGTH", 10, int)
