@@ -3,7 +3,7 @@
   color: #111;
 }
 body { margin: 0; background: #ececec; }
-.layout { display: grid; grid-template-columns: 240px 1fr; gap: 18px; padding: 12px; min-height: 100vh; }
+.layout { display: grid; grid-template-columns: 240px 1fr; gap: 18px; padding: 12px; min-height: 100dvh; box-sizing: border-box; }
 .sidebar { display: flex; flex-direction: column; gap: 10px; }
 .logo-card,.menu-card,.chat-list,.panel,.card-row,.saved-note,.auth-card,.logout-card { background: #b6b6b6; border: 1px solid #333; border-radius: 6px; box-shadow: 0 2px 4px #0003; }
 .logo-card { display: flex; align-items: center; gap: 6px; padding: 6px; font-size: 30px; }
@@ -80,6 +80,7 @@ input[type='radio'] { width: 32px; height: 32px; }
 .chat-bubble-card {
   width: fit-content;
   max-width: min(80%, 675px);
+  font-size: 27px;
 }
 
 .chat-bubble-card--system {
@@ -115,6 +116,7 @@ input[type='radio'] { width: 32px; height: 32px; }
 @media (max-width: 1200px) {
   .layout { grid-template-columns: 165px 1fr; }
   .menu-item,.chat-list li,label,input,select,.btn,.icon-btn,.panel,.card-row p,.header-bar h1,.logo-card span { font-size: 15px; }
+  .chat-bubble-card { font-size: 11px; }
   .icon-btn { width: 30px; height: 30px; }
   .chat-bubble-card { max-width: 88%; }
 }
