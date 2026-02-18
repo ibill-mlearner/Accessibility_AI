@@ -33,11 +33,11 @@ ENTITY_METADATA = {
     ),
     "ai_interaction": EntityMetadata(
         "ai_interactions",
-        ("id", "prompt", "response_text", "provider"),
+        ("id", "prompt", "response_text", "ai_model_id"),
     ),
     "system_prompt": EntityMetadata(
         "system_prompts",
-        ("id", "key", "content", "provider", "version"),
+        ("id", "instructor_id", "class_id", "text"),
     ),
 }
 

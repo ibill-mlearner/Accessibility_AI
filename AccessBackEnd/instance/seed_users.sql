@@ -1,8 +1,4 @@
--- Seed users for AccessBackEnd.
--- Creates 1 account for each supported role (admin, instructor, student)
--- plus 1 additional general user account using the student role.
--- Also seeds simple sample classes/chats with a shared "chicken noodle soup" theme.
---
+-- Seed users and baseline reference data for AccessBackEnd MVP.
 -- Default password for all seeded users: Password123!
 
 BEGIN TRANSACTION;
@@ -36,7 +32,7 @@ VALUES
     NULL,
     0,
     1,
-    'transitional-03f1ced2575577e88ce106f0c860438e'
+    'transitional-' || lower(hex(randomblob(16)))
   ),
   (
     'instructor.seed@example.com',
@@ -51,7 +47,7 @@ VALUES
     NULL,
     0,
     1,
-    'transitional-ec92c8f17b92a85cfdf801aea88c92e0'
+    'transitional-' || lower(hex(randomblob(16)))
   ),
   (
     'student.seed@example.com',
@@ -66,7 +62,7 @@ VALUES
     NULL,
     0,
     1,
-    'transitional-e4abacc32e3c064c5d626779a3193d6a'
+    'transitional-' || lower(hex(randomblob(16)))
   ),
   (
     'general.seed@example.com',
@@ -81,7 +77,7 @@ VALUES
     NULL,
     0,
     1,
-    'transitional-237aa909aa970c55fe6ce68b070ee239'
+    'transitional-' || lower(hex(randomblob(16)))
   )
 ON CONFLICT(email) DO UPDATE SET
   normalized_email = excluded.normalized_email,
@@ -93,63 +89,73 @@ ON CONFLICT(email) DO UPDATE SET
   lockout_end = excluded.lockout_end,
   access_failed_count = excluded.access_failed_count,
   lockout_enabled = excluded.lockout_enabled,
-  security_stamp = excluded.security_stamp;
+  security_stamp = 'transitional-' || lower(hex(randomblob(16)));
 
-INSERT INTO classes (role, name, description, instructor_id, term, section_code, external_class_key)
+INSERT INTO ai_models (provider, active)
+SELECT 'huggingface_langchain', 1
+WHERE NOT EXISTS (SELECT 1 FROM ai_models WHERE provider = 'huggingface_langchain');
+
+INSERT INTO accommodations (title, details, active)
+SELECT ' ', ' ', 1
+WHERE NOT EXISTS (SELECT 1 FROM accommodations WHERE id = 1);
+
+INSERT INTO system_prompts (instructor_id, class_id, text)
+SELECT NULL, NULL, ' '
+WHERE NOT EXISTS (SELECT 1 FROM system_prompts WHERE id = 1);
+
+INSERT INTO accommodations_id_system_prompts (accommodation_id, system_prompt_id)
+SELECT 1, 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM accommodations_id_system_prompts WHERE accommodation_id = 1 AND system_prompt_id = 1
+);
+
+INSERT INTO classes (name, description, instructor_id, active)
 SELECT
-  'student',
   'Soup Basics 101',
   'Beginner discussion topics for making chicken noodle soup.',
   (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1),
-  '2025-SPRING',
-  'A1',
-  'SOUP-101-2025-SPRING-A1'
-WHERE NOT EXISTS (SELECT 1 FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1');
+  1
+WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Soup Basics 101' AND instructor_id = (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1));
 
-INSERT INTO classes (role, name, description, instructor_id, term, section_code, external_class_key)
+INSERT INTO classes (name, description, instructor_id, active)
 SELECT
-  'instructor',
   'Soup Lab',
   'Instructor-led walkthrough for a simple chicken noodle soup recipe.',
   (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1),
-  '2025-SPRING',
-  'L1',
-  'SOUP-LAB-2025-SPRING-L1'
-WHERE NOT EXISTS (SELECT 1 FROM classes WHERE external_class_key = 'SOUP-LAB-2025-SPRING-L1');
+  1
+WHERE NOT EXISTS (SELECT 1 FROM classes WHERE name = 'Soup Lab' AND instructor_id = (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1));
 
-
-INSERT INTO user_class_enrollments (user_id, class_id, role, enrolled_at)
+INSERT INTO user_class_enrollments (user_id, class_id, active)
 SELECT
   (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1),
-  (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1),
-  'student',
-  CURRENT_TIMESTAMP
+  (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1),
+  1
 WHERE NOT EXISTS (
   SELECT 1
   FROM user_class_enrollments
   WHERE user_id = (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1)
-    AND class_id = (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1)
+    AND class_id = (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1)
 );
 
-INSERT INTO user_class_enrollments (user_id, class_id, role, enrolled_at)
+INSERT INTO user_class_enrollments (user_id, class_id, active)
 SELECT
   (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1),
-  (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1),
-  'student',
-  CURRENT_TIMESTAMP
+  (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1),
+  1
 WHERE NOT EXISTS (
   SELECT 1
   FROM user_class_enrollments
   WHERE user_id = (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1)
-    AND class_id = (SELECT id FROM classes WHERE external_class_key = 'SOUP-101-2025-SPRING-A1' LIMIT 1)
+    AND class_id = (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1)
 );
 
-INSERT INTO chats (title, model, class_id, user_id)
+INSERT INTO chats (title, model, class_id, user_id, ai_interaction_id)
 SELECT
   'Chicken Noodle Soup - Starter Chat',
-  'gpt-4o-mini',
+  'huggingface_langchain',
   (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1),
-  (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1)
+  (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1),
+  NULL
 WHERE NOT EXISTS (
   SELECT 1
   FROM chats
@@ -157,12 +163,13 @@ WHERE NOT EXISTS (
     AND user_id = (SELECT id FROM users WHERE email = 'student.seed@example.com' LIMIT 1)
 );
 
-INSERT INTO chats (title, model, class_id, user_id)
+INSERT INTO chats (title, model, class_id, user_id, ai_interaction_id)
 SELECT
   'Chicken Noodle Soup - General User Chat',
-  'gpt-4o-mini',
+  'huggingface_langchain',
   (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1),
-  (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1)
+  (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1),
+  NULL
 WHERE NOT EXISTS (
   SELECT 1
   FROM chats
@@ -170,12 +177,13 @@ WHERE NOT EXISTS (
     AND user_id = (SELECT id FROM users WHERE email = 'general.seed@example.com' LIMIT 1)
 );
 
-INSERT INTO chats (title, model, class_id, user_id)
+INSERT INTO chats (title, model, class_id, user_id, ai_interaction_id)
 SELECT
   'Chicken Noodle Soup - Instructor Demo',
-  'gpt-4o-mini',
+  'huggingface_langchain',
   (SELECT id FROM classes WHERE name = 'Soup Lab' LIMIT 1),
-  (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1)
+  (SELECT id FROM users WHERE email = 'instructor.seed@example.com' LIMIT 1),
+  NULL
 WHERE NOT EXISTS (
   SELECT 1
   FROM chats

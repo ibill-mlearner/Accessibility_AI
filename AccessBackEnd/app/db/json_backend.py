@@ -37,7 +37,7 @@ class JsonAIInteraction:
     id: int
     prompt: str
     response_text: str
-    provider: str
+    ai_model_id: int | None
     chat_id: int | None = None
 
 
@@ -122,7 +122,7 @@ class JsonAIInteractionRepository:
         *,
         prompt: str,
         response_text: str,
-        provider: str,
+        ai_model_id: int | None = None,
         chat_id: int | None = None,
     ):
         records = session._records["ai_interaction"]
@@ -131,7 +131,7 @@ class JsonAIInteractionRepository:
             "id": next_id,
             "prompt": prompt,
             "response_text": response_text,
-            "provider": provider,
+            "ai_model_id": ai_model_id,
             "chat_id": chat_id,
         }
         records.append(record)

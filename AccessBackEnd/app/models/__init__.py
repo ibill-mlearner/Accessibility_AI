@@ -1,6 +1,6 @@
 from .accommodations import Accommodation
-from .ai_interaction import AIInteraction, SystemPrompt
-from .ai_models import AIModel, Feature
+from .ai_interaction import AIInteraction, AccommodationSystemPrompt, SystemPrompt
+from .ai_models import AIModel
 from .audit_log import AuditLog
 from .chats import Chat, CourseClass, Message, Note, UserClassEnrollment
 from .db_schema import DBUser, get_schema_bundle
@@ -11,11 +11,11 @@ __all__ = [
     "Accommodation",
     "AIInteraction",
     "AIModel",
+    "AccommodationSystemPrompt",
     "AuditLog",
     "Chat",
     "CourseClass",
     "DBUser",
-    "Feature",
     "Message",
     "Note",
     "SystemPrompt",

@@ -4,7 +4,7 @@ import json
 from datetime import date, datetime
 from typing import Any
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify, request, session
 from flask_login import current_user, login_required, login_user
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import SQLAlchemyError
@@ -14,7 +14,7 @@ from .api_view import register_api_view_route
 
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...extensions import db
-from ...models import AIInteraction, Chat, CourseClass, Feature, Message, Note, User, UserClassEnrollment
+from ...models import AIInteraction, AIModel, Accommodation, AccommodationSystemPrompt, Chat, CourseClass, Message, Note, User, UserClassEnrollment
 from ...models.identity_defaults import build_transitional_identity_defaults
 from ...services.chat_access_service import ChatAccessService
 from ...services.ai_pipeline import AIPipelineUpstreamError
@@ -88,30 +88,18 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
     if resource == "class":
         return {
             "id": record.id,
-            "role": record.role,
-            "name": record.name,
+                        "name": record.name,
             "description": record.description,
             "instructor_id": record.instructor_id,
-            "term": record.term,
-            "section_code": record.section_code,
-            "external_class_key": record.external_class_key,
-            "section": {
-                "term": record.term,
-                "section_code": record.section_code,
-            },
-            "instructor": {
-                "id": record.instructor_id,
-            },
+            "active": record.active,
         }
 
     if resource == "feature":
         return {
             "id": record.id,
             "title": record.title,
-            "description": record.description,
-            "enabled": record.enabled,
-            "instructor_id": record.instructor_id,
-            "class_id": record.class_id,
+            "details": record.details,
+            "active": record.active,
         }
 
     if resource == "note":
@@ -134,7 +122,9 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
             "chat_id": record.chat_id,
             "prompt": record.prompt,
             "response_text": record.response_text,
-            "provider": record.provider,
+            "ai_model_id": record.ai_model_id,
+            "provider": record.ai_model.provider if getattr(record, "ai_model", None) else None,
+            "accommodations_id_system_prompts_id": record.accommodations_id_system_prompts_id,
             "created_at": created_at,
         }
 
@@ -222,7 +212,7 @@ def _resolve_default_class_id_for_user(user_id: int) -> int | None:
                 CourseClass.instructor_id == user_id,
                 and_(
                     UserClassEnrollment.user_id == user_id,
-                    UserClassEnrollment.dropped_at.is_(None),
+                    UserClassEnrollment.active.is_(True),
                 ),
             )
         )
@@ -298,7 +288,7 @@ def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
 
 
 def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -> None:
-    for field in ("role", "name", "description", "term", "section_code", "external_class_key"):
+    for field in ("name", "description", "active"):
         if field in payload:
             setattr(class_record, field, payload[field])
 
@@ -307,10 +297,11 @@ def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -
         class_record.instructor_id = int(payload["instructor_id"])
 
 
-def _apply_feature_mutations(feature: Feature, payload: dict[str, Any]) -> None:
-    for field in ("title", "description", "enabled", "instructor_id", "class_id"):
+def _apply_feature_mutations(feature: Accommodation, payload: dict[str, Any]) -> None:
+    field_aliases = {"description": "details", "enabled": "active"}
+    for field in ("title", "details", "active", "description", "enabled"):
         if field in payload:
-            setattr(feature, field, payload[field])
+            setattr(feature, field_aliases.get(field, field), payload[field])
 
 
 def _apply_note_mutations(note: Note, payload: dict[str, Any]) -> None:
@@ -358,6 +349,7 @@ def register_auth_user():
 
     user.mark_login_success()
     login_user(user)
+    session["security_stamp"] = user.security_stamp
     # Persists authenticated user id into Flask session, causing session cookie issuance/update.
     db.session.commit()
 
@@ -399,6 +391,7 @@ def login_auth_user():
 
     user.mark_login_success()
     login_user(user)
+    session["security_stamp"] = user.security_stamp
     # Persists authenticated user id into Flask session, causing session cookie issuance/update.
     db.session.commit()
 
@@ -691,13 +684,10 @@ def create_class():
         payload["instructor_id"] = ChatAccessService.get_authenticated_user_id()
 
     class_record = CourseClass(
-        role=str(payload.get("role") or "student"),
         name=str(payload.get("name") or "").strip(),
         description=str(payload.get("description") or "").strip(),
         instructor_id=int(payload["instructor_id"]),
-        term=payload.get("term"),
-        section_code=payload.get("section_code"),
-        external_class_key=payload.get("external_class_key"),
+        active=bool(payload.get("active", True)),
     )
     if not class_record.name or not class_record.description:
         raise BadRequestError("name and description are required")
@@ -739,7 +729,7 @@ def delete_class(class_id: int):
 @api_v1_bp.get("/features")
 @login_required
 def list_features():
-    features = db.session.query(Feature).order_by(Feature.id.asc()).all()
+    features = db.session.query(Accommodation).order_by(Accommodation.id.asc()).all()
     return jsonify([_serialize_record("feature", feature) for feature in features]), 200
 
 
@@ -747,15 +737,13 @@ def list_features():
 @login_required
 def create_feature():
     payload = _read_json_object()
-    feature = Feature(
+    feature = Accommodation(
         title=str(payload.get("title") or "").strip(),
-        description=str(payload.get("description") or "").strip(),
-        enabled=bool(payload.get("enabled", False)),
-        instructor_id=payload.get("instructor_id"),
-        class_id=payload.get("class_id"),
+        details=str(payload.get("details") or payload.get("description") or "").strip(),
+        active=bool(payload.get("active", payload.get("enabled", True))),
     )
-    if not feature.title or not feature.description:
-        raise BadRequestError("title and description are required")
+    if not feature.title:
+        raise BadRequestError("title is required")
     db.session.add(feature)
     db.session.commit()
     return jsonify(_serialize_record("feature", feature)), 201
@@ -764,7 +752,7 @@ def create_feature():
 @api_v1_bp.get("/features/<int:feature_id>")
 @login_required
 def get_feature(feature_id: int):
-    feature = _require_record("feature", Feature, feature_id)
+    feature = _require_record("feature", Accommodation, feature_id)
     return jsonify(_serialize_record("feature", feature)), 200
 
 
@@ -772,7 +760,7 @@ def get_feature(feature_id: int):
 @api_v1_bp.patch("/features/<int:feature_id>")
 @login_required
 def update_feature(feature_id: int):
-    feature = _require_record("feature", Feature, feature_id)
+    feature = _require_record("feature", Accommodation, feature_id)
     payload = _read_json_object()
     _apply_feature_mutations(feature, payload)
     db.session.commit()
@@ -782,7 +770,7 @@ def update_feature(feature_id: int):
 @api_v1_bp.delete("/features/<int:feature_id>")
 @login_required
 def delete_feature(feature_id: int):
-    feature = _require_record("feature", Feature, feature_id)
+    feature = _require_record("feature", Accommodation, feature_id)
     response_payload = _serialize_record("feature", feature)
     db.session.delete(feature)
     db.session.commit()
@@ -979,6 +967,26 @@ def _resolve_provider(result: Any) -> str:
     return str(provider)
 
 
+def _resolve_ai_model_id(result: Any) -> int:
+    provider_name = _resolve_provider(result)
+    model = db.session.query(AIModel).filter(AIModel.provider == provider_name).first()
+    if model is None:
+        model = AIModel(provider=provider_name, active=True)
+        db.session.add(model)
+        db.session.flush()
+    return int(model.id)
+
+
+def _resolve_prompt_link_id(payload: dict[str, Any]) -> int | None:
+    link_id = payload.get("accommodations_id_system_prompts_id")
+    if link_id is None:
+        return None
+    try:
+        return int(link_id)
+    except (TypeError, ValueError) as exc:
+        _raise_bad_request_from_exception(exc, message="accommodations_id_system_prompts_id must be an integer")
+
+
 def _resolve_chat_id(payload: dict[str, Any]) -> int | None:
     """Extract optional chat id and validate integer shape when present."""
     chat_id = payload.get("chat_id")
@@ -993,6 +1001,30 @@ def _resolve_chat_id(payload: dict[str, Any]) -> int | None:
         )
 
 
+
+
+def _build_interaction_persistence_payload(payload: dict[str, Any], result: Any) -> dict[str, int | None]:
+    """Resolve and validate FK inputs needed for interaction persistence."""
+    chat_id = _resolve_chat_id(payload)
+    prompt_link_id = _resolve_prompt_link_id(payload)
+    if prompt_link_id is not None:
+        _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id)
+
+    return {
+        "chat_id": chat_id,
+        "prompt_link_id": prompt_link_id,
+        "model_id": _resolve_ai_model_id(result),
+    }
+
+
+def _sync_chat_latest_interaction(chat_id: int | None, interaction_id: int) -> None:
+    """Attach latest AI interaction id onto the chat when chat linkage exists."""
+    if chat_id is None:
+        return
+
+    chat = _require_record("chat", Chat, chat_id)
+    chat.ai_interaction_id = interaction_id
+
 def _persist_ai_interaction(
     payload: dict[str, Any], prompt: str, result: Any
 ) -> tuple[Any, int] | None:
@@ -1001,13 +1033,18 @@ def _persist_ai_interaction(
 
     try:
         normalized = _normalize_interaction_response(result)
-        interaction_repo.create(
+        persistence_ids = _build_interaction_persistence_payload(payload, result)
+
+        interaction = interaction_repo.create(
             db.session,
             prompt=prompt,
             response_text=normalized["assistant_text"],
-            provider=_resolve_provider(result),
-            chat_id=_resolve_chat_id(payload),
+            chat_id=persistence_ids["chat_id"],
+            ai_model_id=persistence_ids["model_id"],
+            accommodations_id_system_prompts_id=persistence_ids["prompt_link_id"],
         )
+        _sync_chat_latest_interaction(persistence_ids["chat_id"], interaction.id)
+
         db.session.commit()
     except SQLAlchemyError as exc:
         db.session.rollback()
@@ -1047,6 +1084,15 @@ def create_ai_interaction():
                 prompt = content.strip()
                 break
 
+    prompt_link_id = _resolve_prompt_link_id(payload)
+    if not prompt and prompt_link_id is not None:
+        prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id)
+        parts = [
+            (prompt_link.system_prompt.text or "").strip() if prompt_link.system_prompt else "",
+            (prompt_link.accommodation.details or "").strip() if prompt_link.accommodation else "",
+        ]
+        prompt = "\n\n".join(part for part in parts if part)
+
     context_payload = payload.get("context")
     if not isinstance(context_payload, dict):
         context_payload = {}
@@ -1062,6 +1108,14 @@ def create_ai_interaction():
             "has_rag": bool(payload.get("rag")),
         },
     )
+
+    chat_id = _resolve_chat_id(payload)
+    if chat_id is not None:
+        chat = _require_record("chat", Chat, chat_id)
+        try:
+            ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
+        except PermissionError:
+            return _forbidden_response("access denied")
 
     initiated_by = _resolve_initiated_by(payload)
 

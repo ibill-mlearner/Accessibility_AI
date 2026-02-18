@@ -256,7 +256,8 @@ def test_ai_interaction_persists_record(app, client, monkeypatch):
         interactions = db.session.query(AIInteraction).all()
         assert len(interactions) == 1
         assert interactions[0].prompt == payload["prompt"]
-        assert interactions[0].provider == "ollama"
+        assert interactions[0].ai_model is not None
+        assert interactions[0].ai_model.provider == "ollama"
         assert interactions[0].response_text
 
 
@@ -623,3 +624,59 @@ def test_chat_read_requires_membership_or_ownership(app, client):
     unauthorized = outsider_client.get(f"/api/v1/chats/{chat_id}")
     assert unauthorized.status_code == 403
     assert unauthorized.get_json()["error"]["message"] == "user is not authorized for this chat"
+
+
+def test_api_session_security_stamp_mismatch_forces_reauth(app, client):
+    _authenticate_api_client(app, client)
+
+    with client.session_transaction() as flask_session:
+        flask_session["security_stamp"] = "stale-session-stamp"
+
+    response = client.get("/api/v1/chats")
+    assert response.status_code == 401
+    payload = response.get_json()
+    assert payload["error"]["code"] == "unauthorized"
+    assert payload["error"]["message"] == "session expired; please log in again"
+
+
+def test_ai_interaction_forbidden_when_chat_not_accessible(app, client):
+    from app.db import init_flask_database
+
+    owner = app.test_client()
+    outsider = app.test_client()
+
+    init_flask_database(app)
+
+    owner_register = owner.post(
+        "/api/v1/auth/register",
+        json={"email": "owner.restrict@example.com", "password": "password123", "role": "student"},
+    )
+    assert owner_register.status_code == 201
+
+    owner_class = owner.post(
+        "/api/v1/classes",
+        json={"name": "Restrict Class", "description": "owner class", "active": True},
+    )
+    assert owner_class.status_code == 201
+    class_id = owner_class.get_json()["id"]
+
+    owner_chat = owner.post(
+        "/api/v1/chats",
+        json={"title": "Owner Chat", "class_id": class_id, "model": "huggingface_langchain"},
+    )
+    assert owner_chat.status_code == 201
+    chat_id = owner_chat.get_json()["id"]
+
+    outsider_register = outsider.post(
+        "/api/v1/auth/register",
+        json={"email": "outsider.restrict@example.com", "password": "password123", "role": "student"},
+    )
+    assert outsider_register.status_code == 201
+
+    response = outsider.post(
+        "/api/v1/ai/interactions",
+        json={"chat_id": chat_id, "prompt": "Should fail"},
+    )
+    assert response.status_code == 403
+    payload = response.get_json()
+    assert payload["error"]["code"] == "forbidden"
