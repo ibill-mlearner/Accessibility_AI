@@ -21,3 +21,4 @@ def test_init_flask_database_creates_flask_and_standalone_tables(tmp_path):
         tables = set(inspect(db.engine).get_table_names())
 
     assert {"users", "chats", "messages"}.issubset(tables)
+
