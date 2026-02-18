@@ -12,6 +12,7 @@ app.use(pinia)
 
 const store = useAppStore(pinia)
 store.hydrateSession()
+// Restore client-mirrored auth context from sessionStorage before first route render.
 
 app.use(router)
 app.mount('#app')

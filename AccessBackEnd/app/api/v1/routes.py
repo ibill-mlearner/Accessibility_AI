@@ -347,6 +347,7 @@ def register_auth_user():
 
     user.mark_login_success()
     login_user(user)
+    # Persists authenticated user id into Flask session, causing session cookie issuance/update.
     db.session.commit()
 
     return (
@@ -387,6 +388,7 @@ def login_auth_user():
 
     user.mark_login_success()
     login_user(user)
+    # Persists authenticated user id into Flask session, causing session cookie issuance/update.
     db.session.commit()
 
     return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email, "role": user.role}}), 200
@@ -394,6 +396,7 @@ def login_auth_user():
 
 @api_v1_bp.get("/chats")
 @login_required
+# Requires a valid Flask-Login session cookie on the incoming request.
 def list_chats():
     """List chats for the authenticated user in a stable collection envelope."""
     user_id = int(current_user.get_id())

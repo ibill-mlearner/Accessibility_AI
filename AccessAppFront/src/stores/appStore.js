@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import api from '../services/api'
 
 const SESSION_STORAGE_KEY = 'accessapp:session'
+// Client-side key used to mirror backend-authenticated identity in sessionStorage.
 
 /**
  * App Store architecture notes
@@ -144,6 +145,7 @@ export const useAppStore = defineStore('app', {
     },
     persistSession() {
       if (typeof window === 'undefined' || !window.sessionStorage) return
+      // Persist only UI-facing auth context; backend authorization still depends on cookie session.
 
       const payload = {
         role: this.role,
@@ -152,11 +154,14 @@ export const useAppStore = defineStore('app', {
       }
 
       window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload))
+      // Writes role/currentUser/isAuthenticated so refresh restores UI state.
     },
     hydrateSession() {
       if (typeof window === 'undefined' || !window.sessionStorage) return
+      // Hydration is local-first and runs before any backend verification request.
 
       const rawSession = window.sessionStorage.getItem(SESSION_STORAGE_KEY)
+      // No persisted mirror means retain default guest state.
       if (!rawSession) return
 
       try {
@@ -167,14 +172,17 @@ export const useAppStore = defineStore('app', {
         this.user = hydratedUser
         this.isAuthenticated = Boolean(parsed?.isAuthenticated && hydratedUser)
         this.role = parsed?.role || (this.isAuthenticated ? 'authenticated' : 'guest')
+        // Role falls back to authenticated/guest when explicit role is missing in stored payload.
         this.authError = ''
       } catch {
         this.logout()
+        // Malformed stored state is treated as invalid and reset via logout path.
       }
     },
     clearSession() {
       if (typeof window === 'undefined' || !window.sessionStorage) return
       window.sessionStorage.removeItem(SESSION_STORAGE_KEY)
+      // Removes client mirror; does not directly clear server session cookie.
     },
     // ---------------------------------------------------------------------
     // Chat + AI interaction resource actions
@@ -461,6 +469,7 @@ export const useAppStore = defineStore('app', {
     // ---------------------------------------------------------------------
     async bootstrap() {
       this.loading = true
+      // Bootstrap validates effective auth by attempting protected resource reads.
       this.error = ''
       this.authError = ''
 
@@ -475,6 +484,7 @@ export const useAppStore = defineStore('app', {
 
       if (failures.some((error) => error?.kind === 'auth')) {
         this.authError = 'Your session is invalid or expired. Please sign in again.'
+        // Auth failure here indicates backend session is not valid for protected endpoints.
       }
 
       const hasResourceFailure = failures.some((error) => error?.kind !== 'auth')
@@ -488,6 +498,7 @@ export const useAppStore = defineStore('app', {
       this.authError = ''
       try {
         const response = await api.post('/api/v1/auth/login', { email, password })
+        // Backend login endpoint establishes Flask-Login session cookie.
         const authenticatedUser = response?.data?.user || {}
         const hasAuthenticatedIdentity = Boolean(authenticatedUser.id && authenticatedUser.email)
 
@@ -500,6 +511,7 @@ export const useAppStore = defineStore('app', {
 
         this.role = authenticatedUser.role || (hasAuthenticatedIdentity ? 'authenticated' : 'guest')
         this.persistSession()
+        // Client sessionStorage mirrors authenticated identity returned by backend.
         return true
       } catch (error) {
         this.currentUser = null
@@ -524,6 +536,7 @@ export const useAppStore = defineStore('app', {
       this.authError = ''
       this.selectedClassId = null
       this.clearSession()
+      // Frontend logout clears local mirror immediately; backend logout endpoint is separate.
     },
     setRole(role) {
       this.role = role
