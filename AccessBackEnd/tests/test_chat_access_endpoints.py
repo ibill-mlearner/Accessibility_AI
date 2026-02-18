@@ -1,8 +1,6 @@
-from datetime import datetime, timezone
-
 from app.db import init_flask_database
 from app.extensions import db
-from app.models import AIInteraction, Chat, CourseClass, Message, UserClassEnrollment
+from app.models import AIInteraction, AIModel, Chat, CourseClass, Message, UserClassEnrollment
 
 
 def _register(client, email: str, role: str = "student") -> int:
@@ -31,26 +29,22 @@ def _seed_chat_context(app):
 
     with app.app_context():
         class_record = CourseClass(
-            role="student",
             name="Algebra II",
             description="Access control checks",
             instructor_id=instructor_id,
-            term="2026-FALL",
-            section_code="A02",
-            external_class_key="ALG-2-2026-FALL-A02",
+            active=True,
         )
         db.session.add(class_record)
         db.session.flush()
 
         db.session.add_all(
             [
-                UserClassEnrollment(user_id=owner_id, class_id=class_record.id, role="student"),
-                UserClassEnrollment(user_id=peer_id, class_id=class_record.id, role="student"),
+                UserClassEnrollment(user_id=owner_id, class_id=class_record.id, active=True),
+                UserClassEnrollment(user_id=peer_id, class_id=class_record.id, active=True),
                 UserClassEnrollment(
                     user_id=dropped_id,
                     class_id=class_record.id,
-                    role="student",
-                    dropped_at=datetime.now(timezone.utc),
+                    active=False,
                 ),
             ]
         )
@@ -68,12 +62,16 @@ def _seed_chat_context(app):
                 help_intent="homework",
             )
         )
+        ai_model = AIModel(provider="mock_json", active=True)
+        db.session.add(ai_model)
+        db.session.flush()
+
         db.session.add(
             AIInteraction(
                 chat_id=chat.id,
                 prompt="Explain factoring",
                 response_text="Factoring rewrites an expression as multiplied terms.",
-                provider="mock_json",
+                ai_model_id=ai_model.id,
             )
         )
         db.session.commit()

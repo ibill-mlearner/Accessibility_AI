@@ -18,10 +18,6 @@ def _create_class_and_chat(client):
         json={
             "name": "Biology 101",
             "description": "Foundations",
-            "role": "student",
-            "term": "2026-SPRING",
-            "section_code": "B01",
-            "external_class_key": "BIO-101-2026-SPRING-B01",
         },
     )
     assert class_response.status_code == 201
@@ -73,7 +69,7 @@ def test_classes_features_messages_notes_endpoints_round_trip(app, client):
 
     class_get = client.get(f"/api/v1/classes/{class_id}")
     assert class_get.status_code == 200
-    assert class_get.get_json()["section"]["term"] == "2026-SPRING"
+    assert class_get.get_json()["name"] == "Biology 101"
 
     feature_create = client.post(
         "/api/v1/features",
