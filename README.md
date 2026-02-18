@@ -21,7 +21,7 @@ python AccessBackEnd/manage.py --init-db
 
 Backend URL: `http://localhost:5000`
 
-> On first run, when prompted, enter `y` to load baseline seed files in `AccessBackEnd/instance/` (users, accommodations, ai models, classes, enrollments, chats, and ai interactions).
+> When prompted during `--init-db`, enter `y` to load baseline seed files in `AccessBackEnd/instance/` (users, accommodations, ai models, classes, enrollments, chats, and ai interactions).
 
 ### Script 2: Full frontend setup + run
 Open a second PowerShell window at repo root:
@@ -36,7 +36,7 @@ Frontend URL: `http://localhost:5173`
 ### Quick nuances
 - Backend entrypoint is only `AccessBackEnd/manage.py`.
 - Dev DB file is `AccessBackEnd/instance/accessibility_ai.db`.
-- Seed data files live in `AccessBackEnd/instance/seed_*.sql` (on first run, accept the `--init-db` prompt with `y` to apply baseline seeds).
+- Seed data files live in `AccessBackEnd/instance/seed_*.sql` (accept the `--init-db` prompt with `y` to apply baseline seeds).
 - Backend tests: `pytest AccessBackEnd/tests`
 - Frontend tests: `npm test --prefix AccessAppFront`
 - Optional backend runtime flags:

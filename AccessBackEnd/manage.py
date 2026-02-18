@@ -1,4 +1,5 @@
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -103,11 +104,11 @@ def build_runtime_app(args: argparse.Namespace):
     app.extensions["ai_service"] = build_ai_service(app)
 
     if args.init_db:
-        sqlite_db_path = _sqlite_database_path(app.config["SQLALCHEMY_DATABASE_URI"])
-        first_run = sqlite_db_path is not None and not sqlite_db_path.exists()
         print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
         init_flask_database(app)
-        if first_run:
+
+        # Avoid duplicate prompt when Flask debug reloader spawns a child process.
+        if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
             _prompt_for_seed_users(app.config["SQLALCHEMY_DATABASE_URI"])
 
     return app

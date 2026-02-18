@@ -116,6 +116,42 @@ def test_build_runtime_app_first_run_prompts_for_seed(monkeypatch, tmp_path):
     assert prompted["called"] is True
 
 
+
+
+def test_build_runtime_app_init_db_prompts_even_when_db_exists(monkeypatch, tmp_path):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_runtime_existing_db", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    db_path = tmp_path / "existing.db"
+    db_path.write_text("")
+
+    args = Namespace(
+        config="testing",
+        ai_provider=None,
+        ai_endpoint=None,
+        host="0.0.0.0",
+        port=5000,
+        init_db=True,
+    )
+
+    prompted = {"called": False}
+
+    def _prompt(database_uri: str) -> None:
+        prompted["called"] = True
+        assert database_uri == f"sqlite+pysqlite:///{db_path.as_posix()}"
+
+    app = module.create_app("testing")
+    app.config.update(SQLALCHEMY_DATABASE_URI=f"sqlite+pysqlite:///{db_path.as_posix()}")
+
+    monkeypatch.setattr(module, "create_app", lambda _config: app)
+    monkeypatch.setattr(module, "_prompt_for_seed_users", _prompt)
+
+    module.build_runtime_app(args)
+
+    assert prompted["called"] is True
+
 def test_prompt_for_seed_users_skips_non_interactive(monkeypatch, capsys):
     spec = importlib.util.spec_from_file_location("backend_manage_module_prompt", MANAGE_PATH)
     module = importlib.util.module_from_spec(spec)
