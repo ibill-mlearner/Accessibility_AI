@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from app import create_app
-from app.db import init_flask_database
+from app.db import ensure_sqlite_compat_schema, init_flask_database
 from app.extensions import db
 
 
