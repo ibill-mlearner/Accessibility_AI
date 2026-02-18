@@ -283,6 +283,40 @@ def test_ai_interaction_returns_structured_error_when_persistence_fails(app, cli
     assert body["error"]["code"] == "persistence_error"
 
 
+def test_ai_interaction_value_error_includes_structured_details(app, client, monkeypatch):
+    _authenticate_api_client(app, client)
+
+    from app.db import init_flask_database
+
+    init_flask_database(app)
+
+    ai_service = app.extensions["ai_service"]
+    wrapped_service = getattr(ai_service, "_wrapped", ai_service)
+
+    def _raise_value_error(*, prompt, context, initiated_by):  # noqa: ANN001
+        raise ValueError("Extra data: line 2 column 1 (char 85)")
+
+    monkeypatch.setattr(wrapped_service, "run_interaction", _raise_value_error)
+
+    payload = {
+        "prompt": "asdfasdf",
+        "chat_id": 1,
+        "context": {
+            "chat_id": 1,
+            "class_id": 1,
+            "messages": [{"role": "user", "content": "asdfasdf"}],
+        },
+    }
+
+    response = client.post("/api/v1/ai/interactions", json=payload)
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["error"]["code"] == "bad_request"
+    assert body["error"]["message"] == "Extra data: line 2 column 1 (char 85)"
+    assert body["error"]["details"] == {"exception": "ValueError", "source": "hf_output_parse"}
+
+
 def test_unmatched_route_returns_json_error(client):
     response = client.get("/api/v1/does-not-exist")
     assert response.status_code == 404
