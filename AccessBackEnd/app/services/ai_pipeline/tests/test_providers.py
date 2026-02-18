@@ -7,7 +7,12 @@ import types
 import pytest
 
 from app.services.ai_pipeline.bootstrap import HuggingFaceModelBootstrap
-from app.services.ai_pipeline.providers import HTTPEndpointProvider, HuggingFaceLangChainProvider, OllamaProvider
+from app.services.ai_pipeline.providers import (
+    HTTPEndpointProvider,
+    HuggingFaceLangChainProvider,
+    OllamaProvider,
+    _sanitize_context,
+)
 from app.services.ai_pipeline.types import PipelineRequest
 
 
@@ -114,3 +119,44 @@ def test_ollama_provider_normalizes_endpoint_to_chat() -> None:
     assert provider._resolve_chat_endpoint("http://localhost:11434/api/generate") == "http://localhost:11434/api/chat"
     assert provider._resolve_chat_endpoint("http://localhost:11434/api/chat") == "http://localhost:11434/api/chat"
     assert provider._resolve_chat_endpoint("http://localhost:11434") == "http://localhost:11434/api/chat"
+
+
+def test_sanitize_context_allowlists_keys_and_limits_message_count() -> None:
+    context = {
+        "chat_id": 12,
+        "class_id": 34,
+        "ignored": "value",
+        "messages": [
+            {"role": "user", "content": "m1"},
+            {"role": "assistant", "content": "m2"},
+            {"role": "user", "content": "m3"},
+            {"role": "assistant", "content": "m4"},
+            {"role": "user", "content": "m5"},
+        ],
+    }
+
+    sanitized = _sanitize_context(context)
+
+    assert sanitized["chat_id"] == 12
+    assert sanitized["class_id"] == 34
+    assert "ignored" not in sanitized
+    assert len(sanitized["messages"]) == 4
+    assert sanitized["messages"][0]["content"] == "m2"
+    assert sanitized["messages"][-1]["content"] == "m5"
+
+
+def test_ollama_provider_builds_structured_chat_messages() -> None:
+    provider = OllamaProvider(endpoint="http://localhost:11434", model_id="llama3.1")
+    request = PipelineRequest(
+        prompt="Explain ATP",
+        context={"chat_id": 7, "class_id": 3, "messages": [{"role": "user", "content": "prior"}]},
+    )
+
+    messages = provider._build_messages(request)
+
+    assert len(messages) == 3
+    assert messages[0]["role"] == "system"
+    assert "assistant_text" in messages[0]["content"]
+    assert messages[1] == {"role": "user", "content": "Explain ATP"}
+    assert messages[2]["role"] == "system"
+    assert '"chat_id": 7' in messages[2]["content"]

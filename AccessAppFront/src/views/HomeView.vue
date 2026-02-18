@@ -42,6 +42,7 @@ const interactionLoading = ref(false)
 const interactionError = ref('')
 const timelineMessages = ref([])
 const messageListRef = ref(null)
+const timelineLoadRequestId = ref(0)
 
 
 const selectedChat = computed(() => store.chats.find((chat) => chat.id === store.selectedChatId) || null)
@@ -96,22 +97,39 @@ async function withSingleRetry(task) {
   }
 }
 
+function hasPromptTemplateLeakage(text) {
+  const blockedMarkers = [
+    'you are a json api assistant',
+    'user prompt:',
+    'context json:',
+    'required response schema:',
+    'user response:'
+  ]
+
+  const normalized = String(text || '').toLowerCase()
+  return blockedMarkers.some((marker) => normalized.includes(marker))
+}
+
 function readAssistantText(aiPayload) {
-  if (typeof aiPayload?.result === 'string' && aiPayload.result.trim()) return aiPayload.result
-  if (typeof aiPayload?.answer === 'string' && aiPayload.answer.trim()) return aiPayload.answer
-  if (aiPayload?.response?.summary) return aiPayload.response.summary
-  if (typeof aiPayload?.response === 'string' && aiPayload.response.trim()) return aiPayload.response
-  if (typeof aiPayload?.summary === 'string' && aiPayload.summary.trim()) return aiPayload.summary
-  if (Array.isArray(aiPayload?.notes) && aiPayload.notes.length) {
-    const normalized = aiPayload.notes.map((note) => String(note).trim()).filter(Boolean)
-    if (normalized.length) return normalized.join('\n')
+  const candidateValues = [
+    aiPayload?.assistant_text,
+    aiPayload?.result,
+    aiPayload?.answer,
+    aiPayload?.response?.summary,
+    aiPayload?.response,
+    aiPayload?.summary,
+    typeof aiPayload === 'string' ? aiPayload : ''
+  ]
+
+  for (const candidateValue of candidateValues) {
+    if (typeof candidateValue !== 'string') continue
+    const cleaned = candidateValue.trim()
+    if (!cleaned) continue
+    if (hasPromptTemplateLeakage(cleaned)) return ''
+    return cleaned
   }
-  if (typeof aiPayload === 'string' && aiPayload.trim()) return aiPayload
-  try {
-    return JSON.stringify(aiPayload)
-  } catch {
-    return 'Assistant response unavailable.'
-  }
+
+  return ''
 }
 
 
@@ -120,6 +138,91 @@ function buildFirstChatTitle(cleanPrompt, fallbackIndex) {
   const titleTokens = cleanPrompt.trim().split(/\s+/).filter(Boolean).slice(0, 3)
   // Use an indexed fallback when no words are present after trimming.
   return titleTokens.join(' ') || `New Chat ${fallbackIndex}`
+}
+
+function parseTimelineTimestamp(value, fallbackIndex = 0) {
+  const parsed = Date.parse(value || '')
+  if (Number.isNaN(parsed)) return Number.MAX_SAFE_INTEGER - (100000 - fallbackIndex)
+  return parsed
+}
+
+function buildTimelineFromInteractions(interactions = []) {
+  const turns = []
+
+  interactions.forEach((interaction, index) => {
+    const interactionId = interaction?.id ?? `unknown-${index}`
+    const createdAt = interaction?.created_at || null
+
+    const promptText = String(interaction?.prompt || '').trim()
+    if (promptText) {
+      turns.push({
+        id: `interaction-${interactionId}-user`,
+        role: 'user',
+        text: promptText,
+        createdAt,
+        order: index * 2
+      })
+    }
+
+    const assistantText = String(interaction?.response_text || '').trim()
+    if (assistantText) {
+      turns.push({
+        id: `interaction-${interactionId}-assistant`,
+        role: 'assistant',
+        text: assistantText,
+        createdAt,
+        order: index * 2 + 1
+      })
+    }
+  })
+
+  return turns
+}
+
+function buildTimelineFromMessages(messages = []) {
+  return messages.map((message, index) => ({
+    id: message.id,
+    role: index % 2 === 0 ? 'user' : 'assistant',
+    text: String(message?.message_text || '').trim(),
+    createdAt: null,
+    order: index
+  }))
+}
+
+async function hydrateTimelineForChat(chatId) {
+  if (!chatId) {
+    timelineMessages.value = []
+    return
+  }
+
+  const requestId = timelineLoadRequestId.value + 1
+  timelineLoadRequestId.value = requestId
+
+  try {
+    const [interactions, messages] = await Promise.all([
+      store.fetchChatInteractions(chatId),
+      store.fetchChatMessages(chatId)
+    ])
+
+    if (timelineLoadRequestId.value !== requestId) return
+
+    const sourceMessages = interactions.length
+      ? buildTimelineFromInteractions(interactions)
+      : buildTimelineFromMessages(messages)
+
+    timelineMessages.value = sourceMessages
+      .filter((message) => Boolean(message.text))
+      .sort((a, b) => {
+        const aTime = parseTimelineTimestamp(a.createdAt, a.order)
+        const bTime = parseTimelineTimestamp(b.createdAt, b.order)
+        if (aTime !== bTime) return aTime - bTime
+        return (a.order ?? 0) - (b.order ?? 0)
+      })
+      .map(({ id, role, text }) => ({ id, role, text }))
+  } catch {
+    if (timelineLoadRequestId.value !== requestId) return
+    interactionError.value = 'Unable to load chat history right now.'
+  }
 }
 
 
@@ -203,6 +306,12 @@ async function sendPrompt() {
     }
 
     const assistantText = readAssistantText(aiResponse)
+    if (!assistantText) {
+      interactionError.value = 'Assistant response was not in a usable format. Please retry.'
+      prompt.value = draftPrompt
+      return
+    }
+
     const pendingAssistantId = `assistant-unsaved-${createId()}`
     timelineMessages.value.push({ id: pendingAssistantId, role: 'assistant', text: assistantText, unsaved: true })
     await scrollToLatestTurn()
@@ -281,13 +390,22 @@ watch(
   }
 )
 
+watch(
+  () => store.selectedChatId,
+  async (chatId) => {
+    interactionError.value = ''
+    await hydrateTimelineForChat(chatId)
+  },
+  { immediate: true }
+)
+
 onMounted(async () => {
   const promptFromQuery = route.query?.prompt
-  if (typeof promptFromQuery !== 'string' || !promptFromQuery.trim()) return
-
-  prompt.value = promptFromQuery
-  if (route.path === '/' && Object.keys(route.query).length) {
-    await router.replace({ path: '/', query: {} })
+  if (typeof promptFromQuery === 'string' && promptFromQuery.trim()) {
+    prompt.value = promptFromQuery
+    if (route.path === '/' && Object.keys(route.query).length) {
+      await router.replace({ path: '/', query: {} })
+    }
   }
 })
 </script>

@@ -127,6 +127,17 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
             "content": record.content,
         }
 
+    if resource == "ai_interaction":
+        created_at = record.created_at.isoformat() if getattr(record, "created_at", None) else None
+        return {
+            "id": record.id,
+            "chat_id": record.chat_id,
+            "prompt": record.prompt,
+            "response_text": record.response_text,
+            "provider": record.provider,
+            "created_at": created_at,
+        }
+
     return {}
 
 
@@ -607,6 +618,28 @@ def list_chat_messages(chat_id: int):
         .all()
     )
     return jsonify([_serialize_record("message", message) for message in messages]), 200
+
+
+@api_v1_bp.get("/chats/<int:chat_id>/ai/interactions")
+@login_required
+def list_chat_ai_interactions(chat_id: int):
+    """List AI interactions for a target chat when visible to the authenticated user."""
+    chat = _require_record("chat", Chat, chat_id)
+    try:
+        ChatAccessService.assert_can_access_chat(
+            chat=chat,
+            user_id=ChatAccessService.get_authenticated_user_id(),
+        )
+    except PermissionError:
+        return _forbidden_response("access denied")
+
+    interactions = (
+        db.session.query(AIInteraction)
+        .filter(AIInteraction.chat_id == chat_id)
+        .order_by(AIInteraction.created_at.asc(), AIInteraction.id.asc())
+        .all()
+    )
+    return jsonify([_serialize_record("ai_interaction", interaction) for interaction in interactions]), 200
 
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
