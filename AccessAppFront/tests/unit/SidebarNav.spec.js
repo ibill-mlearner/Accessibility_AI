@@ -1,8 +1,18 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import SidebarNav from '../../src/components/SidebarNav.vue'
 import { useAppStore } from '../../src/stores/appStore'
+
+const push = vi.fn()
+
+vi.mock('vue-router', async (importOriginal) => {
+  const mod = await importOriginal()
+  return {
+    ...mod,
+    useRouter: () => ({ push })
+  }
+})
 
 describe('SidebarNav.vue', () => {
   it('renders chat list for authenticated users and allows selecting a chat', async () => {
@@ -36,4 +46,41 @@ describe('SidebarNav.vue', () => {
 
     expect(wrapper.find('.chat-list').exists()).toBe(false)
   })
+
+
+  it('renders account actions for logged-in users and routes to profile/home on logout', async () => {
+    setActivePinia(createPinia())
+    const store = useAppStore()
+    store.role = 'student'
+    store.isAuthenticated = true
+    push.mockClear()
+
+    const wrapper = mount(SidebarNav)
+    const profileBtn = wrapper.findAll('button').find((button) => button.text() === 'Profile')
+    const logoutBtn = wrapper.findAll('button').find((button) => button.text() === 'Logout')
+
+    expect(profileBtn).toBeTruthy()
+    expect(logoutBtn).toBeTruthy()
+
+    await profileBtn.trigger('click')
+    await logoutBtn.trigger('click')
+
+    expect(push).toHaveBeenNthCalledWith(1, '/profile')
+    expect(push).toHaveBeenNthCalledWith(2, '/')
+    expect(store.role).toBe('guest')
+    expect(store.isAuthenticated).toBe(false)
+  })
+
+  it('hides account actions when user is not logged in', () => {
+    setActivePinia(createPinia())
+    const store = useAppStore()
+    store.role = 'student'
+    store.isAuthenticated = false
+
+    const wrapper = mount(SidebarNav)
+
+    expect(wrapper.findAll('button').some((button) => button.text() === 'Profile')).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text() === 'Logout')).toBe(false)
+  })
+
 })
