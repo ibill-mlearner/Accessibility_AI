@@ -80,25 +80,15 @@ def _seed_all_from_sql(database_uri: str) -> bool:
         print("Skipping seed prompt: SQL seeds currently support only file-based SQLite databases.")
         return False
 
-    missing = [seed_file for seed_file in _SEED_SQL_FILES if not seed_file.exists()]
-    if missing:
-        missing_list = ", ".join(path.as_posix() for path in missing)
-        print(f"Skipping seed prompt: seed file(s) not found: {missing_list}.")
+    try:
+        with sqlite3.connect(database_path.as_posix()) as conn:
+            for seed_file in _SEED_SQL_FILES:
+                conn.executescript(seed_file.read_text(encoding="utf-8"))
+    except Exception:
+        print("Error in seed files. Skipping baseline seed data.")
         return False
 
-    with sqlite3.connect(database_path.as_posix()) as conn:
-        for seed_file in _SEED_SQL_FILES:
-            conn.executescript(seed_file.read_text(encoding="utf-8"))
-
-    base_dir = Path(__file__).resolve().parent
-
-    def _display_path(seed_file: Path) -> str:
-        try:
-            return seed_file.relative_to(base_dir).as_posix()
-        except ValueError:
-            return seed_file.as_posix()
-
-    print("Seeded baseline data from: " + ", ".join(_display_path(seed_file) for seed_file in _SEED_SQL_FILES))
+    print("Seeded baseline data.")
     return True
 
 
