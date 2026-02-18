@@ -1,0 +1,9 @@
+-- Seed AI models baseline data for AccessBackEnd MVP.
+
+BEGIN TRANSACTION;
+
+INSERT INTO ai_models (provider, active)
+SELECT 'huggingface_langchain', 1
+WHERE NOT EXISTS (SELECT 1 FROM ai_models WHERE provider = 'huggingface_langchain');
+
+COMMIT;

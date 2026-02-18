@@ -22,7 +22,7 @@ def test_manage_import_has_no_cli_side_effects(monkeypatch):
     assert module.app is not None
 
 
-def test_seed_users_from_sql_inserts_rows(tmp_path):
+def test_seed_all_from_sql_can_insert_users_only_when_configured(tmp_path):
     spec = importlib.util.spec_from_file_location("backend_manage_module_seed", MANAGE_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
@@ -30,7 +30,7 @@ def test_seed_users_from_sql_inserts_rows(tmp_path):
 
     db_path = tmp_path / "seed-test.db"
     uri = f"sqlite:///{db_path.as_posix()}"
-    module._SEED_USERS_SQL = Path(__file__).resolve().parents[1] / "instance" / "seed_users.sql"
+    module._SEED_SQL_FILES = [Path(__file__).resolve().parents[1] / "instance" / "seed_users.sql"]
 
     import sqlite3
 
@@ -48,14 +48,39 @@ def test_seed_users_from_sql_inserts_rows(tmp_path):
             "CREATE TABLE user_class_enrollments (id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, class_id INTEGER NOT NULL, role TEXT NOT NULL, enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP, dropped_at TEXT)"
         )
 
-    assert module._seed_users_from_sql(uri)
+    assert module._seed_all_from_sql(uri)
 
     with sqlite3.connect(db_path.as_posix()) as conn:
         user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         chat_count = conn.execute("SELECT COUNT(*) FROM chats").fetchone()[0]
 
-    assert user_count == 4
-    assert chat_count == 3
+    assert user_count == 6
+    assert chat_count == 0
+
+
+def test_seed_all_from_sql_runs_all_seed_scripts(tmp_path):
+    spec = importlib.util.spec_from_file_location("backend_manage_module_seed_all", MANAGE_PATH)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+
+    db_path = tmp_path / "seed-all-test.db"
+    uri = f"sqlite:///{db_path.as_posix()}"
+
+    seed_a = tmp_path / "seed_a.sql"
+    seed_b = tmp_path / "seed_b.sql"
+    seed_a.write_text("BEGIN TRANSACTION; CREATE TABLE IF NOT EXISTS seed_check (id INTEGER PRIMARY KEY, name TEXT); COMMIT;")
+    seed_b.write_text("BEGIN TRANSACTION; INSERT INTO seed_check (name) SELECT 'ok' WHERE NOT EXISTS (SELECT 1 FROM seed_check WHERE name='ok'); COMMIT;")
+    module._SEED_SQL_FILES = [seed_a, seed_b]
+
+    assert module._seed_all_from_sql(uri)
+
+    import sqlite3
+
+    with sqlite3.connect(db_path.as_posix()) as conn:
+        row_count = conn.execute("SELECT COUNT(*) FROM seed_check").fetchone()[0]
+
+    assert row_count == 1
 
 
 def test_build_runtime_app_first_run_prompts_for_seed(monkeypatch, tmp_path):
