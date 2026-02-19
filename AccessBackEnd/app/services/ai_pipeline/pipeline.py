@@ -33,7 +33,7 @@ class AIPipelineConfig:
     # - Allow this package to be imported by a hello-world script with minimal setup.
     """
 
-    provider: str = "ollama"
+    provider: str = "ollama" #defaults to ollama
     model_name: str = ""
     mock_resource_path: str = ""
     live_endpoint: str = ""
@@ -98,6 +98,8 @@ class AIPipelineService:
         )
         return {**response.data, "meta": response.meta}
 
+    # this is still confusing and needs to be clarified
+    # why a static method in this class, if its a generic method
     @staticmethod
     def _canonicalize_provider_payload(payload: dict[str, Any]) -> dict[str, Any]:
         """Map provider-specific payload keys into a stable UI contract."""

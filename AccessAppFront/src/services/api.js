@@ -1,8 +1,6 @@
 import axios from 'axios'
 
-// Default to same-origin so Vite dev proxy (or deployed host) serves backend API calls
-// without requiring json-server in normal development flow.
-// Override with VITE_API_BASE_URL when targeting a different backend host.
+// this is just a default API base with axios
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || ''
   // Same-origin usage works with browser-default cookie behavior; cross-origin would need withCredentials: true.

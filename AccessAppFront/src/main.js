@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import { useAppStore } from './stores/appStore'
-import './styles.css'
+import './styles/base.css'
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -11,7 +11,8 @@ const pinia = createPinia()
 app.use(pinia)
 
 const store = useAppStore(pinia)
-store.hydrateSession()
+// store.hydrateSession()
+useAppStore(pinia)
 // Restore client-mirrored auth context from sessionStorage before first route render.
 
 app.use(router)

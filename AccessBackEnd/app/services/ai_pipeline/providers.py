@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+import requests
 
 from .bootstrap import HuggingFaceModelBootstrap
 from .types import PipelineRequest
@@ -126,27 +127,25 @@ class HTTPEndpointProvider:
         if not self.endpoint:
             raise ValueError("HTTP endpoint must be configured")
 
-        body = json.dumps(
-            {
-                "prompt": request.prompt,
-                "context": request.context,
-                "model": self.model_name,
-            }
-        ).encode("utf-8")
-        req = Request(
-            self.endpoint,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-
         try:
-            with urlopen(req, timeout=self.timeout_seconds) as response:
-                content = response.read().decode("utf-8")
-        except URLError as exc:  # pragma: no cover
+            response = request.post(
+                self.endpoint,
+                json = {
+                    "prompt": request.prompt,
+                    "context": request.context,
+                    "model": self.model_name
+                },
+                timeout = self.timeout_seconds
+            ),
+            response.raise_for_status()
+        except requests.RequestException as exc:
             raise RuntimeError(f"Failed to call AI endpoint: {exc}") from exc
 
-        parsed = json.loads(content or "{}")
+        try:
+            parsed = response.json()
+        except ValueError as exc:
+            raise RuntimeError("AI endpoint returned non-JSON response")
+
         if isinstance(parsed, dict):
             parsed.setdefault("meta", {})
             parsed["meta"]["provider"] = "http"
@@ -347,6 +346,7 @@ class HuggingFaceLangChainProvider:
 
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(model_path)
+
         generator = hf_pipeline(
             "text-generation",
             model=model,
@@ -357,7 +357,10 @@ class HuggingFaceLangChainProvider:
 
         llm = HuggingFacePipeline(pipeline=generator)
         # Use the shared module-level template for readability and centralized prompt maintenance.
+
         prompt_template = PromptTemplate.from_template(_HUGGINGFACE_PROMPT_TEMPLATE)
+
+
         chain = prompt_template | llm | StrOutputParser()
         raw_text = chain.invoke(
             {
