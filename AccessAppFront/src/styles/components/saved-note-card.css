@@ -1,0 +1,16 @@
+.saved-note {
+  padding: 9px;
+  display: grid;
+  grid-template-columns: 225px 1fr;
+  gap: 9px;
+}
+
+.saved-note aside p {
+  font-size: 23px;
+  margin: 3px 0;
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-between;
+}

@@ -1,0 +1,20 @@
+.chat-thread {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 9px;
+  min-height: 0;
+  height: 100%;
+}
+
+.chat-messages {
+  overflow-y: auto;
+  min-height: 0;
+  max-height: min(62vh, 570px);
+  padding-right: 5px;
+}
+
+.chat-thread__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
