@@ -1,9 +1,9 @@
 <template>
-  <section class="chat-thread">
-    <div ref="messageListRef" class="chat-messages" aria-live="polite">
-      <div class="chat-thread__messages">
-        <p v-if="interactionError" class="chat-error-banner">{{ interactionError }}</p>
-        <p v-if="interactionLoading" class="chat-loading-banner">Sending…</p>
+  <section class="d-flex flex-column gap-2">
+    <div ref="messageListRef" class="overflow-auto" aria-live="polite">
+      <div class="d-flex flex-column gap-2">
+        <p v-if="interactionError" class="alert alert-danger py-2 mb-0">{{ interactionError }}</p>
+        <p v-if="interactionLoading" class="alert alert-info py-2 mb-0">Sending…</p>
         <template v-if="store.role !== 'guest'">
           <ChatBubbleCard
             v-for="message in conversationMessages"

@@ -1,9 +1,12 @@
 <template>
-  <article class="chat-bubble-card panel" :class="variantClass">
-    <slot>{{ text }}</slot>
-    <div v-if="showActions" class="button-row">
-      <button class="btn" @click="$emit('read-aloud')">Read Aloud</button>
-      <button class="btn" @click="$emit('save-note')">Save as Note</button>
+  <article class="card shadow-sm" :class="variantClass" style="max-width: min(80%, 680px)">
+    <div class="card shadow-sm border border-3">
+      <slot>{{ text }}</slot>
+      <div v-if="showActions" 
+        class="d-flex justify-content-between mt-1 gap-1">
+        <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('read-aloud')">Read Aloud</button>
+        <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button>
+      </div>
     </div>
   </article>
 </template>
@@ -18,6 +21,9 @@ const props = defineProps({
 })
 
 defineEmits(['read-aloud', 'save-note'])
+const variantClass = computed(() => {
+  if (props.variant === 'user') return 'ms-auto border-primary'
+  return 'me-auto border-secondary'
+})
 
-const variantClass = computed(() => `chat-bubble-card--${props.variant}`)
 </script>

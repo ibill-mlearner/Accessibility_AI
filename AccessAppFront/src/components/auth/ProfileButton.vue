@@ -1,5 +1,5 @@
 <template>
-  <button class="account-action-btn" type="button" @click="$emit('profile')">Profile</button>
+  <button class="btn btn-outline-secondary" type="button" @click="$emit('profile')">Profile</button>
 </template>
 
 <script setup>

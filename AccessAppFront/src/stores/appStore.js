@@ -14,7 +14,7 @@ const SESSION_STORAGE_KEY = 'accessapp:session'
  * - Chats: fetch/create/update/delete
  * - Classes: fetch/create/update/delete
  * - Notes: fetch/create/update/delete
- * - Features: fetch/update
+ * - Features: fetch/update --- DEPRECATED
  *
  * bootstrap() orchestration
  * - Runs fetchChats/fetchClasses/fetchNotes/fetchFeatures in parallel.
@@ -88,6 +88,7 @@ export const useAppStore = defineStore('app', {
       this.actionStatus[actionKey] = {
         loading: false,
         error: '',
+        // overloaded logic
         rollbackToken: null,
         ...(this.actionStatus[actionKey] || {}),
         ...patch
@@ -250,9 +251,12 @@ export const useAppStore = defineStore('app', {
         throw wrappedError
       }
     },
+    // DEPRICATED - features table deleted
     async fetchFeatures() {
       const actionKey = 'fetchFeatures'
       this.setActionStatus(actionKey, { loading: true, error: '' })
+      this.setActionError(actionKey, 'fetchFeature is deprecated and no longer supported.')
+      return null
       try {
         const response = await api.get('/api/v1/features')
         this.features = response.data
@@ -477,9 +481,12 @@ export const useAppStore = defineStore('app', {
     // Feature controls
     // Kept pessimistic while feature-gating side effects are still evolving.
     // ---------------------------------------------------------------------
+    // DEPRECATED - feature table removed
     async updateFeature(featureId, patch) {
       const actionKey = `updateFeature:${featureId}`
       this.setActionStatus(actionKey, { loading: true, error: '' })
+      this.setActionError(actionKey, 'updateFeature is deprecated and no longer supported.')
+      return null
       try {
         const previous = this.features.find((item) => item.id === featureId) || {}
         const response = await api.put(`/api/v1/features/${featureId}`, { ...previous, ...patch })

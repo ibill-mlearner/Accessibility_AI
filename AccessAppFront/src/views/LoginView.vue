@@ -1,7 +1,7 @@
 <template>
-  <div>
+  <div class="d-flex flex-column gap-2">
     <LoginFormCard v-model:username="username" v-model:password="password" @submit="doLogin" />
-    <p v-if="store.authError" class="auth-error">{{ store.authError }}</p>
+    <p v-if="store.authError" class="text-danger mb-0">{{ store.authError }}</p>
   </div>
 </template>
 

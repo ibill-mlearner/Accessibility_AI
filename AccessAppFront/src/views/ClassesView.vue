@@ -1,8 +1,8 @@
 <template>
-  <section class="cards">
-    <div class="role-picker">
-      <button class="btn" @click="store.setRole('student')">Student</button>
-      <button class="btn" @click="store.setRole('instructor')">Instructor</button>
+  <section class="d-flex flex-column gap-3">
+    <div class="btn-group" role="group" aria-label="Role picker">
+      <button class="btn btn-outline-secondary" @click="store.setRole('student')">Student</button>
+      <button class="btn btn-outline-secondary" @click="store.setRole('instructor')">Instructor</button>
     </div>
 
     <ClassOptionCard

@@ -1,5 +1,5 @@
 <template>
-  <section class="cards">
+  <section class="d-flex flex-column gap-3">
     <FeatureOptionCard
       v-for="feature in store.features"
       :key="feature.id"

@@ -1,6 +1,6 @@
 <template>
-  <section v-if="isLoggedIn" class="chat-list account-actions-card">
-    <div class="account-actions-card__buttons">
+  <section v-if="isLoggedIn" class="card shadow-sm">
+    <div class="card-body d-grid">
       <ProfileButton @profile="$emit('profile')" />
       <LogoutButton @logout="$emit('logout')" />
     </div>

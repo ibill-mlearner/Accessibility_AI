@@ -1,3 +1,3 @@
 <template>
-  <section class="panel">Profile coming soon . . .</section>
+  <section class="panel">Profile not implemented </section>
 </template>
