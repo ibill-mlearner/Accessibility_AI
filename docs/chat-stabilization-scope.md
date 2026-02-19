@@ -1,3 +1,4 @@
+# DOC NEEDS TO BE REWRITTEN
 # Chat Stabilization Scope Guardrails
 
 ## Phase rule: entitlement work is out-of-scope
