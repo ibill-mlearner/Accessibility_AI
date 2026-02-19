@@ -1,5 +1,5 @@
 <template>
-  <section class="cards">
+  <section class="d-flex flex-column gap-3">
     <SavedNoteCard v-for="note in store.notes" :key="note.id" :note="note" @delete="handleDeleteNote" />
   </section>
 </template>

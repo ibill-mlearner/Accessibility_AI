@@ -1,5 +1,5 @@
 <template>
-  <button class="account-action-btn" type="button" @click="$emit('logout')">Logout</button>
+  <button class="btn btn-outline-danger" type="button" @click="$emit('logout')">Logout</button>
 </template>
 
 <script setup>

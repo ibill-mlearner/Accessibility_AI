@@ -1,0 +1,93 @@
+import { defineStore } from 'pinia'
+import api from '../services/api'
+import { setActionStatus, setActionError } from '../lib/actionStatus'
+import { deriveSelectedId } from '../lib/selection'
+import { toResourceError } from '../lib/apiErrors'
+import { useAuthStore } from './authStore'
+
+export const useClassStore = defineStore('classes', {
+  state: () => ({
+    selectedClassId: null,
+    classes: [],
+    actionStatus: {}
+  }),
+  getters: {
+    roleClasses(state) {
+      const auth = useAuthStore()
+      const role = auth.role
+      if (role === 'guest') return []
+      const matching = state.classes.filter((c) => c.role === role)
+      return matching.length ? matching : state.classes
+    },
+    selectedClass(state) {
+      return state.classes.find((c) => c.id === state.selectedClassId) || null
+    }
+  },
+  actions: {
+    reconcileSelection() {
+      this.selectedClassId = deriveSelectedId(this.selectedClassId, this.roleClasses)
+    },
+    async fetchClasses() {
+      const key = 'fetchClasses'
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.get('/api/v1/classes')
+        this.classes = Array.isArray(response?.data) ? response.data : []
+        this.reconcileSelection()
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+      } catch (error) {
+        const wrapped = toResourceError(error, {
+          resourceLabel: 'classes',
+          unavailableMessage: 'Classes endpoint is unavailable. Enable /api/v1/classes or disable class-dependent UI.',
+          fallbackMessage: 'Unable to load classes.'
+        })
+        setActionError(this.actionStatus, key, wrapped.message)
+        throw wrapped
+      }
+    },
+    async createClass(payload) {
+      const key = 'createClass'
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/classes', payload)
+        this.classes = [...this.classes, response.data]
+        this.reconcileSelection()
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to create class.')
+      }
+    },
+    async updateClass(classId, patch) {
+      const key = `updateClass:${classId}`
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const previous = this.classes.find((c) => c.id === classId) || {}
+        const response = await api.put(`/api/v1/classes/${classId}`, { ...previous, ...patch })
+        this.classes = this.classes.map((c) => (c.id === classId ? response.data : c))
+        this.reconcileSelection()
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to update class.')
+      }
+    },
+    async deleteClass(classId) {
+      const key = `deleteClass:${classId}`
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        await api.delete(`/api/v1/classes/${classId}`)
+        this.classes = this.classes.filter((c) => c.id !== classId)
+        this.reconcileSelection()
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to delete class.')
+      }
+    },
+    setSelectedClassId(classId) {
+      this.selectedClassId = classId
+      this.reconcileSelection()
+    },
+    clearSelection() {
+      this.selectedClassId = null
+    }
+  }
+})

@@ -1,38 +1,15 @@
-:root {
-  font-family: Arial, sans-serif;
-  color: #111;
-}
-
 body {
-  margin: 0;
   background: #ececec;
 }
 
-input,
-select,
-.btn,
-.icon-btn {
-  font-size: 35px;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 6px 9px;
-  background: #efefef;
+.app-shell {
+  min-height: 100dvh;
 }
 
-.icon-btn {
-  width: 56px;
-  height: 56px;
-  padding: 0;
+.home-thread {
+  min-height: 0;
 }
 
-label {
-  font-size: 39px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-input[type='radio'] {
-  width: 32px;
-  height: 32px;
+.bg-purple-200 {
+  background-color: #d7b6ff;
 }

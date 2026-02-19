@@ -1,6 +1,8 @@
 <template>
-  <section class="logout-card">
-    <div class="panel">You are logging out . . .</div>
+  <section class="card">
+    <div class="card-body text-center">
+      <p class="h4 mb-0">You are logging out . . .</p>
+    </div>
   </section>
 </template>
 

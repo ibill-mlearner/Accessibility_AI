@@ -1,0 +1,46 @@
+import { defineStore } from 'pinia'
+import { useChatStore } from './chatStore'
+import { useClassStore } from './classStore'
+import { useNoteStore } from './noteStore'
+import { useAuthStore } from './authStore'
+
+export const useAppBootstrapStore = defineStore('appBootstrap', {
+  state: () => ({
+    loading: false,
+    error: '',
+    authError: ''
+  }),
+  actions: {
+    async bootstrap() {
+      this.loading = true
+      this.error = ''
+      this.authError = ''
+
+      const auth = useAuthStore()
+      const chats = useChatStore()
+      const classes = useClassStore()
+      const notes = useNoteStore()
+
+      const results = await Promise.allSettled([
+        chats.fetchChats(),
+        classes.fetchClasses(),
+        notes.fetchNotes()
+      ])
+
+      const failures = results
+        .filter((r) => r.status === 'rejected')
+        .map((r) => r.reason)
+
+      if (failures.some((e) => e?.kind === 'auth')) {
+        this.authError = 'Your session is invalid or expired. Please sign in again.'
+        auth.logout()
+      }
+
+      if (failures.some((e) => e?.kind && e.kind !== 'auth')) {
+        this.error = 'Some application resources could not be loaded from the backend service.'
+      }
+
+      this.loading = false
+    }
+  }
+})
