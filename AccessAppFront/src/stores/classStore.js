@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-import { setActionStatus, setActionError } from '../lib/actionStatus'
-import { deriveSelectedId } from '../lib/selection'
-import { toResourceError } from '../lib/apiErrors'
+import { setActionStatus, setActionError } from '../helpers/actionStatus'
+import { deriveSelectedId } from '../helpers/selection'
+import { toResourceError } from '../helpers/apiErrors'
 import { useAuthStore } from './authStore'
 
 export const useClassStore = defineStore('classes', {
