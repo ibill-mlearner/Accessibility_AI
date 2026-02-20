@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-import { setActionStatus, setActionError } from '../lib/actionStatus'
-import { toResourceError } from '../lib/apiErrors'
+import { setActionStatus, setActionError } from '../stores/helpers/actionStatus'
+import { toResourceError } from '../stores/helpers/apiErrors'
 
 export const useNoteStore = defineStore('notes', {
   state: () => ({

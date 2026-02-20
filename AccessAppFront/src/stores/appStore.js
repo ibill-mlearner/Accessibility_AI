@@ -1,3 +1,4 @@
+// NO LONGER USED SAVE AS HISTORICAL REFERENCE
 import { defineStore } from 'pinia'
 import api from '../services/api'
 
@@ -157,28 +158,29 @@ export const useAppStore = defineStore('app', {
       window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload))
       // Writes role/currentUser/isAuthenticated so refresh restores UI state.
     },
-    hydrateSession() {
-      if (typeof window === 'undefined' || !window.sessionStorage) return
-      // Hydration is local-first and runs before any backend verification request.
 
-      const rawSession = window.sessionStorage.getItem(SESSION_STORAGE_KEY)
-      // No persisted mirror means retain default guest state.
-      if (!rawSession) return
+   hydrateSession() {
+     if (typeof window === 'undefined' || !window.sessionStorage) return
+     // Hydration is local-first and runs before any backend verification request.
 
-      try {
-        const parsed = JSON.parse(rawSession)
-        const hydratedUser = parsed?.currentUser || null
+     const rawSession = window.sessionStorage.getItem(SESSION_STORAGE_KEY)
+     // No persisted mirror means retain default guest state.
+     if (!rawSession) return
 
-        this.currentUser = hydratedUser
-        this.user = hydratedUser
-        this.isAuthenticated = Boolean(parsed?.isAuthenticated && hydratedUser)
-        this.role = parsed?.role || (this.isAuthenticated ? 'authenticated' : 'guest')
-        // Role falls back to authenticated/guest when explicit role is missing in stored payload.
-        this.authError = ''
-      } catch {
-        this.logout()
-        // Malformed stored state is treated as invalid and reset via logout path.
-      }
+     try {
+       const parsed = JSON.parse(rawSession)
+       const hydratedUser = parsed?.currentUser || null
+
+       this.currentUser = hydratedUser
+       this.user = hydratedUser
+       this.isAuthenticated = Boolean(parsed?.isAuthenticated && hydratedUser)
+       this.role = parsed?.role || (this.isAuthenticated ? 'authenticated' : 'guest')
+       // Role falls back to authenticated/guest when explicit role is missing in stored payload.
+       this.authError = ''
+     } catch {
+       this.logout()
+       // Malformed stored state is treated as invalid and reset via logout path.
+     }
     },
     clearSession() {
       if (typeof window === 'undefined' || !window.sessionStorage) return

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-import { persistSession, hydrateSession, clearSession } from '../lib/sessionMirror'
+import { persistSession, hydrateSession, clearSession } from '../stores/helpers/sessionsStuff'
 
 
 export const useAuthStore = defineStore('auth', {
@@ -13,6 +13,13 @@ export const useAuthStore = defineStore('auth', {
   }),
   actions: {
     initFromSession() {
+        return {
+            currentUser: null,
+            user: null,
+            isAuthenticated: false,
+            role: 'guest',
+            clear: false
+        }
         const hydrated = hydrateSession()
         if (!hydrated) return
         if (hydrated.clear) {
@@ -20,8 +27,6 @@ export const useAuthStore = defineStore('auth', {
         return
         }
 
-        // localStorage.setItem('token', response.data.token)
-        // moving away from hydration
         this.currentUser = hydrated.currentUser
         this.user = hydrated.user
         this.isAuthenticated = hydrated.isAuthenticated
@@ -31,6 +36,22 @@ export const useAuthStore = defineStore('auth', {
     async login({ email, password }) {
         this.authError = ''
         const response = await api.post('/api/v1/auth/login', { email, password })
+        const u = response?.data?.user || {}
+        const ok = Boolean(u.id && u.email)
+
+
+
+        this.currentUser = ok ? { id: u.id, email: u.email } : null
+        this.user = this.currentUser
+        this.isAuthenticated = ok
+        this.role = u.role || (ok ? 'authenticated' : 'guest')
+        persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
+        return true
+    },
+    async me({}) {
+        return "RESOURCE NEEDS TO BE TESTED"
+        this.authError = ''
+        const response = await api.post('/api/v1/auth/verify', { email, password })
         const u = response?.data?.user || {}
         const ok = Boolean(u.id && u.email)
 

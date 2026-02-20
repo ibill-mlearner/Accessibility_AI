@@ -1,7 +1,12 @@
 <template>
   <OptionCard :description="item.description">
     <template #selector>
-      <OptionSelector :name="name" :label="item.name" :checked="checked" @change="$emit('select', item.id)" />
+      <OptionSelector
+        :name="name"
+        :label="item.name"
+        :checked="checked"
+        @change="$emit('select', item.id)"
+       />
     </template>
     <template #action>
       <button class="btn btn-outline-primary">{{ actionLabel }}</button>

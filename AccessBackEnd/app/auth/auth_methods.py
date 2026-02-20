@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from flask_bcrypt import Bcrypt
 import hmac
 import json
 import os
@@ -60,15 +61,27 @@ class PasswordHasher(Protocol):
     def verify_password(self, password: str, encoded_hash: str) -> bool:
         ...
 
-#convert this over to using hashlib instead. No point in using some algorithm found online
+    def better_hash(self, password: str) -> str:
+        ...
+
+    def better_verify(self, password: str, encoded_hash: str) -> bool:
+        ...
+
 class PBKDF2PasswordHasher:
     """Framework-independent password hasher using stdlib primitives."""
 
     algorithm = "sha256"
+    algorithm_two = "bcrypt"
 
     def __init__(self, iterations: int = 310_000, salt_length: int = 16) -> None:
         self.iterations = iterations
         self.salt_length = salt_length
+        self.bcrypt = Bcrypt()
+
+    def better_hash(self, password: str) -> str:
+        if not password:
+            raise ValidationError("password is required")
+        return self.bcrypt.generate_password_hash(password).decode("utf-8")
 
     def hash_password(self, password: str) -> str:
         # if salt is None:
@@ -100,6 +113,9 @@ class PBKDF2PasswordHasher:
                 base64.urlsafe_b64encode(digest).decode("ascii"),
             ]
         )
+
+    def better_verify(self, password: str, encoded_hash: str)-> bool:
+        return self.bcrypt.check_password_hash(encoded_hash, password)
 
     def verify_password(self, password: str, encoded_hash: str) -> bool:
         # if (password_hash or "").count("$") != 3:
