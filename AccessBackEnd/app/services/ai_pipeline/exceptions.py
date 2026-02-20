@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-
+# Translation pattern boundary layer
 class AIPipelineUpstreamError(RuntimeError):
     """Raised when upstream provider/model execution fails.
 
@@ -14,7 +14,6 @@ class AIPipelineUpstreamError(RuntimeError):
     def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.details = details or {}
-
 
 def _upstream_details(*, exc: Exception, source: str) -> dict[str, str]:
     return {"exception": exc.__class__.__name__, "source": source}
