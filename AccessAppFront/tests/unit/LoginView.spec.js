@@ -28,7 +28,8 @@ describe('LoginView.vue', () => {
     window.sessionStorage.clear()
   })
 
-  it('persists session and routes home after successful login', async () => {
+//  it('persists session and routes home after successful login', async () => {
+  it('routes home after a successful login without persisting sessionStorage', async () => {
     api.post.mockResolvedValueOnce({
       data: { user: { id: 7, email: 'student@example.com', role: 'student' } }
     })

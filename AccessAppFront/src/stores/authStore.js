@@ -45,7 +45,8 @@ export const useAuthStore = defineStore('auth', {
         this.user = this.currentUser
         this.isAuthenticated = ok
         this.role = u.role || (ok ? 'authenticated' : 'guest')
-        persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
+        // persistSession and hydrateSession were removed
+        // persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
         return true
     },
     async me({}) {
@@ -61,7 +62,8 @@ export const useAuthStore = defineStore('auth', {
         this.user = this.currentUser
         this.isAuthenticated = ok
         this.role = u.role || (ok ? 'authenticated' : 'guest')
-        persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
+        // persistSession and hydrateSession were removed
+        // persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
         return true
     },
     logout() {
@@ -70,12 +72,13 @@ export const useAuthStore = defineStore('auth', {
         this.user = null
         this.isAuthenticated = false
         this.authError = ''
-        clearSession()
+        // clearSession()
     },
     setRole(role) {
         this.role = role
         if (this.isAuthenticated) {
-            persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
+            // persistSession and hydrateSession were removed
+            // persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
         }
     }}
 })
