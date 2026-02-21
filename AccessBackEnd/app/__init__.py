@@ -7,7 +7,8 @@ from flask_login import current_user, logout_user
 from . import config
 from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
-from .blueprints.auth.routes import auth_bp
+# from .blueprints.auth.routes import auth_bp
+# removing and moving auth routes over to v1 api
 from .db import ensure_sqlite_compat_schema, init_flask_database
 from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
@@ -137,7 +138,8 @@ def create_app(config_name: str | None = None) -> Flask:
     initialize_logging(app)
 
     app.register_blueprint(api_v1_bp)
-    app.register_blueprint(auth_bp)
+    # app.register_blueprint(auth_bp)
+    # removing and moving auth routes over to v1 api
     register_api_error_handlers(app)
     _register_cli_commands(app)
 
