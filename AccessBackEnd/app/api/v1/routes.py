@@ -347,9 +347,10 @@ def _enforce_roles(*allowed_roles: str):
 
 # Dummy data overview examples -
 @api_v1_bp.get("/student/overview")
-@login_required
 def student_overview_v1():
-    pass
+    deny = _enforce_roles("student")
+    if deny is not None:
+        return deny
     return (
         jsonify(
             {
@@ -366,6 +367,52 @@ def student_overview_v1():
         ),
         200,
     )
+
+@api_v1_bp.get("/instructor/overview")
+def instructor_overview_v1():
+    deny = _enforce_roles("instructor")
+    if deny is not None:
+        return deny
+    return (
+        jsonify(
+            {
+                "user": _user_context_payload(),
+                "workspace": {
+                    "controls": ["prompt_controls", "course_visibility", "feature_toggles"],
+                    "insights": [
+                        "class engagement summary",
+                        "high-friction prompts",
+                        "accommodation usage snapshots",
+                    ],
+                },
+            }
+        ),
+        200,
+    )
+
+
+@api_v1_bp.get("/admin/overview")
+def admin_overview_v1():
+    deny = _enforce_roles("admin")
+    if deny is not None:
+        return deny
+    return (
+        jsonify(
+            {
+                "user": _user_context_payload(),
+                "workspace": {
+                    "controls": ["user_management", "audit_review", "role_assignment"],
+                    "system_health": {
+                        "api": "operational",
+                        "auth": "operational",
+                        "ai_pipeline": "operational",
+                    },
+                },
+            }
+        ),
+        200,
+    )
+
 
 @api_v1_bp.post("/auth/register")
 def register_auth_user():
