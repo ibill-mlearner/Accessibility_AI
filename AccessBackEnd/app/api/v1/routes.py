@@ -317,6 +317,56 @@ def _apply_note_mutations(note: Note, payload: dict[str, Any]) -> None:
         note.content = str(payload["content"] or "").strip()
 
 
+def _user_context_payload() -> dict[str, any]:
+
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role,
+    }
+
+def _enforce_roles(*allowed_roles: str):
+
+    allowed_role = {role.strip().lower() for role in allowed_roles if role}
+
+    if not current_user.is_authenticated:
+        return jsonify({"error": "authentication required"}), 401
+
+    user_role = (getattr(current_user, "role") or "").strip().lower()
+    if allowed_role and user_role not in allowed_roles:
+        return (
+            jsonify(
+                {
+                    "error": "forbidden",
+                    "required_roles": sorted(allowed_role),
+                    "current_role": user_role or None,
+                }
+            ),
+            403,
+        )
+
+# Dummy data overview examples -
+@api_v1_bp.get("/student/overview")
+@login_required
+def student_overview_v1():
+    pass
+    return (
+        jsonify(
+            {
+                "user": _user_context_payload(),
+                "workspace": {
+                    "active_tools": ["note_taking", "restating", "summaries"],
+                    "next_actions": [
+                        "continue previous study chat",
+                        "review latest class notes",
+                        "start guided prompt",
+                    ],
+                },
+            }
+        ),
+        200,
+    )
+
 @api_v1_bp.post("/auth/register")
 def register_auth_user():
     """Create and authenticate a user account for API-v1 clients."""
