@@ -765,7 +765,7 @@ def create_chat_message(chat_id: int):
     db.session.commit()
     return jsonify(_serialize_record("message", message)), 201
 
-
+#
 @api_v1_bp.get("/classes")
 @login_required
 def list_classes():
@@ -822,7 +822,7 @@ def delete_class(class_id: int):
     db.session.commit()
     return jsonify(response_payload), 200
 
-
+#
 @api_v1_bp.get("/features")
 @login_required
 def list_features():
@@ -873,7 +873,7 @@ def delete_feature(feature_id: int):
     db.session.commit()
     return jsonify(response_payload), 200
 
-
+#
 @api_v1_bp.get("/notes")
 @login_required
 def list_notes():
@@ -965,7 +965,7 @@ def delete_note(note_id: int):
     db.session.commit()
     return jsonify(response_payload), 200
 
-
+#
 @api_v1_bp.get("/health")
 # Intentionally unauthenticated for liveness/readiness checks; rate limiting will follow.
 def health():
@@ -1253,5 +1253,5 @@ def create_ai_interaction():
 
     return jsonify(normalized_result), 200
 
-
+#
 register_api_view_route(api_v1_bp)
