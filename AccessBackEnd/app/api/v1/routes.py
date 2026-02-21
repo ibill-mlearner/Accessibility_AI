@@ -251,6 +251,15 @@ def _require_record(resource_name: str, model: Any, record_id: int) -> Any:
         raise NotFoundError(f"{resource_name} not found", details={"id": record_id})
     return record
 
+@api_v1_bp.get("/health")
+# Intentionally unauthenticated for liveness/readiness checks; rate limiting will follow.
+def health():
+    """Service heartbeat endpoint for deployment/readiness checks."""
+    _publish("api.health_checked")
+    return jsonify(
+        {"status": "ok", "ai_provider": current_app.config.get("AI_PROVIDER")}
+    )
+
 
 def _apply_chat_mutations(chat: Chat, payload: dict[str, Any]) -> None:
     if "class_id" in payload:
@@ -966,15 +975,6 @@ def delete_note(note_id: int):
     return jsonify(response_payload), 200
 
 #
-@api_v1_bp.get("/health")
-# Intentionally unauthenticated for liveness/readiness checks; rate limiting will follow.
-def health():
-    """Service heartbeat endpoint for deployment/readiness checks."""
-    _publish("api.health_checked")
-    return jsonify(
-        {"status": "ok", "ai_provider": current_app.config.get("AI_PROVIDER")}
-    )
-
 
 def _extract_response_text(result: Any) -> str:
     """Normalize provider payload into a storable interaction response string."""
