@@ -89,6 +89,7 @@ def create_app(config_name: str | None = None) -> Flask:
         supports_credentials=app.config["CORS_SUPPORTS_CREDENTIALS"],
         # Allows credentialed cross-origin requests when frontend explicitly includes credentials.
     )
+
     login_manager.init_app(app)
     # Flask-Login manages server-side session identity via Flask session cookies.
 

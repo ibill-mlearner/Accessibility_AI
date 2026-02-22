@@ -2,9 +2,8 @@ from flask import jsonify, current_app
 from flask_login import login_required, current_user
 
 from .routes import db, _serialize_record, BadRequestError, _require_record, _resolve_default_class_id_for_user, \
-    _parse_int_field, _deserialize_payload, _read_json_object, api_v1_bp, _forbidden_response, _parse_optional_datetime, \
-    Chat
-from ...models import CourseClass, User
+    _parse_int_field, _deserialize_payload, _read_json_object, api_v1_bp, _forbidden_response, _parse_optional_datetime
+from ...models import CourseClass, User, Chat
 from ...services.chat_access_service import ChatAccessService
 
 from typing import Any
@@ -14,6 +13,7 @@ from typing import Any
 # Requires a valid Flask-Login session cookie on the incoming request.
 def list_chats():
     """List chats for the authenticated user in a stable collection envelope."""
+
     user_id = int(current_user.get_id())
     chats = (
         db.session.query(Chat)
