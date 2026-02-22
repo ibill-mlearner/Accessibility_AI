@@ -1,18 +1,11 @@
 import json
-from typing import Any
 
+from typing import Any
 from flask import current_app, jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy.exc import SQLAlchemyError
 
 from .routes import (
-    AIInteraction,
-    AIInteractionRepository,
-    AIPipelineUpstreamError,
-    AccommodationSystemPrompt,
-    AIModel,
-    Chat,
-    ChatAccessService,
     _forbidden_response,
     _publish,
     _require_record,
@@ -22,6 +15,11 @@ from .routes import (
     _raise_bad_request_from_exception,
 )
 
+from ...services.chat_access_service import ChatAccessService
+from ...services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from ...models import AIModel, AIInteraction, Chat
+from ...models.ai_interaction import AccommodationSystemPrompt
+from ...db.repositories.interaction_repo import AIInteractionRepository
 
 def _extract_response_text(result: Any) -> str:
     """Normalize provider payload into a storable interaction response string."""

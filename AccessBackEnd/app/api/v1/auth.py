@@ -1,7 +1,8 @@
 from flask import jsonify, session
 from flask_login import current_user, login_user
-from .routes import BadRequestError, api_v1_bp, build_transitional_identity_defaults, db, _read_json_object
+from .routes import BadRequestError, api_v1_bp, db, _read_json_object
 from ...models import User
+from ...models.identity_defaults import build_transitional_identity_defaults
 @api_v1_bp.post("/auth/login")
 def login_auth_user():
     """Authenticate an API-v1 user and establish a login session."""

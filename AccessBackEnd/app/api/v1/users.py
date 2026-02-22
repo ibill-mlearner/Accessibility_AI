@@ -2,8 +2,9 @@ from flask import jsonify
 from flask_login import current_user
 from .routes import (
 api_v1_bp,
-_enforce_roles,
 )
+# bad practice to use underscore leading for external logic in python
+from .auth import _enforce_roles
 # Dummy data overview examples -
 @api_v1_bp.get("/student/overview")
 def student_overview_v1():

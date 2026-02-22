@@ -2,13 +2,19 @@ from flask import jsonify
 from flask_login import login_required
 from typing import Any
 from .routes import (
-api_v1_bp,
-ChatAccessService,
-db, Note, Chat, _serialize_record,
-_deserialize_payload, _read_json_object, BadRequestError,
-_require_record, CourseClass, _forbidden_response,
-_parse_required_date
+    api_v1_bp,
+    db,
+    _serialize_record,
+    _deserialize_payload,
+    _read_json_object,
+    BadRequestError,
+    _require_record,
+    CourseClass,
+    _forbidden_response,
+    _parse_required_date
 )
+from ...services.chat_access_service import ChatAccessService
+from ...models import Note, Chat
 
 @api_v1_bp.get("/notes")
 @login_required

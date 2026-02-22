@@ -9,9 +9,8 @@ from .routes import (
     _require_record,
     api_v1_bp,
     BadRequestError,
-    User
 )
-
+from ...models import User
 from ...services.chat_access_service import ChatAccessService
 
 
