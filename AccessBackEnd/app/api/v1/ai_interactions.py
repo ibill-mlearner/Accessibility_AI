@@ -11,16 +11,15 @@ from .routes import (
     AIPipelineUpstreamError,
     AccommodationSystemPrompt,
     AIModel,
-    BadRequestError,
     Chat,
     ChatAccessService,
     _forbidden_response,
-    _parse_int_field,
     _publish,
     _require_record,
     _serialize_record,
     api_v1_bp,
     db,
+    _raise_bad_request_from_exception,
 )
 
 

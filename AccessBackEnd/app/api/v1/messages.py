@@ -1,19 +1,19 @@
 from flask_login import login_required
 from flask import jsonify
 from .routes import (
-_require_record,
-ChatAccessService,
-Chat,
-_forbidden_response,
-_deserialize_payload,
-_read_json_object,
-api_v1_bp,
-BadRequestError,
-Message,
-db,
-_serialize_record
+    _require_record,
+    ChatAccessService,
+    Chat,
+    _forbidden_response,
+    _deserialize_payload,
+    _read_json_object,
+    api_v1_bp,
+    BadRequestError,
+    Message,
+    db,
+    _serialize_record
 )
-
+from typing import Any
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
 def create_chat_message(chat_id: int):
