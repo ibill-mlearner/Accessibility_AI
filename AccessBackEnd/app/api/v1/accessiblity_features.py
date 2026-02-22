@@ -4,7 +4,7 @@ from flask import jsonify
 from flask_login import login_required
 
 from .routes import (
-    Accommodation,
+
     BadRequestError,
     _read_json_object,
     _require_record,
@@ -12,7 +12,7 @@ from .routes import (
     api_v1_bp,
     db,
 )
-
+from ...models import Accommodation
 @api_v1_bp.get("/features")
 @login_required
 def list_features():
