@@ -30,12 +30,20 @@ def _revoke_session_record(session_id: int | None) -> None:
     session_record = db.session.get(UserSession, int(session_id))
     if session_record is None:
         return
-    if session_record.revoked_at is not None:
+    now = datetime.now(UTC)
+    revoked_at = _as_utc(session_record.revoked_at)
+    if revoked_at is not None and revoked_at <= now:
         return
 
-    session_record.revoked_at = datetime.now(UTC)
+    session_record.revoked_at = now
     db.session.commit()
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 def _create_user_session(*, user_id: int) -> UserSession:
     now = datetime.now(UTC)
     ttl = _resolve_session_timetolive()
@@ -44,6 +52,7 @@ def _create_user_session(*, user_id: int) -> UserSession:
         token_hash=secrets.token_urlsafe(48),
         expires_at=now + ttl,
         last_seen_at=now,
+        revoked_at=datetime.max.replace(tzinfo=UTC)
     )
     db.session.add(session_record)
     db.session.flush()
@@ -114,17 +123,19 @@ def _resolve_authenticated_session_state() -> tuple[UserSession | None, datetime
             )
         )
 
-    if session_record.revoked_at is not None:
+    revoked_at = _as_utc(session_record.revoked_at)
+    if revoked_at is not None and revoked_at <= this_time:
         return (
             None,
             this_time,
             _unauthorized_auth_envelope(
                 "session revoked",
-                details={"reason": "revoked", "revoked_at": f"{session_record.revoked_at}"}
+                details={"reason": "revoked", "revoked_at": f"{revoked_at}"}
             )
         )
 
-    if session_record.expires_at and session_record.expires_at <= this_time:
+    expires_at = _as_utc(session_record.expires_at)
+    if expires_at and expires_at <= this_time:
         session_record.revoked_at = this_time
         db.session.commit()
         return (
@@ -132,7 +143,7 @@ def _resolve_authenticated_session_state() -> tuple[UserSession | None, datetime
             this_time,
             _unauthorized_auth_envelope(
                 "session expired",
-                details={"reason": "expired", "expires_at": f"{session_record.expires_at}"}
+                details={"reason": "expired", "expires_at": f"{expires_at}"}
             )
         )
 
