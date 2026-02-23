@@ -1,8 +1,20 @@
 from flask import jsonify, session
-from flask_login import current_user, login_user
+from flask_login import current_user, login_user, login_required
 from .routes import BadRequestError, api_v1_bp, db, _read_json_object
-from ...models import User
+from ...models import User, UserSession
 from ...models.identity_defaults import build_transitional_identity_defaults
+
+# HELPERS
+def _revoke_session_record():
+    ...
+
+def _create_user_session():
+    ...
+
+def revoke_flask_session_lifecycle_record() -> None:
+    ...
+
+# ROUTES
 @api_v1_bp.post("/auth/login")
 def login_auth_user():
     """Authenticate an API-v1 user and establish a login session."""
@@ -35,6 +47,11 @@ def login_auth_user():
     db.session.commit()
 
     return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email, "role": user.role}}), 200
+
+@api_v1_bp.post("/auth/logout")
+@login_required
+def logout_auth_user():
+    ...
 
 @api_v1_bp.post("/auth/register")
 def register_auth_user():
