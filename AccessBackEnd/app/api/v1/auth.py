@@ -57,11 +57,13 @@ def revoke_flask_session_lifecycle_record() -> None:
 # ROUTES
 @api_v1_bp.post("/auth/login")
 def login_auth_user():
+
+
     """Authenticate an API-v1 user and establish a login session."""
     payload = _read_json_object()
     email = (payload.get("email") or "").strip().lower()
     password = payload.get("password") or ""
-
+    print(payload)
     if not email or not password:
         raise BadRequestError("email and password are required")
 
@@ -79,7 +81,6 @@ def login_auth_user():
             ),
             401,
         )
-
     user.mark_login_success()
     session_record = _create_user_session(user_id=int(user.id))
     login_user(user)
