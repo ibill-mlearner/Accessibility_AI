@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-import { persistSession, hydrateSession, clearSession } from '../stores/helpers/sessionsStuff'
+//import { persistSession, hydrateSession, clearSession } from '../stores/helpers/sessionsStuff'
 
 
 function buildGuestState() {

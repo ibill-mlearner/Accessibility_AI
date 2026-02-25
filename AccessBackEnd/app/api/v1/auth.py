@@ -9,6 +9,10 @@ from ...models import User, UserSession
 from ...models.identity_defaults import build_transitional_identity_defaults
 
 # HELPERS
+
+def _normalize_auth_email(value:str | None) -> str:
+    return (value or "").strip().lower()
+
 def _resolve_session_timetolive() -> timedelta:
     ttl_value = current_app.config.get("JWT_ACCESS_TOKEN_EXPIRES")
 
@@ -157,9 +161,8 @@ def login_auth_user():
 
     """Authenticate an API-v1 user and establish a login session."""
     payload = _read_json_object()
-    email = (payload.get("email") or "").strip().lower()
+    email = _normalize_auth_email(payload.get("email"))
     password = payload.get("password") or ""
-    print(payload)
     if not email or not password:
         raise BadRequestError("email and password are required")
 
@@ -241,7 +244,7 @@ def logout_auth_user():
 def register_auth_user():
     """Create and authenticate a user account for API-v1 clients."""
     payload = _read_json_object()
-    email = (payload.get("email") or "").strip().lower()
+    email = _normalize_auth_email(payload.get("email"))
     password = payload.get("password") or ""
     role = (payload.get("role") or "student").strip().lower()
 
