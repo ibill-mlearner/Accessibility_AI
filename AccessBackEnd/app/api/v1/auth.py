@@ -185,7 +185,12 @@ def login_auth_user():
     # Persists authenticated user id into Flask session, causing session cookie issuance/update.
     db.session.commit()
 
-    return jsonify({"message": "login successful", "user": {"id": user.id, "email": user.email, "role": user.role}}), 200
+    return jsonify({"message": "login successful",
+                    "user": {
+                        "id": user.id,
+                        "email": user.email,
+                        "role": user.role}
+                    }), 200
 
 
 @api_v1_bp.get("/auth/session")
@@ -274,10 +279,12 @@ def register_auth_user():
         jsonify(
             {
                 "message": "registration successful",
-                "user": {"id": user.id, "email": user.email, "role": user.role},
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "role": user.role},
             }
-        ),
-        201,
+        ),201,
     )
 
 def _enforce_roles(*allowed_roles: str):
