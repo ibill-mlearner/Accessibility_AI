@@ -39,6 +39,7 @@ export const useAuthStore = defineStore('auth', {
         this.allowedActions = guestState.allowedActions
 
     }, async initFromSession() {
+        return this.me()
         this.authError = ''
         try {
             const response = await api.post('/api/v1/auth/login', { email, password })
@@ -88,7 +89,7 @@ export const useAuthStore = defineStore('auth', {
         this.session = sessionPayload?.session || null
         this.allowedActions = Array.isArray(
             sessionPayload?.session?.allowed_actions) ? sessionPayload.session.allowed_actions : []
-        } catch ( err ) {
+        } catch ( error ) {
             this.clearAuthState()
             const status = error?.response?.status
             if (status === 401) {
@@ -108,8 +109,7 @@ export const useAuthStore = defineStore('auth', {
         }
 
     },setRole(role) {
-        this.role = role || (this.isAuthenticated ? this.role: 'guest') {
-        }
+        this.role = role || (this.isAuthenticated ? this.role: 'guest')
     }}
 })
 
