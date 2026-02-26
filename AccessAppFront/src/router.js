@@ -33,8 +33,9 @@ router.beforeEach(async (to) => {
     const auth = useAuthStore()
 
     if (!auth.sessionChecked) {
-        await auth.refreshSession?.() || await auth.initFromSession?.() || await auth.me?.()
-        auth.sessionChecked = true
+        // await auth.refreshSession?.() || await auth.initFromSession?.() || await auth.me?.()
+        // auth.sessionChecked = true
+        await auth.me()
     }
 
     if (!auth.isAuthenticated) {

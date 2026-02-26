@@ -17,6 +17,15 @@ export const useAppBootstrapStore = defineStore('appBootstrap', {
       this.authError = ''
 
       const auth = useAuthStore()
+      if (!auth.sessionChecked) {
+        await auth.me()
+      }
+
+      if (!auth.isAuthenticated) {
+        this.loading = false
+        return
+      }
+
       const chats = useChatStore()
       const classes = useClassStore()
       const notes = useNoteStore()

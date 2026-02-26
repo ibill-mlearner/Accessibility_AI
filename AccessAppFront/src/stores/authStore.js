@@ -81,7 +81,7 @@ export const useAuthStore = defineStore('auth', {
     }, async me() {
         this.authError = ''
         try {
-        const response = await api.post('/api/v1/auth/session')
+        const response = await api.get('/api/v1/auth/session')
         const sessionPayload = response?.data || {}
         const userPayload = sessionPayload?.user || {}
 

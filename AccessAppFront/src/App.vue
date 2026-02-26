@@ -19,16 +19,24 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAppStore } from './stores/appStore'
+import { useAppBootstrapStore } from './stores/appBootstrapStore'
+import { useAuthStore } from './stores/authStore'
 import SidebarNav from './components/SidebarNav.vue'
 import HeaderBar from './components/HeaderBar.vue'
 
 const route = useRoute()
-const store = useAppStore()
+const bootstrap = useAppBootstrapStore()
+const auth = useAuthStore()
 
 const isComponentPreviewRoute = computed(() => route.path.startsWith('/component-previews/'))
 
-onMounted(() => {
-  store.bootstrap()
+onMounted(async () => {
+  if (!auth.sessionChecked) {
+    await auth.me()
+  }
+
+  if (auth.isAuthenticated) {
+    await bootstrap.bootstrap()
+  }
 })
 </script>
