@@ -1,7 +1,5 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
-//import { persistSession, hydrateSession, clearSession } from '../stores/helpers/sessionsStuff'
-
 
 function buildGuestState() {
   return {
@@ -11,7 +9,8 @@ function buildGuestState() {
     isAuthenticated: false,
     authError: '',
     session: null,
-    allowedActions: []
+    allowedActions: [],
+    sessionChecked: false
   }
 }
 
@@ -37,18 +36,24 @@ export const useAuthStore = defineStore('auth', {
         this.authError = guestState.authError
         this.session = guestState.session
         this.allowedActions = guestState.allowedActions
+        this.sessionChecked = guestState.sessionChecked
 
     }, async initFromSession() {
         return this.me()
+
+
+    }, async login() {
         this.authError = ''
         try {
             const response = await api.post('/api/v1/auth/login', { email, password })
             this.applyAuthenticatedUser(response?.data?.user || {})
             this.session = null
             this.allowedActions = []
+            this.sessionChecked = true
             return true
-        } catch {
+        } catch (error) {
             this.clearAuthState()
+            this.sessionChecked = true
             const status = error?.response?.status
             if (status === 400 || status === 401) {
               this.authError = 'Invalid email or password.'
@@ -57,9 +62,10 @@ export const useAuthStore = defineStore('auth', {
             }
             throw error
         }
+    },
 
-    }, async register({ email, password, role, keyword }) {
-        const temp = keyword
+    async register({ email, password, role}) {
+        // const temp = keyword -- password for registering as admin maybe?
         this.authError = ''
         try {
             const response = await api.post('/api/v1/auth/register', { email, password, role })
@@ -81,14 +87,16 @@ export const useAuthStore = defineStore('auth', {
     }, async me() {
         this.authError = ''
         try {
-        const response = await api.get('/api/v1/auth/session')
-        const sessionPayload = response?.data || {}
-        const userPayload = sessionPayload?.user || {}
+            const response = await api.get('/api/v1/auth/session')
+            const sessionPayload = response?.data || {}
+            const userPayload = sessionPayload?.user || {}
 
-        this.applyAuthenticatedUser(userPayload)
-        this.session = sessionPayload?.session || null
-        this.allowedActions = Array.isArray(
-            sessionPayload?.session?.allowed_actions) ? sessionPayload.session.allowed_actions : []
+            this.applyAuthenticatedUser(userPayload)
+            this.session = sessionPayload?.session || null
+            this.allowedActions = Array.isArray(
+                sessionPayload?.session?.allowed_actions) ? sessionPayload.session.allowed_actions : []
+            this.sessionChecked = true
+            return true
         } catch ( error ) {
             this.clearAuthState()
             const status = error?.response?.status
@@ -112,43 +120,3 @@ export const useAuthStore = defineStore('auth', {
         this.role = role || (this.isAuthenticated ? this.role: 'guest')
     }}
 })
-
-
-
-//    initFromSession() {
-//        return {
-//            currentUser: null,
-//            user: null,
-//            isAuthenticated: false,
-//            role: 'guest',
-//            clear: false
-//        }
-//        const hydrated = hydrateSession()
-//        if (!hydrated) return
-//        if (hydrated.clear) {
-//        this.logout()
-//        return
-//        }
-//
-//        this.currentUser = hydrated.currentUser
-//        this.user = hydrated.user
-//        this.isAuthenticated = hydrated.isAuthenticated
-//        this.role = hydrated.role
-//        this.authError = ''
-//    },
-//    async login({ email, password }) {
-//        this.authError = ''
-//        const response = await api.post('/api/v1/auth/login', { email, password })
-//        const u = response?.data?.user || {}
-//        const ok = Boolean(u.id && u.email)
-//
-//
-//
-//        this.currentUser = ok ? { id: u.id, email: u.email } : null
-//        this.user = this.currentUser
-//        this.isAuthenticated = ok
-//        this.role = u.role || (ok ? 'authenticated' : 'guest')
-//        // persistSession and hydrateSession were removed
-//        // persistSession({ role: this.role, currentUser: this.currentUser, isAuthenticated: this.isAuthenticated })
-//        return true
-//    },

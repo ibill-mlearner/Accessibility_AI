@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 // import { useAppStore } from './stores/appStore'
-// import { useAppBootstrapStore } from './stores/appBootstrapStore'
+ import { useAppBootstrapStore } from './stores/appBootstrapStore'
 import './styles/base.css'
 
 const app = createApp(App)
@@ -11,7 +11,7 @@ const pinia = createPinia()
 
 app.use(pinia)
 
-const boostrap = useAppBootstrapStore(pinia)
+useAppBootstrapStore(pinia)
 
 // const store = useAppStore(pinia)
 // store.hydrateSession()

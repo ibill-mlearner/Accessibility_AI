@@ -9,7 +9,7 @@
       </div>
       <main class="col-12 col-xl-9 d-flex flex-column gap-3">
         <HeaderBar />
-        <p v-if="store.error" class="alert alert-danger mb-0">{{ store.error }}</p>
+        <p v-if="appError" class="alert alert-danger mb-0">{{ appError }}</p>
         <router-view />
       </main>
     </div>
@@ -29,6 +29,7 @@ const bootstrap = useAppBootstrapStore()
 const auth = useAuthStore()
 
 const isComponentPreviewRoute = computed(() => route.path.startsWith('/component-previews/'))
+const appError = computed(() => bootstrap.error || bootstrap.authError)
 
 onMounted(async () => {
   if (!auth.sessionChecked) {
