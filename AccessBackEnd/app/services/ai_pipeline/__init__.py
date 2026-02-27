@@ -7,4 +7,6 @@ __all__ = [
     "AIPipelineUpstreamError",
     "map_exception_to_upstream_error",
     "invoke_provider_or_raise",
+    "ModelInventoryConfig",
+    "ModelInventoryService"
 ]

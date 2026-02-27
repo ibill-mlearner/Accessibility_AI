@@ -142,9 +142,6 @@ def _resolve_chat_id(payload: dict[str, Any]) -> int | None:
             message="chat_id must be an integer",
         )
 
-
-
-
 def _build_interaction_persistence_payload(payload: dict[str, Any], result: Any) -> dict[str, int | None]:
     """Resolve and validate FK inputs needed for interaction persistence."""
     chat_id = _resolve_chat_id(payload)
@@ -157,7 +154,6 @@ def _build_interaction_persistence_payload(payload: dict[str, Any], result: Any)
         "prompt_link_id": prompt_link_id,
         "model_id": _resolve_ai_model_id(result),
     }
-
 
 def _sync_chat_latest_interaction(chat_id: int | None, interaction_id: int) -> None:
     """Attach latest AI interaction id onto the chat when chat linkage exists."""
@@ -204,7 +200,6 @@ def _persist_ai_interaction(
         )
 
     return None
-
 
 @api_v1_bp.post("/ai/interactions")
 @login_required
@@ -318,3 +313,11 @@ def list_chat_ai_interactions(chat_id: int):
         .all()
     )
     return jsonify([_serialize_record("ai_interaction", interaction) for interaction in interactions]), 200
+
+@api_v1_bp.get("/ai/models/available")
+@login_required
+def list_available_ai_models():
+    """Return read-only inventory of currently discoverable AI models."""
+    ai_service = current_app.extensions["ai_service"]
+    payload = ai_service.list_available_models()
+    return jsonify(payload), 200

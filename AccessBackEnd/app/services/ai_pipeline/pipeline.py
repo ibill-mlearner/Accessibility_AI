@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .exceptions import invoke_provider_or_raise
+from .model_inventory import ModelInventoryConfig, ModelInventoryService
 from .providers import (
     AIProvider,
     HTTPEndpointProvider,
@@ -69,12 +70,6 @@ class AIPipelineService:
         context: dict[str, Any] | None = None,
         **metadata: Any,
     ) -> dict:
-        # Logic intent:
-        # 1) Accept optional metadata kwargs (for API/logger compatibility)
-        #    without coupling the core pipeline to logging concerns.
-        # 2) Wrap raw inputs in a typed request object.
-        # 3) Invoke provider and validate JSON shape.
-        # 4) Return a normalized dictionary with consistent metadata.
         _ = metadata
         request = PipelineRequest(prompt=prompt, context=context or {})
         payload = invoke_provider_or_raise(self._provider, request)
@@ -84,7 +79,6 @@ class AIPipelineService:
             payload["meta"] = {"warning": "provider returned invalid meta payload"}
             meta = payload["meta"]
 
-        # Keep canonical response keys centralized so API routes can pass through safely.
         response_data = self._canonicalize_provider_payload(payload)
 
         response = PipelineResponse(
@@ -98,8 +92,23 @@ class AIPipelineService:
         )
         return {**response.data, "meta": response.meta}
 
-    # this is still confusing and needs to be clarified
-    # why a static method in this class, if its a generic method
+    def list_available_models(self) -> dict[str, Any]:
+        """Return provider/model inventory from configured local sources."""
+
+        inventory_service = ModelInventoryService(
+            ModelInventoryConfig(
+                provider=self.config.provider,
+                model_name=self.config.model_name,
+                ollama_endpoint=self.config.ollama_endpoint,
+                live_endpoint=self.config.live_endpoint,
+                ollama_model_id=self.config.ollama_model_id,
+                huggingface_model_id=self.config.huggingface_model_id,
+                huggingface_cache_dir=self.config.huggingface_cache_dir,
+                timeout_seconds=self.config.timeout_seconds,
+            )
+        )
+        return inventory_service.list_available_models()
+
     @staticmethod
     def _canonicalize_provider_payload(payload: dict[str, Any]) -> dict[str, Any]:
         """Map provider-specific payload keys into a stable UI contract."""
@@ -128,8 +137,6 @@ class AIPipelineService:
         }
 
     def _build_provider(self, config: AIPipelineConfig) -> AIProvider:
-        # Logic intent:
-        # - Route configured provider aliases to concrete provider implementations.
         provider = (config.provider or "ollama").strip().lower()
 
         if provider in {"mock", "mock_json", "json"}:
