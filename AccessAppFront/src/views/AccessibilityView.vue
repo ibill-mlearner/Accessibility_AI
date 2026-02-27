@@ -1,7 +1,10 @@
 <template>
   <section class="d-flex flex-column gap-3">
+    <p v-if="!fstore.features.length" class="text-muted mb-2">
+      No accessibility features available right now.
+    </p>
     <FeatureOptionCard
-      v-for="feature in store.features"
+      v-for="feature in fstore.features"
       :key="feature.id"
       :item="feature"
       @toggle="setFeatureEnabled(feature, $event)"

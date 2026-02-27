@@ -17,7 +17,7 @@ import { computed } from 'vue';
 import OptionCard from '../ui/OptionCard.vue'
 import OptionSelector from '../ui/OptionSelector.vue'
 
-const props = deffineProps({
+const props = defineProps({
   item: { type: Object, required: true},
   name: { type: String, default: 'feature' }
 })
