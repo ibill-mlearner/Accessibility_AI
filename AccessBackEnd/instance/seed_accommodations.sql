@@ -1,19 +1,49 @@
 -- Seed accommodations and prompt-link baseline data for AccessBackEnd MVP.
-
+-- GPT IDEAS NOT FINAL SELECTIONS OR ACCESSIBLITY FEATURES
 BEGIN TRANSACTION;
 
 INSERT INTO accommodations (title, details, active)
-SELECT ' ', ' ', 1
-WHERE NOT EXISTS (SELECT 1 FROM accommodations WHERE id = 1);
+SELECT 'Simplified language', 'Use plain language and define technical terms with short explanations.', 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM accommodations WHERE title = 'Simplified language'
+);
+
+INSERT INTO accommodations (title, details, active)
+SELECT 'Bullet-point summaries', 'Respond with concise bullet points and a short recap at the end.', 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM accommodations WHERE title = 'Bullet-point summaries'
+);
+
+INSERT INTO accommodations (title, details, active)
+SELECT 'Dyslexia-friendly formatting', 'Use short paragraphs, strong headings, and avoid dense text blocks.', 1
+WHERE NOT EXISTS (
+  SELECT 1 FROM accommodations WHERE title = 'Dyslexia-friendly formatting'
+);
+
+INSERT INTO accommodations (title, details, active)
+SELECT 'Extra spacing and pacing', 'Insert extra line spacing and split multi-step instructions into numbered steps.', 0
+WHERE NOT EXISTS (
+  SELECT 1 FROM accommodations WHERE title = 'Extra spacing and pacing'
+);
+
+INSERT INTO accommodations (title, details, active)
+SELECT 'Read-aloud cues', 'Add punctuation and phrasing cues that make text easier for screen readers.', 0
+WHERE NOT EXISTS (
+  SELECT 1 FROM accommodations WHERE title = 'Read-aloud cues'
+);
 
 INSERT INTO system_prompts (instructor_id, class_id, text)
-SELECT NULL, NULL, ' '
+SELECT NULL, NULL, 'Global accessibility accommodations baseline prompt.'
 WHERE NOT EXISTS (SELECT 1 FROM system_prompts WHERE id = 1);
 
 INSERT INTO accommodations_id_system_prompts (accommodation_id, system_prompt_id)
-SELECT 1, 1
-WHERE NOT EXISTS (
-  SELECT 1 FROM accommodations_id_system_prompts WHERE accommodation_id = 1 AND system_prompt_id = 1
-);
+SELECT a.id, 1
+FROM accommodations AS a
+WHERE a.title = 'Simplified language'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM accommodations_id_system_prompts AS link
+    WHERE link.accommodation_id = a.id AND link.system_prompt_id = 1
+  );
 
 COMMIT;
