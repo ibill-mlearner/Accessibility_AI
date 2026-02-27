@@ -5,6 +5,7 @@ from .routes import (
     _forbidden_response,
     _deserialize_payload,
     _read_json_object,
+    _parse_required_date,
     api_v1_bp,
     BadRequestError,
     db,
@@ -13,7 +14,7 @@ from .routes import (
 from typing import Any
 
 from ...services.chat_access_service import ChatAccessService
-from ...models import Chat, Message
+from ...models import Chat, Message, CourseClass, Note
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
@@ -165,6 +166,7 @@ def list_chat_messages(chat_id: int):
     )
     return jsonify([_serialize_record("message", message) for message in messages]), 200
 
+#HELPERs
 def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
     if "chat_id" in payload:
         _require_record("chat", Chat, int(payload["chat_id"]))
