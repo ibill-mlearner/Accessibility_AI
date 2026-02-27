@@ -7,6 +7,7 @@ import { toResourceError } from '../stores/helpers/apiErrors'
 export const useChatStore = defineStore('chats', {
   state: () => ({
     selectedChatId: null,
+    selectedModel: 'General',
     newChatRequestId: 0,
     chats: [],
     actionStatus: {}
@@ -107,6 +108,25 @@ export const useChatStore = defineStore('chats', {
       } catch {
         setActionError(this.actionStatus, key, 'Unable to load chat messages.')
         throw new Error('Unable to load chat messages.')
+      }
+    },
+    async ensureActiveChat(payload) {
+      const existing = this.chats.find((c) => c.id === this.selectedChatId)
+      if (existing) {
+        return existing
+      }
+
+      const key = 'ensureActiveChat'
+      setActionStatus(this.actionStatus, key, {loading: true, error: ''})
+      try {
+        const response = await api.post('/api/v1/chats', payload)
+        this.chats = [...this.chats, response.data]
+        this.selectedChatId = response.data.id
+        setActionStatus(this.actionStatus, key, { loading: false, error: ''})
+        return response.data
+      } catch {
+        setActionError(this.actionStatus, key, 'unable to start chat')
+        throw new Error('unable to start chat')
       }
     },
     async createMessage(payload) {

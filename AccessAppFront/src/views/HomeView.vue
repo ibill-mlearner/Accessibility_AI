@@ -4,7 +4,7 @@
       <div class="d-flex flex-column gap-2">
         <p v-if="interactionError" class="alert alert-danger py-2 mb-0">{{ interactionError }}</p>
         <p v-if="interactionLoading" class="alert alert-info py-2 mb-0">Sending…</p>
-        <template v-if="store.role !== 'guest'">
+        <template v-if="auth.role !== 'guest'">
           <ChatBubbleCard
             v-for="message in conversationMessages"
             :key="message.id"
@@ -18,11 +18,11 @@
     </div>
     <ComposerBar
       v-model="prompt"
-      :selected-model="store.selectedModel"
-      :show-login="store.role === 'guest'"
+      :selected-model="chatStore.selectedModel"
+      :show-login="auth.role === 'guest'"
       @login="router.push('/login')"
       @send="sendPrompt"
-      @update:selected-model="store.selectedModel = $event"
+      @update:selected-model="chatStore.selectedModel = $event"
     />
   </section>
 </template>
@@ -30,13 +30,21 @@
 <script setup>
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
+import { useChatStore } from '../stores/chatStore'
+import { useClassStore } from '../stores/classStore'
+import { useNoteStore } from '../stores/noteStore'
 import ChatBubbleCard from '../components/chat/ChatBubbleCard.vue'
 import ComposerBar from '../components/chat/ComposerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
-const store = useAppStore()
+// const store = useAppStore()
+const auth = useAuthStore()
+const chatStore = useChatStore()
+const classStore = useClassStore()
+const noteStore = useNoteStore()
+
 const prompt = ref('')
 const interactionLoading = ref(false)
 const interactionError = ref('')
@@ -45,7 +53,7 @@ const messageListRef = ref(null)
 const timelineLoadRequestId = ref(0)
 
 
-const selectedChat = computed(() => store.chats.find((chat) => chat.id === store.selectedChatId) || null)
+const selectedChat = computed(() => chatStore.chats.find((chat) => chat.id === chatStore.selectedChatId) || null)
 const activeChatText = computed(() => {
   if (!selectedChat.value) return "System's response . . ."
   return selectedChat.value.title || "System's response . . ."
@@ -200,8 +208,8 @@ async function hydrateTimelineForChat(chatId) {
 
   try {
     const [interactions, messages] = await Promise.all([
-      store.fetchChatInteractions(chatId),
-      store.fetchChatMessages(chatId)
+      chatStore.fetchChatInteractions(chatId),
+      chatStore.fetchChatMessages(chatId)
     ])
 
     if (timelineLoadRequestId.value !== requestId) return
@@ -238,14 +246,14 @@ async function sendPrompt() {
   // (2) require a structured verdict like {allow, risk_level, reason}, and
   // (3) block or require confirmation on medium/high risk while logging the verdict
   // for audit analysis. This is a planning note and may be toggled via feature flag.
-  if (store.role === 'guest') {
+  if (auth.role === 'guest') {
     interactionError.value = 'Please log in to send a prompt.'
     await router.push({ path: '/login', query: { next: '/', prompt: cleanPrompt } })
     return
   }
 
   const draftPrompt = prompt.value
-  const classIdForChat = store.selectedClassId || store.classes[0]?.id
+  const classIdForChat = classStore.selectedClassId || classStore.classes[0]?.id
   if (!classIdForChat) {
     interactionError.value = 'No class is available for this account yet.'
     return
@@ -258,22 +266,22 @@ async function sendPrompt() {
 
   try {
     // Generate title only for first-chat initialization; existing titles are not overwritten here.
-    const firstChatTitle = buildFirstChatTitle(cleanPrompt, store.chats.length + 1)
+    const firstChatTitle = buildFirstChatTitle(cleanPrompt, chatStore.chats.length + 1)
 
     // Pass generated title through ensureActiveChat creation path.
     const ensuredChat = await withSingleRetry(() =>
-      store.ensureActiveChat({
+      chatStore.ensureActiveChat({
         // Use helper-derived token title in place of character slicing.
         title: firstChatTitle,
         started_at: new Date().toISOString(),
-        model: store.selectedModel || 'General',
+        model: chatStore.selectedModel || 'General',
         class_id: classIdForChat,
-        user_id: store.currentUser?.id
+        user_id: auth.currentUser?.id
       })
     )
 
     const userMessage = await withSingleRetry(() =>
-      store.createMessage({
+      chatStore.createMessage({
         id: createId(),
         chat_id: ensuredChat.id,
         message_text: cleanPrompt,
@@ -285,7 +293,7 @@ async function sendPrompt() {
 
     let aiResponse
     try {
-      aiResponse = await store.requestAiInteraction({
+      aiResponse = await chatStore.requestAiInteraction({
         prompt: cleanPrompt,
         chat_id: ensuredChat.id,
         context: {
@@ -317,7 +325,7 @@ async function sendPrompt() {
     await scrollToLatestTurn()
 
     const savedAssistantMessage = await withSingleRetry(() =>
-      store.createMessage({
+      chatStore.createMessage({
         id: createId(),
         chat_id: ensuredChat.id,
         message_text: assistantText,
@@ -363,26 +371,26 @@ async function saveCurrentChatAsNote() {
 
   const payload = {
     id: Date.now(),
-    class: store.selectedClass?.name || 'General',
+    class: classStore.selectedClass?.name || 'General',
     date: new Date().toISOString().slice(0, 10),
     chat: selectedChat.value.title || 'Current chat',
     content: selectedChat.value.title || ''
   }
 
   console.info('[API trigger] createNote', {
-    actor: store.role,
+    actor: auth.role,
     why: 'User clicked Save as Note on the active chat bubble.',
     sourceChatId: selectedChat.value?.id,
     sourceChatTitle: payload.chat,
     className: payload.class
   })
 
-  await store.createNote(payload)
+  await noteStore.createNote(payload)
 }
 
 
 watch(
-  () => store.newChatRequestId,
+  () => chatStore.newChatRequestId,
   () => {
     timelineMessages.value = []
     interactionError.value = ''
@@ -391,7 +399,7 @@ watch(
 )
 
 watch(
-  () => store.selectedChatId,
+  () => chatStore.selectedChatId,
   async (chatId) => {
     interactionError.value = ''
     await hydrateTimelineForChat(chatId)
