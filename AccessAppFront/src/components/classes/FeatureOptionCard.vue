@@ -1,30 +1,44 @@
 <template>
-  <article class="card shadow-sm">
-    <div class="card-body row g-3">
-      <aside class="col-12 col-lg-4">
-        <p class="mb-1">Saved for class: {{ note.class }}</p>
-        <p class="mb-1">Saved on: {{ note.date }}</p>
-        <p class="mb-1">Chat title: {{ note.chat }}</p>
-      </aside>
-      <div class="col-12 col-lg-8 d-flex flex-column gap-2">
-        <ChatBubbleCard :text="note.content" />
-        <div class="d-flex justify-content-between gap-2">
-          <button class="btn btn-outline-secondary">Read Aloud</button>
-          <button class="btn btn-outline-danger" @click="$emit('delete', note.id)">Delete Note</button>
-        </div>
-      </div>
-    </div>
-  </article>
+  <OptionCard :description="featureDescription">
+    <template #selector>
+      <OptionSelector
+        type="checkbox"
+        :name="name"
+        :label="featureLabel"
+        :checked="isActive"
+        @change="onToggle"
+      />
+    </template>
+  </OptionCard>
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import OptionCard from '../ui/OptionCard.vue'
 import OptionSelector from '../ui/OptionSelector.vue'
 
-defineProps({
-  item: { type: Object, required: true },
+const props = deffineProps({
+  item: { type: Object, required: true},
   name: { type: String, default: 'feature' }
 })
 
-defineEmits(['toggle'])
+const emit = defineEmits(['toggle'])
+
+const featureLabel = computed( () =>
+  props.item?.title || props.item?.name || 'Accessibility feature'
+) 
+
+const featureDescription = computed( () =>
+  props.item?.details || props.item?.description || ''
+)
+
+const isActive = computed( () =>
+  Boolean(props.item?.active ?? props.item?.enabled )
+)
+
+function onToggle(event) {
+  emit('toggle', event?.target?.checked === true )
+}
+
+// defineEmits(['toggle'])
 </script>

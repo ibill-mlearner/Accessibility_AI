@@ -86,11 +86,15 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
         }
 
     if resource == "feature":
+        details = record.details
+        active = record.active
         return {
             "id": record.id,
             "title": record.title,
-            "details": record.details,
-            "active": record.active,
+            "details": details,
+            "active": active,
+            "description": details,
+            "enabled": active
         }
 
     if resource == "note":

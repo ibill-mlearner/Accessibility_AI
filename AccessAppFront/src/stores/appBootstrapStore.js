@@ -3,6 +3,7 @@ import { useChatStore } from './chatStore'
 import { useClassStore } from './classStore'
 import { useNoteStore } from './noteStore'
 import { useAuthStore } from './authStore'
+import { useFeatureStore } from './featureStore'
 
 export const useAppBootstrapStore = defineStore('appBootstrap', {
   state: () => ({
@@ -29,11 +30,13 @@ export const useAppBootstrapStore = defineStore('appBootstrap', {
       const chats = useChatStore()
       const classes = useClassStore()
       const notes = useNoteStore()
+      const features = useFeatureStore()
 
       const results = await Promise.allSettled([
         chats.fetchChats(),
         classes.fetchClasses(),
-        notes.fetchNotes()
+        notes.fetchNotes(),
+        features.fetchFeatures()
       ])
 
       const failures = results
