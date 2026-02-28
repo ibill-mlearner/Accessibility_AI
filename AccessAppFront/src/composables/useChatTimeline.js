@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { normalizeTimeline } from '../../utils/timeline'
+import { normalizeTimeline } from '../utils/timeline'
 
 export function useChatTimeline(chatStore) {
   const timelineMessages = ref([])

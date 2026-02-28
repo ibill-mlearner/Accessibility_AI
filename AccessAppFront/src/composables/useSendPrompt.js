@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { buildFirstChatTitle, createId, readAssistantText, withSingleRetry } from '../../utils/helpers'
+import { buildFirstChatTitle, createId, readAssistantText, withSingleRetry } from '../utils/helpers'
 
 export function useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError }) {
   const prompt = ref('')
