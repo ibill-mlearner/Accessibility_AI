@@ -238,6 +238,9 @@ class OllamaProvider:
 
     def _build_messages(self, request: PipelineRequest) -> list[dict[str, str]]:
         sanitized_context = _sanitize_context(request.context)
+        dynamic_system_instructions = ""
+        if isinstance(request.context, dict):
+            dynamic_system_instructions = _clip_text(request.context.get("system_instructions"), limit=500)
         messages = [
             {
                 "role": "system",
@@ -245,12 +248,20 @@ class OllamaProvider:
                     "You are a concise assistant for accessibility learning support. "
                     f"{_json_response_contract()}"
                 ),
-            },
-            {
-                "role": "user",
-                "content": _clip_text(request.prompt),
-            },
+            }
+            # ,
+            # {
+            #     "role": "user",
+            #     "content": _clip_text(request.prompt),
+            # },
         ]
+        if dynamic_system_instructions:
+            message.append(
+                {
+                    "role": "system",
+                    "content" _clip_text(request.prompt)
+                }
+            )
 
         if sanitized_context:
             messages.append(

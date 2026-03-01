@@ -1,9 +1,11 @@
 import { ref } from 'vue'
 import { buildFirstChatTitle, createId, readAssistantText, withSingleRetry } from '../utils/helpers'
+import { useFeatureStore } from '../stores/featureStore'
 
 export function useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError }) {
   const prompt = ref('')
   const interactionLoading = ref(false)
+  const featureStore = useFeatureStore()
 
   async function sendPrompt() {
     if (interactionLoading.value) return
@@ -43,12 +45,21 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
       timelineMessages.value.push({ id: userMessage.id, role: 'user', text: userMessage.message_text })
       await scrollToLatestTurn()
 
+      const selectedAccessibilityLinkIds = useFeatureStore.selectedLinkIds
+
       let aiResponse
       try {
         aiResponse = await chatStore.requestAiInteraction({
-          prompt: cleanPrompt,
-          chat_id: ensuredChat.id,
-          context: { chat_id: ensuredChat.id, class_id: classIdForChat, messages: [{ role: 'user', content: cleanPrompt }] }
+            prompt: cleanPrompt,
+            chat_id: ensuredChat.id,
+            selected_accessibility_link_ids: selectedAccessibilityLinkIds,
+            context: 
+            { 
+                chat_id: ensuredChat.id, 
+                class_id: classIdForChat, 
+                messages: [{ role: 'user', content: cleanPrompt }],
+                selected_accessibility_link_ids: selectedAccessibilityLinkIds
+            }
         })
       } catch (error) {
         interactionError.value = error?.response?.status === 400 ? 'Prompt was rejected. Please edit and retry.' : 'AI is temporarily unavailable. Please retry.'

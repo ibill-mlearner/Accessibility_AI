@@ -13,11 +13,14 @@ from .routes import (
     api_v1_bp,
     db,
     _raise_bad_request_from_exception,
+    _read_json_object,
+    _parse_int_field,
+    BadRequestError
 )
 
 from ...services.chat_access_service import ChatAccessService
 from ...services.ai_pipeline.exceptions import AIPipelineUpstreamError
-from ...models import AIModel, AIInteraction, Chat
+from ...models import AIModel, AIInteraction, Chat, CourseClass, SystemPrompt, User
 from ...models.ai_interaction import AccommodationSystemPrompt
 from ...db.repositories.interaction_repo import AIInteractionRepository
 
@@ -96,6 +99,20 @@ def _resolve_initiated_by(payload: dict[str, Any]) -> str:
         return str(payload["user_id"])
     return "anonymous"
 
+def _resolve_system_instructions(payload: dict[str, Any]) -> str:
+    """Resolve DB backed system instructions for AI providers"""
+
+    prompt_link_id = _resolve_prompt_link_id(payload)
+    if prompt_link_id is None:
+        return ""
+    
+    prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id)
+    parts = [
+        (prompt_link.system_prompt.text or "").strip() if prompt_link.system_prompt else "",
+        (prompt_link.accommodation.details or "").strip() if prompt_link.accommodation else ""
+    ]
+
+    return "\n\n".join(p for p in parts if p)
 
 def _resolve_provider(result: Any) -> str:
     """Resolve persisted provider name from response payload or app config."""
@@ -221,14 +238,7 @@ def create_ai_interaction():
                 prompt = content.strip()
                 break
 
-    prompt_link_id = _resolve_prompt_link_id(payload)
-    if not prompt and prompt_link_id is not None:
-        prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id)
-        parts = [
-            (prompt_link.system_prompt.text or "").strip() if prompt_link.system_prompt else "",
-            (prompt_link.accommodation.details or "").strip() if prompt_link.accommodation else "",
-        ]
-        prompt = "\n\n".join(part for part in parts if part)
+    system_instructions = _resolve_system_instructions(payload)
 
     context_payload = payload.get("context")
     if not isinstance(context_payload, dict):
@@ -236,12 +246,15 @@ def create_ai_interaction():
     if messages and "messages" not in context_payload:
         context_payload["messages"] = messages
 
+    context_payload["system_instructions"] = system_instructions
+
     _publish(
         "api.ai_interaction_requested",
         {
             "has_prompt": bool(prompt),
             "has_messages": bool(messages),
             "has_system_prompt": bool(payload.get("system_prompt")),
+            "has_db_system_instructions": bool(system_instructions),
             "has_rag": bool(payload.get("rag")),
         },
     )
@@ -321,3 +334,80 @@ def list_available_ai_models():
     ai_service = current_app.extensions["ai_service"]
     payload = ai_service.list_available_models()
     return jsonify(payload), 200
+
+@api_v1_bp.get("/system-prompts")
+@login_required
+def list_system_prompts():
+    prompts = db.session.query(SystemPrompt).order_by(SystemPrompt.id.asc()).all()
+    return jsonify([_serialize_record("system_prompt", prompt) for prompt in prompts]), 200
+
+
+@api_v1_bp.post("/system-prompts")
+@login_required
+def create_system_prompt():
+    payload = _read_json_object()
+
+    #todo: Restrict writes to instructor/admin roles and class ownership.
+    class_id = _parse_int_field(payload.get("class_id"), field_name="class_id")
+    instructor_id = _parse_int_field(payload.get("instructor_id"), field_name="instructor_id")
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        raise BadRequestError("text is required")
+
+    if class_id is not None:
+        _require_record("class", CourseClass, class_id)
+    if instructor_id is not None:
+        _require_record("user", User, instructor_id)
+
+    prompt = SystemPrompt(class_id=class_id, instructor_id=instructor_id, text=text)
+    db.session.add(prompt)
+    db.session.commit()
+    return jsonify(_serialize_record("system_prompt", prompt)), 201
+
+
+@api_v1_bp.get("/system-prompts/<int:prompt_id>")
+@login_required
+def get_system_prompt(prompt_id: int):
+    prompt = _require_record("system_prompt", SystemPrompt, prompt_id)
+    return jsonify(_serialize_record("system_prompt", prompt)), 200
+
+
+@api_v1_bp.patch("/system-prompts/<int:prompt_id>")
+@login_required
+def update_system_prompt(prompt_id: int):
+    prompt = _require_record("system_prompt", SystemPrompt, prompt_id)
+    payload = _read_json_object()
+
+    #todo: Restrict writes to instructor/admin roles and class ownership.
+    if "class_id" in payload:
+        class_id = _parse_int_field(payload.get("class_id"), field_name="class_id")
+        if class_id is not None:
+            _require_record("class", CourseClass, class_id)
+        prompt.class_id = class_id
+
+    if "instructor_id" in payload:
+        instructor_id = _parse_int_field(payload.get("instructor_id"), field_name="instructor_id")
+        if instructor_id is not None:
+            _require_record("user", User, instructor_id)
+        prompt.instructor_id = instructor_id
+
+    if "text" in payload:
+        text = str(payload.get("text") or "").strip()
+        if not text:
+            raise BadRequestError("text is required")
+        prompt.text = text
+
+    db.session.commit()
+    return jsonify(_serialize_record("system_prompt", prompt)), 200
+
+
+@api_v1_bp.delete("/system-prompts/<int:prompt_id>")
+@login_required
+def delete_system_prompt(prompt_id: int):
+    prompt = _require_record("system_prompt", SystemPrompt, prompt_id)
+
+    #todo: Restrict writes to instructor/admin roles and class ownership.
+    response_payload = _serialize_record("system_prompt", prompt)
+    db.session.delete(prompt)
+    db.session.commit()
+    return jsonify(response_payload), 200

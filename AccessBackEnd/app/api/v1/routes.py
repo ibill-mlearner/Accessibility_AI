@@ -123,6 +123,24 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
             "created_at": created_at,
         }
 
+    if resource == "system_prompt":
+        return {
+            "id": record.id,
+            "text": record.text,
+            "class_id": record.class_id,
+            "instructor_id": record.instructor_id,
+        }
+    if resource == "accommodation_system_prompt_link":
+        return {
+            "id": record.id,
+            "accommodation_id": record.accommodation_id,
+            "system_prompt_id": record.system_prompt_id,
+            # Optional denormalized fields for selection UIs.
+            "accommodation_title": record.accommodation.title if getattr(record, "accommodation", None) else None,
+            "system_prompt_text": record.system_prompt.text if getattr(record, "system_prompt", None) else None,
+        }
+
+
     return {}
 
 

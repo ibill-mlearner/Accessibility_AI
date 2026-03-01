@@ -59,7 +59,11 @@ const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router,
 // const messageListRef = ref(null)
 // const timelineLoadRequestId = ref(0)
 
-
+const messageVariantMap = {
+  assistant: 'system',
+  system: 'system',
+  user: 'user'
+}
 const selectedChat = computed(() => chatStore.chats.find((chat) => chat.id === chatStore.selectedChatId) || null)
 const conversationMessages = computed(() => 
   timelineMessages.value.length ? timelineMessages.value.map((message) => 

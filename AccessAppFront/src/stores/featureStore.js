@@ -13,8 +13,14 @@ function normalizeFeature(feature = {}) {
 export const useFeatureStore = defineStore('features', {
     state: () => ({
         features: [],
+        selectedAccessibilityLinkIds: [],
         actionStatus: {}
     }),
+    getters: {
+        selectedLinkIds(state) {
+            return state.selectedAccessibilityLinkIds.map( (id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+        }
+    },
     actions: {
     async fetchFeatures() {
         const key = 'fetchFeatures'
@@ -53,7 +59,15 @@ export const useFeatureStore = defineStore('features', {
             setActionError(this.actionStatus, key, 'Unable to update accessibility feature.')
             throw new Error('Unable to update accessibility feature.')
         }
+    },
+    setSelectedAccessibilityLinkIds(linkIds = []) {
+        let normalIds = []
+
+        if (Array.isArray(linkIds)) {
+            normalIds = linkIds.map( (id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)
+        }
+        this.selectedAccessibilityLinkIds = Array.from(new Set(normalIds))
+
     }
-    }
-})
-// need to create full crud operations here when backend is done
+    
+}})
