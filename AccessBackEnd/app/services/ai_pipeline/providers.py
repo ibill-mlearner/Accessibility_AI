@@ -256,12 +256,18 @@ class OllamaProvider:
             # },
         ]
         if dynamic_system_instructions:
-            message.append(
+            messages.append(
                 {
                     "role": "system",
-                    "content" _clip_text(request.prompt)
+                    "content": dynamic_system_instructions
                 }
             )
+        messages.append(
+            {
+                "role": "user",
+                "content": _clip_text(request.prompt)
+            }
+        )
 
         if sanitized_context:
             messages.append(
