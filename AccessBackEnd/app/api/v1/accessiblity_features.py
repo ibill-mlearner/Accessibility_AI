@@ -3,8 +3,7 @@ from typing import Any
 from flask import jsonify
 from flask_login import login_required
 
-from .routes import {
-    
+from .routes import (
     BadRequestError,
     _apply_field_updates,
     _read_json_object, 
@@ -13,7 +12,7 @@ from .routes import {
     _validate_payload, 
     api_v1_bp, 
     db,
-    }
+)
 from .schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
 from ...models import Accommodation
 

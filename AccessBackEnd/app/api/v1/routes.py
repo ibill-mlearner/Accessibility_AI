@@ -289,6 +289,11 @@ def _parse_int_field(
             message=f"{field_name} must be an integer",
         )
 
+def _assert_chat_permissions(chat: Any) -> tuple[dict[str, Any], int] | None:
+    user_id = ChatAccessService.get_authenticated_user_id()
+    if chat.user_id != user_id:
+        return _forbidden_response()
+    return None
 
 def _require_record(
     resource_name: str, 

@@ -336,8 +336,8 @@ def list_chat_ai_interactions(chat_id: int):
     """List AI interactions for a target chat when visible to the authenticated user."""
     chat = _require_record("chat", Chat, chat_id)
     deny = _assert_chat_permissions(chat)
-        if deny is not None:
-            return deny
+    if deny is not None:
+        return deny
 
     interactions = (
         db.session.query(AIInteraction)
