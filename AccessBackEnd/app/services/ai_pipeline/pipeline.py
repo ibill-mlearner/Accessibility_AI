@@ -5,7 +5,7 @@ from typing import Any
 
 from .exceptions import invoke_provider_or_raise
 from .model_inventory import ModelInventoryConfig, ModelInventoryService
-from .providers import AIProvider, HTTPEndpointProvider, HuggingFaceLangChainProvider, MockJSONProvider, OllamaProvider
+from .providers import AIProvider, create_provider
 from .types import AIPipelineRequest
 
 _ASSISTANT_TEXT_KEYS = ("assistant_text", "result", "answer", "response_text", "response", "output", "text")
@@ -28,9 +28,22 @@ class AIPipelineConfig:
 
 
 class AIPipelineService:
-    def __init__(self, config: AIPipelineConfig) -> None:
+    def __init__(self, config: AIPipelineConfig, provider: AIProvider | None = None) -> None:
         self.config = config
-        self._provider = self._build_provider(config)
+        self._provider = provider or create_provider(
+            provider=config.provider,
+            model_name=config.model_name,
+            mock_resource_path=config.mock_resource_path,
+            live_endpoint=config.live_endpoint,
+            ollama_endpoint=config.ollama_endpoint,
+            ollama_model_id=config.ollama_model_id,
+            ollama_options=config.ollama_options,
+            timeout_seconds=config.timeout_seconds,
+            huggingface_model_id=config.huggingface_model_id,
+            huggingface_cache_dir=config.huggingface_cache_dir,
+            max_new_tokens=config.max_new_tokens,
+            temperature=config.temperature
+        )
 
     def run(self, request: AIPipelineRequest) -> dict[str, Any]:
         context = request.context.copy() if isinstance(request.context, dict) else {}
@@ -94,14 +107,3 @@ class AIPipelineService:
             )
         ).list_available_models()
 
-    def _build_provider(self, config: AIPipelineConfig) -> AIProvider:
-        provider = (config.provider or "ollama").strip().lower()
-        if provider in {"mock", "mock_json", "json"}:
-            return MockJSONProvider(mock_resource_path=config.mock_resource_path)
-        if provider in {"ollama", "ollama_local"}:
-            return OllamaProvider(endpoint=config.ollama_endpoint or config.live_endpoint, model_id=config.ollama_model_id or config.model_name or config.huggingface_model_id, options=config.ollama_options, timeout_seconds=config.timeout_seconds)
-        if provider in {"live", "live_agent", "http"}:
-            return HTTPEndpointProvider(endpoint=config.live_endpoint, model_name=config.model_name, timeout_seconds=config.timeout_seconds)
-        if provider in {"hf", "huggingface", "langchain_hf"}:
-            return HuggingFaceLangChainProvider(model_id=config.huggingface_model_id, cache_dir=config.huggingface_cache_dir, max_new_tokens=config.max_new_tokens, temperature=config.temperature)
-        raise ValueError(f"Unsupported AI provider: {config.provider}")

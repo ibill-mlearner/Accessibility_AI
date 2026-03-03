@@ -38,11 +38,21 @@ def _contract() -> str:
 
 
 class AIProvider(Protocol):
-    def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]: ...
+    def invoke(
+        self, 
+        prompt: str, 
+        context: dict[str, Any]
+    ) -> dict[str, Any]: ...
+    def health(self) -> dict[str, Any]: ...
+    def name(self) -> str: ...
+    def capabilities(self) -> dict[str, Any]: ...
 
 
 class MockJSONProvider:
-    def __init__(self, *, mock_resource_path: str) -> None:
+    def __init__(
+        self, *, 
+        mock_resource_path: str
+    ) -> None:
         self.mock_resource_path = mock_resource_path
 
     def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
@@ -53,9 +63,22 @@ class MockJSONProvider:
         payload.setdefault("meta", {}).update({"provider": "mock_json", "prompt_echo": prompt})
         return payload
 
+    def health(self) -> dict[str, Any]: 
+        return {"ok": Path(self.mock_resource_path).exists()}
+
+    def name(self) -> str: 
+        return "mock_json"
+
+    def capabilities(self) -> dict[str, Any]: 
+        return {"mode": "static_json"}
 
 class HTTPEndpointProvider:
-    def __init__(self, *, endpoint: str, model_name: str = "", timeout_seconds: int = 60) -> None:
+    def __init__(
+        self, *, 
+        endpoint: str, 
+        model_name: str = "", 
+        timeout_seconds: int = 60
+    ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name
         self.timeout_seconds = timeout_seconds
@@ -79,9 +102,25 @@ class HTTPEndpointProvider:
             payload.setdefault("meta", {}).update({"provider": "http", "model": self.model_name})
         return payload
 
+    def health(self) -> dict[str, Any]:
+        return {"ok": bool(self.endpoint), "endpoint": self.endpoint}
+
+    def name(self) -> str:
+        return "http"
+
+    def capabilities(self) -> dict[str, Any]:
+        return {"transport": "http_json"}
+
 
 class OllamaProvider:
-    def __init__(self, *, endpoint: str, model_id: str, options: dict | None = None, timeout_seconds: int = 60) -> None:
+    def __init__(
+        self, 
+        *, 
+        endpoint: str, 
+        model_id: str, 
+        options: dict | None = None, 
+        timeout_seconds: int = 60
+    ) -> None:
         self.endpoint = endpoint
         self.model_id = model_id
         self.options = options or {}
@@ -113,7 +152,9 @@ class OllamaProvider:
         return payload
 
     @staticmethod
-    def _resolve_chat_endpoint(endpoint: str) -> str:
+    def _resolve_chat_endpoint(
+            endpoint: str
+        ) -> str:
         cleaned = (endpoint or "").strip().rstrip("/")
         if cleaned.lower().endswith("/api/chat"):
             return cleaned
@@ -142,10 +183,26 @@ class OllamaProvider:
             except Exception:  # noqa: BLE001
                 pass
         return {"result": text, "raw": parsed}
+    
+    def health(self) -> dict[str, Any]:
+        return {"ok": bool(self.endpoint and self.model_id), "endpoint": self.endpoint, "model_id": self.model_id}
+
+    def name(self) -> str:
+        return "ollama"
+
+    def capabilities(self) -> dict[str, Any]:
+        return {"stream": False, "contract": "json"}
 
 
 class HuggingFaceLangChainProvider:
-    def __init__(self, *, model_id: str, cache_dir: str | None = None, max_new_tokens: int = 256, temperature: float = 0.1) -> None:
+    def __init__(
+        self, 
+        *, 
+        model_id: str, 
+        cache_dir: str | None = None, 
+        max_new_tokens: int = 256, 
+        temperature: float = 0.1
+    ) -> None:
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
@@ -194,3 +251,38 @@ class HuggingFaceLangChainProvider:
             except Exception:  # noqa: BLE001
                 pass
         return {"assistant_text": "", "notes": ["non_json_fallback"], "meta": {"provider": "huggingface_langchain:non_json_fallback", "debug": {"raw_payload_preview": _clip(text)}}}
+
+    def health(self) -> dict[str, Any]:
+        return {"ok": bool(self.model_id), "model_id": self.model_id}
+
+    def name(self) -> str:
+        return "huggingface_langchain"
+
+    def capabilities(self) -> dict[str, Any]:
+        return {"runtime": "langchain_transformers"}
+
+def create_provider(
+    *, 
+    provider: str, 
+    model_name: str = "", 
+    mock_resource_path: str = "", 
+    live_endpoint: str = "", 
+    ollama_endpoint: str = "", 
+    ollama_model_id: str = "", 
+    ollama_options: dict[str, Any] | None = None, 
+    timeout_seconds: int = 60, 
+    huggingface_model_id: str = "", 
+    huggingface_cache_dir: str | None = None, 
+    max_new_tokens: int = 256, 
+    temperature: float = 0.1
+) -> AIProvider:
+    selected = (provider or "ollama").strip().lower()
+    if selected in {"mock", "mock_json", "json"}:
+        return MockJSONProvider(mock_resource_path=mock_resource_path)
+    if selected in {"ollama", "ollama_local"}:
+        return OllamaProvider(endpoint=ollama_endpoint or live_endpoint, model_id=ollama_model_id or model_name or huggingface_model_id, options=ollama_options, timeout_seconds=timeout_seconds)
+    if selected in {"live", "live_agent", "http"}:
+        return HTTPEndpointProvider(endpoint=live_endpoint, model_name=model_name, timeout_seconds=timeout_seconds)
+    if selected in {"hf", "huggingface", "langchain_hf"}:
+        return HuggingFaceLangChainProvider(model_id=huggingface_model_id, cache_dir=huggingface_cache_dir, max_new_tokens=max_new_tokens, temperature=temperature)
+    raise ValueError(f"Unsupported AI provider: {provider}")
