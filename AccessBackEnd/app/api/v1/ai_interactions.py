@@ -1,7 +1,7 @@
 import json
 
 from typing import Any
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify
 from flask_login import current_user, login_required
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -15,14 +15,17 @@ from .routes import (
     _raise_bad_request_from_exception,
     _read_json_object,
     _parse_int_field,
+    _validate_payload,
     BadRequestError
 )
 
 from ...services.chat_access_service import ChatAccessService
 from ...services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from ...services.ai_pipeline.types import AIPipelineRequest
 from ...models import AIModel, AIInteraction, Chat, CourseClass, SystemPrompt, User
 from ...models.ai_interaction import AccommodationSystemPrompt
 from ...db.repositories.interaction_repo import AIInteractionRepository
+from .schemas.validation import AIInteractionPayloadSchema
 
 def _extract_response_text(result: Any) -> str:
     """Normalize provider payload into a storable interaction response string."""
@@ -236,7 +239,7 @@ def _persist_ai_interaction(
 @login_required
 def create_ai_interaction():
     """Run a single AI interaction."""
-    payload = request.get_json(silent=True) or {}
+    payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
 
     prompt = (payload.get("prompt") or "").strip()
     raw_messages = payload.get("messages")
@@ -260,7 +263,6 @@ def create_ai_interaction():
     if messages and "messages" not in context_payload:
         context_payload["messages"] = messages
 
-    context_payload["system_instructions"] = system_instructions
 
     _publish(
         "api.ai_interaction_requested",
@@ -291,13 +293,20 @@ def create_ai_interaction():
     # `InteractionLoggingService`, but `run_interaction(...)` still delegates to
     # the same underlying `AIPipelineService` implementation.
     ai_service = current_app.extensions["ai_service"]
+    dto = AIPipelineRequest(
+        messages=messages,
+        system_prompt=system_instructions or (payload.get("system_prompt") or None),
+        context=context_payload,
+        chat_id=chat_id,
+        initiated_by=initiated_by,
+        class_id=payload.get("class_id"),
+        user_id=payload.get("user_id"),
+        rag=payload.get("rag") if isinstance(payload.get("rag"), dict) else None,
+        request_id=payload.get("request_id"),
+    )
 
     try:
-        result = ai_service.run_interaction(
-            prompt=prompt,
-            context=context_payload,
-            initiated_by=initiated_by,
-        )
+        result = ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
         return (
             jsonify(

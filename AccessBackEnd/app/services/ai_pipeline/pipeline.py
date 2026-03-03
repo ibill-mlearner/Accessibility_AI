@@ -12,7 +12,7 @@ from .providers import (
     MockJSONProvider,
     OllamaProvider,
 )
-from .types import PipelineRequest, PipelineResponse
+from .types import PipelineRequest, PipelineResponse, AIPipelineRequest
 
 _ASSISTANT_TEXT_KEYS: tuple[str, ...] = (
     "assistant_text",
@@ -64,19 +64,19 @@ class AIPipelineService:
         self.config = config
         self._provider = self._build_provider(config)
 
-    def run_interaction(
-        self,
-        prompt: str,
-        context: dict[str, Any] | None = None,
-        **metadata: Any,
-    ) -> dict:
-        _ = metadata
-        request = PipelineRequest(prompt=prompt, context=context or {})
-        payload = invoke_provider_or_raise(self._provider, request)
+def run(self, request: AIPipelineRequest) -> dict:
+        """Stable entrypoint for API callers using a DTO payload."""
+        context = request.context.copy() if isinstance(request.context, dict) else {}
+        if request.messages and "messages" not in context:
+            context["messages"] = request.messages
+        if request.system_prompt:
+            context["system_instructions"] = request.system_prompt
 
-        meta = payload.setdefault("meta", {})
-        if not isinstance(meta, dict):
-            payload["meta"] = {"warning": "provider returned invalid meta payload"}
+        pipeline_request = PipelineRequest(
+            prompt=self._resolve_prompt(request.messages),
+            context=context,
+        )
+            payload = invoke_provider_or_raise(self._provider, pipeline_request)
             meta = payload["meta"]
 
         response_data = self._canonicalize_provider_payload(payload)
@@ -91,6 +91,38 @@ class AIPipelineService:
             },
         )
         return {**response.data, "meta": response.meta}
+    
+    @staticmethod
+    def _resolve_prompt(messages: list[dict]) -> str:
+        for message in reversed(messages):
+            if not isinstance(message, dict):
+                continue
+            if str(message.get("role") or "").lower() != "user":
+                continue
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+        return ""
+
+    def run_interaction(
+        self,
+        prompt: str,
+        context: dict[str, Any] | None = None,
+        **metadata: Any,
+    ) -> dict:
+        """Compatibility shim that forwards legacy calls to `run(...)`."""
+        dto = AIPipelineRequest(
+            messages=[{"role": "user", "content": prompt}] if prompt else [],
+            system_prompt=(context or {}).get("system_instructions"),
+            context=context or {},
+            chat_id=metadata.get("chat_id"),
+            initiated_by=metadata.get("initiated_by"),
+            class_id=metadata.get("class_id"),
+            user_id=metadata.get("user_id"),
+            rag=metadata.get("rag"),
+            request_id=metadata.get("request_id"),
+        )
+        return self.run(dto)
 
     def list_available_models(self) -> dict[str, Any]:
         """Return provider/model inventory from configured local sources."""
