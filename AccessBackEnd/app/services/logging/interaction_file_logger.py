@@ -99,3 +99,6 @@ class InteractionLoggingService:
                 "context": context_payload,
             }
             self._writer.append(json.dumps(payload, default=str, sort_keys=True))
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        return self._wrapped.run(request)

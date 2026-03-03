@@ -14,7 +14,8 @@ from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
 from .services.logging import initialize_logging
 from .models import User
-from .services import AIPipelineConfig, AIPipelineService
+from .services import AIPipelineService
+from .services.ai_pipeline.factory import build_ai_service_from_config
 
 
 def _register_cli_commands(app: Flask) -> None:
@@ -30,30 +31,7 @@ def _register_cli_commands(app: Flask) -> None:
 
 
 def build_ai_service(app: Flask) -> AIPipelineService:
-    # Default provider is HuggingFace (`AI_PROVIDER=huggingface`) so local downloaded
-    # model snapshots can be used without Ollama endpoint dependencies.
-    provider = app.config["AI_PROVIDER"]
-    ollama_endpoint = app.config.get("AI_OLLAMA_ENDPOINT")
-    live_endpoint = app.config.get("AI_LIVE_ENDPOINT")
-
-    if provider in {"ollama", "ollama_local"} and not ollama_endpoint:
-        raise ValueError("AI_OLLAMA_ENDPOINT must be configured when AI_PROVIDER=ollama")
-
-    if provider in {"live", "live_agent", "http"} and not live_endpoint:
-        raise ValueError("AI_LIVE_ENDPOINT must be configured for live endpoint providers")
-
-    return AIPipelineService(
-        AIPipelineConfig(
-            provider=provider,
-            model_name=app.config["AI_MODEL_NAME"],
-            live_endpoint=live_endpoint or "",
-            ollama_endpoint=ollama_endpoint or "",
-            ollama_model_id=app.config.get("AI_OLLAMA_MODEL", app.config.get("AI_MODEL_NAME", "")),
-            ollama_options=app.config.get("AI_OLLAMA_OPTIONS"),
-            timeout_seconds=app.config["AI_TIMEOUT_SECONDS"],
-            huggingface_model_id=app.config["AI_MODEL_NAME"],
-        )
-    )
+    return build_ai_service_from_config(app.config)
 
 
 def create_app(config_name: str | None = None) -> Flask:
