@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -9,7 +9,7 @@ from .providers import AIProvider, create_provider
 from .types import AIPipelineRequest
 
 _ASSISTANT_TEXT_KEYS = ("assistant_text", "result", "answer", "response_text", "response", "output", "text")
-
+logger = logging.getLogger(__name__)
 
 @dataclass(slots=True)
 class AIPipelineConfig:
@@ -46,12 +46,21 @@ class AIPipelineService:
         )
 
     def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        prompt = self._resolve_prompt(request)
+        # i didn't make _clip available ........... 
+        logger.debug(
+            "ai_pipeline.run.start provider=%s model=%s timeout_seconds=%s prompt_preview=%r",
+            self.config.provider,
+            self.config.model_name,
+            self.config.timeout_seconds,
+            prompt[:200],
+        )
         context = request.context.copy() if isinstance(request.context, dict) else {}
         if request.messages and "messages" not in context:
             context["messages"] = request.messages
         if request.system_prompt:
             context["system_instructions"] = request.system_prompt
-        payload = invoke_provider_or_raise(self._provider, self._resolve_prompt(request.messages), context)
+        payload = invoke_provider_or_raise(self._provider, prompt, context)
 
         assistant_text = next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
         confidence = float(payload["confidence"]) if isinstance(payload.get("confidence"), (int, float)) else None
@@ -59,7 +68,7 @@ class AIPipelineService:
         notes = [str(n) for n in notes_raw] if isinstance(notes_raw, list) else ([notes_raw.strip()] if isinstance(notes_raw, str) and notes_raw.strip() else [])
         meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
 
-        return {
+        result = {
             "assistant_text": assistant_text,
             "confidence": confidence,
             "notes": notes,
@@ -71,8 +80,21 @@ class AIPipelineService:
             },
         }
 
+        logger.debug(
+            "ai_pipeline.run.end provider=%s model=%s assistant_text_preview=%r",
+            self.config.provider,
+            self.config.model_name,
+            assistant_text[:200]
+        )
+
+    return result
+
     @staticmethod
     def _resolve_prompt(messages: list[dict]) -> str:
+        prompt = (request.prompt or "").strip() if isinstance(request.prompt, str) else ""
+        if prompt:
+            return prompt
+
         for message in reversed(messages):
             if isinstance(message, dict) and str(message.get("role") or "").lower() == "user" and isinstance(message.get("content"), str) and message["content"].strip():
                 return message["content"].strip()
@@ -81,6 +103,7 @@ class AIPipelineService:
     def run_interaction(self, prompt: str, context: dict[str, Any] | None = None, **metadata: Any) -> dict[str, Any]:
         return self.run(
             AIPipelineRequest(
+                prompt=prompt,
                 messages=[{"role": "user", "content": prompt}] if prompt else [],
                 system_prompt=(context or {}).get("system_instructions"),
                 context=context or {},

@@ -244,6 +244,15 @@ def create_ai_interaction():
     payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
 
     prompt = (payload.get("prompt") or "").strip()
+    current_app.logger.debug(
+        "api.ai_interactions.create.start provider=%s endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+        current_app.config.get("AI_PROVIDER"),
+        current_app.config.get("AI_OLLAMA_ENDPOINT") or current_app.config.get("AI_LIVE_ENDPOINT") or "no_endpoint",
+        current_app.config.get("AI_MODEL_NAME"),
+        current_app.config.get("AI_TIMEOUT_SECONDS"),
+        prompt[:200]
+    )
+
     raw_messages = payload.get("messages")
     messages = raw_messages if isinstance(raw_messages, list) else []
     if not prompt:
@@ -295,6 +304,7 @@ def create_ai_interaction():
     # the same underlying `AIPipelineService` implementation.
     ai_service = current_app.extensions["ai_service"]
     dto = AIPipelineRequest(
+        prompt=prompt,
         messages=messages,
         system_prompt=system_instructions or (payload.get("system_prompt") or None),
         context=context_payload,
@@ -306,9 +316,26 @@ def create_ai_interaction():
         request_id=payload.get("request_id"),
     )
 
+    current_app.logger.debug(
+        "api.ai_interactions.dto.created provider=%s endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+        current_app.config.get("AI_PROVIDER"),
+        current_app.config.get("AI_OLLAMA_ENDPOINT") or current_app.config.get("AI_LIVE_ENDPOINT") or "no_endpoint",
+        current_app.config.get("AI_MODEL_NAME"),
+        current_app.config.get("AI_TIMEOUT_SECONDS"),
+        prompt[:200]
+    )
+
     try:
         result = ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
+        current_app.logger.debug(
+            "api.ai_interactions.upstream_error provider=%s endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+            current_app.config.get("AI_PROVIDER"),
+            current_app.config.get("AI_OLLAMA_ENDPOINT") or current_app.config.get("AI_LIVE_ENDPOINT") or "no_endpoint",
+            current_app.config.get("AI_MODEL_NAME"),
+            current_app.config.get("AI_TIMEOUT_SECONDS"),
+            prompt[:200]
+        )
         return (
             jsonify(
                 {
@@ -321,6 +348,12 @@ def create_ai_interaction():
             ),
             502,
         )
+    current_app.logger.debug(
+        "api.ai_interactions.ai_service.run.end provider=%s model=%s response_preview=%r",
+        current_app.config.get("AI_PROVIDER"),
+        current_app.config.get("AI_MODEL_NAME"),
+        str(result)[:200],
+    )
     normalized_result = _normalize_interaction_response(result)
     normalized_result["meta"]["provider"] = _resolve_provider(result)
 

@@ -19,7 +19,7 @@ class PipelineRequest:
 @dataclass(slots=True)
 class AIPipelineRequest:
     """Stable API-layer request DTO for AI pipeline execution."""
-
+    prompt: str | None = None
     messages: list[dict] = field(default_factory=list)
     system_prompt: str | None = None
     context: dict[str, Any] = field(default_factory=dict)

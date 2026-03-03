@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from typing import Any
+import logging
 
+logger = logging.getLogger(__name__)
 
 class AIPipelineUpstreamError(RuntimeError):
     def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
@@ -25,6 +27,11 @@ def invoke_provider_or_raise(provider: Any, prompt: str, context: dict[str, Any]
     try:
         payload = provider.invoke(prompt, context or {})
     except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "",
+            getattr(provider, "name", lambda: provider.__class__.__name__)(),
+            str(prompt or "")[:200]
+        )
         raise map_exception_to_upstream_error(exc) from exc
     if not isinstance(payload, dict):
         raise map_exception_to_upstream_error(TypeError("Pipeline provider must return a dictionary"))

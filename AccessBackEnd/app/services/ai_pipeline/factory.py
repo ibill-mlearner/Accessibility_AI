@@ -2,16 +2,24 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
-
+import logging
 from .pipeline import AIPipelineConfig, AIPipelineService
 from .providers import create_provider
 
+logger = logging.getLogger(__name__)
 
 def build_ai_service_from_config(config: Mapping[str, Any]) -> AIPipelineService:
     provider = config["AI_PROVIDER"]
     ollama_endpoint = config.get("AI_OLLAMA_ENDPOINT")
     live_endpoint = config.get("AI_LIVE_ENDPOINT")
-
+    logger.debug(
+        "ai_pipeline.build_service provider=%s ollama_endpoint=%s live_endpoint=%s model_name=%s timeout_seconds=%s",
+        provider,
+        ollama_endpoint,
+        live_endpoint,
+        config.get("AI_MODEL_NAME"),
+        config.get("AI_TIMEOUT_SECONDS")
+    )
     if provider in {"ollama", "ollama_local"} and not ollama_endpoint:
         raise ValueError("AI_OLLAMA_ENDPOINT must be configured when AI_PROVIDER=ollama")
 

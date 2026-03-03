@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import json
-import re
+import json, logging, re, requests
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-import requests
-
 from .bootstrap import HuggingFaceModelBootstrap
 
 _MAX_CONTEXT_MESSAGES = 4
-
+logger = logging.getLogger(__name__)
 
 def _clip(value: Any, limit: int = 500) -> str:
     text = str(value or "").strip()
@@ -86,6 +83,14 @@ class HTTPEndpointProvider:
     def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
         if not self.endpoint:
             raise ValueError("HTTP endpoint must be configured")
+        logger.debug(
+            "ai_provider.invoke.start provider=http endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+            # f"Invoking HTTP AI provider at {self.endpoint} with prompt: {_clip(prompt)} and context: {_clip(context)}"
+            self.endpoint, 
+            self.model_name, 
+            self.timeout_seconds, 
+            _clip(prompt, 200)
+        )
         try:
             response = requests.post(
                 self.endpoint,
@@ -100,6 +105,13 @@ class HTTPEndpointProvider:
             raise RuntimeError("AI endpoint returned non-JSON response") from exc
         if isinstance(payload, dict):
             payload.setdefault("meta", {}).update({"provider": "http", "model": self.model_name})
+
+        logger.debug(
+            "ai_provider.invoke.end provider=http endpoint=%s model=%s response_preview=%r",
+            self.endpoint, 
+            self.model_name, 
+            _clip(payload, 200)
+        )
         return payload
 
     def health(self) -> dict[str, Any]:
@@ -130,6 +142,13 @@ class OllamaProvider:
         if not self.endpoint or not self.model_id:
             raise ValueError("Ollama endpoint and model_id must be configured")
         endpoint = self._resolve_chat_endpoint(self.endpoint)
+        logger.debug(
+            "ai_provider.invoke.start provider=ollama endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+            endpoing,
+            self.model_id,,
+            self.timeout_seconds,
+            _clip(prompt, 200)
+        )
         body = {
             "model": self.model_id,
             "stream": False,
@@ -149,6 +168,13 @@ class OllamaProvider:
             raise RuntimeError(f"Failed to call Ollama endpoint: {exc}") from exc
         payload = self._parse_payload(raw)
         payload.setdefault("meta", {}).update({"provider": "ollama", "model": self.model_id, "model_id": self.model_id, "endpoint": endpoint})
+        
+        logger.debug(
+            "ai_provider.invoke.end provider=ollama endpoint=%s model=%s response_preview=%r",
+            endpoint,
+            self.model_id,
+            _clip(payload, 200)
+        )
         return payload
 
     @staticmethod
@@ -277,6 +303,15 @@ def create_provider(
     temperature: float = 0.1
 ) -> AIProvider:
     selected = (provider or "ollama").strip().lower()
+    logger.debug(
+        "ai_provider.select provider=%s live_endpoint=%s ollama_endpoint=%s model_name=%s ollama_model_id=%s timeout_seconds=%s",
+        selected,
+        live_endpoint,
+        ollama_endpoint,
+        model_name,
+        ollama_model_id,
+        timeout_seconds
+    )
     if selected in {"mock", "mock_json", "json"}:
         return MockJSONProvider(mock_resource_path=mock_resource_path)
     if selected in {"ollama", "ollama_local"}:
