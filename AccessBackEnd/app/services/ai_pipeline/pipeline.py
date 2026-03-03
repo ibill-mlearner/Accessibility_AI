@@ -90,11 +90,12 @@ class AIPipelineService:
         return result
 
     @staticmethod
-    def _resolve_prompt(messages: list[dict]) -> str:
+    def _resolve_prompt(request: AIPipelineRequest) -> str:
         prompt = (request.prompt or "").strip() if isinstance(request.prompt, str) else ""
         if prompt:
             return prompt
 
+        messages = request.messages if isinstance(request.messages, list) else []
         for message in reversed(messages):
             if isinstance(message, dict) and str(message.get("role") or "").lower() == "user" and isinstance(message.get("content"), str) and message["content"].strip():
                 return message["content"].strip()
@@ -129,4 +130,3 @@ class AIPipelineService:
                 timeout_seconds=self.config.timeout_seconds,
             )
         ).list_available_models()
-
