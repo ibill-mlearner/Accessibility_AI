@@ -137,6 +137,20 @@ def _resolve_ai_model_id(result: Any) -> int:
 
 
 def _resolve_prompt_link_id(payload: dict[str, Any]) -> int | None:
+    selected_link_ids = payload.get("selected_accommodations_id_system_prompts_ids")
+    if isinstance(selected_link_ids, list):
+        for candidate in selected_link_ids:
+            try:
+                resolved_id = int(candidate)
+            except (TypeError, ValueError):
+                continue
+            prompt_link = (
+                db.session.query(AccommodationSystemPrompt.id)
+                .filter(AccommodationSystemPrompt.id == resolved_id)
+                .first()
+            )
+            if prompt_link is not None:
+                return resolved_id
     link_id = payload.get("accommodations_id_system_prompts_id")
     if link_id is None:
         return None
