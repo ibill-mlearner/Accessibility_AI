@@ -87,7 +87,7 @@ class AIPipelineService:
             assistant_text[:200]
         )
 
-    return result
+        return result
 
     @staticmethod
     def _resolve_prompt(messages: list[dict]) -> str:

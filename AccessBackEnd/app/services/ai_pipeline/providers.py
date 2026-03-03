@@ -145,7 +145,7 @@ class OllamaProvider:
         logger.debug(
             "ai_provider.invoke.start provider=ollama endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
             endpoing,
-            self.model_id,,
+            self.model_id,
             self.timeout_seconds,
             _clip(prompt, 200)
         )
