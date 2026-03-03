@@ -4,7 +4,7 @@ from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import and_, or_
-
+from marshmallow import Schema, ValidationError
 from ..errors import BadRequestError, NotFoundError
 from .api_view import register_api_view_route
 from ...extensions import db
@@ -50,7 +50,14 @@ def _deserialize_payload(resource: str, payload: dict[str, Any]) -> dict[str, An
     field_map = _RESOURCE_API_TO_MODEL_FIELDS.get(resource, {})
     return {field_map.get(key, key): value for key, value in payload.items()}
 
+def _validate_payload(payload: dict[str, Any], schema: Schema) -> dict[str, Any]:
+    """Validate and normalize request payloads using Marshmallow schemas."""
 
+    try:
+        return schema.load(payload)
+    except ValidationError as exc:
+        raise BadRequestError("request validation failed", details={"fields": exc.messages}) from exc
+        
 def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
     """Serialize ORM objects using API field names for stable endpoint envelopes."""
     if resource == "chat":

@@ -1,20 +1,22 @@
-from flask_login import login_required
-from flask import jsonify
-from .routes import (
-    _require_record,
-    _forbidden_response,
-    _deserialize_payload,
-    _read_json_object,
-    _parse_required_date,
-    api_v1_bp,
-    BadRequestError,
-    db,
-    _serialize_record
-)
 from typing import Any
 
+from flask import jsonify
+from flask_login import login_required
+
+from .routes import (
+    _deserialize_payload,
+    _forbidden_response,
+    _read_json_object,
+    _require_record,
+    _serialize_record,
+    _validate_payload,
+    BadRequestError,
+    api_v1_bp,
+    db,
+)
+from .schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
+from ...models import Chat, Message
 from ...services.chat_access_service import ChatAccessService
-from ...models import Chat, Message, CourseClass, Note
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
@@ -29,21 +31,16 @@ def create_chat_message(chat_id: int):
     except PermissionError:
         return _forbidden_response("access denied")
 
-    payload = _deserialize_payload("message", _read_json_object())
-    message_text = (payload.get("message_text") or "").strip()
-    help_intent = (payload.get("help_intent") or "").strip()
+    payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
 
-    if not message_text:
-        raise BadRequestError("message_text is required")
-    if not help_intent:
-        raise BadRequestError("help_intent is required")
+
 
     message = Message(
         chat_id=chat_id,
-        message_text=message_text,
-        vote=(payload.get("vote") or "good").strip(),
-        note=(payload.get("note") or "no").strip(),
-        help_intent=help_intent,
+        message_text=payload["message_text"],
+        vote=payload['vote'],
+        note=payload['note'],
+        help_intent=payload['help_intent'],
     )
     db.session.add(message)
     db.session.commit()
@@ -66,7 +63,7 @@ def list_messages():
 @api_v1_bp.post("/messages")
 @login_required
 def create_message():
-    payload = _deserialize_payload("message", _read_json_object())
+    payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
     chat_id = payload.get("chat_id")
     if chat_id is None:
         raise BadRequestError("chat_id is required")
@@ -78,16 +75,12 @@ def create_message():
         return _forbidden_response("access denied")
 
     message = Message(
-        chat_id=chat.id,
-        message_text=str(payload.get("message_text") or "").strip(),
-        vote=str(payload.get("vote") or "good").strip() or "good",
-        note=str(payload.get("note") or "no").strip() or "no",
-        help_intent=str(payload.get("help_intent") or "").strip(),
+        chat_id=chat_id,
+        message_text=payload["message_text"],
+        vote=payload['vote'],
+        note=payload['note'],
+        help_intent=payload['help_intent'],
     )
-    if not message.message_text:
-        raise BadRequestError("message_text is required")
-    if not message.help_intent:
-        raise BadRequestError("help_intent is required")
 
     db.session.add(message)
     db.session.commit()
@@ -118,7 +111,7 @@ def update_message(message_id: int):
     except PermissionError:
         return _forbidden_response("access denied")
 
-    payload = _deserialize_payload("message", _read_json_object())
+    payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
     _apply_message_mutations(message, payload)
     if not message.message_text:
         raise BadRequestError("message_text is required")
@@ -172,11 +165,11 @@ def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
         _require_record("chat", Chat, int(payload["chat_id"]))
         message.chat_id = int(payload["chat_id"])
     if "message_text" in payload:
-        message.message_text = str(payload["message_text"] or "").strip()
+        message.message_text = payload["message_text"]
     if "vote" in payload:
-        message.vote = str(payload["vote"] or "").strip() or message.vote
+        message.vote = payload["vote"]
     if "note" in payload:
-        message.note = str(payload["note"] or "").strip() or message.note
+        message.note = payload["note"]
     if "help_intent" in payload:
-        message.help_intent = str(payload["help_intent"] or "").strip()
+        message.help_intent = payload["help_intent"]
 

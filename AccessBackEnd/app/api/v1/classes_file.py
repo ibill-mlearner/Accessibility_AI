@@ -1,16 +1,19 @@
-from flask_login import login_required
-from flask import jsonify
 from typing import Any
+
+from flask import jsonify
+from flask_login import login_required
+
 from .routes import (
-    db,
-    CourseClass,
-    _serialize_record,
+    BadRequestError,
     _read_json_object,
     _require_record,
+    _serialize_record,
+    _validate_payload,
     api_v1_bp,
-    BadRequestError,
+    db,
 )
-from ...models import User
+from .schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
+from ...models import CourseClass, User
 from ...services.chat_access_service import ChatAccessService
 
 
@@ -28,14 +31,15 @@ def create_class():
     if payload.get("instructor_id") is None:
         payload["instructor_id"] = ChatAccessService.get_authenticated_user_id()
 
+    payload = _validate_payload(payload, ClassPayloadSchema())
+
     class_record = CourseClass(
-        name=str(payload.get("name") or "").strip(),
-        description=str(payload.get("description") or "").strip(),
-        instructor_id=int(payload["instructor_id"]),
-        active=bool(payload.get("active", True)),
+        name=payload["name"],
+        description=payload["description"],
+        instructor_id=payload["instructor_id"],
+        active=payload["active"],
     )
-    if not class_record.name or not class_record.description:
-        raise BadRequestError("name and description are required")
+
 
     _require_record("user", User, class_record.instructor_id)
     db.session.add(class_record)
@@ -55,8 +59,10 @@ def get_class(class_id: int):
 @login_required
 def update_class(class_id: int):
     class_record = _require_record("class", CourseClass, class_id)
-    payload = _read_json_object()
+    payload = _validate_payload(_read_json_object(), PartialClassPayloadSchema())
     _apply_class_mutations(class_record, payload)
+    if not class_record.name or not class_record.description:
+        raise BadRequestError("name and description are required")
     db.session.commit()
     return jsonify(_serialize_record("class", class_record)), 200
 

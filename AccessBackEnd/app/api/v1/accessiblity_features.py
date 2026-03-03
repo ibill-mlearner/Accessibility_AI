@@ -3,16 +3,11 @@ from typing import Any
 from flask import jsonify
 from flask_login import login_required
 
-from .routes import (
-
-    BadRequestError,
-    _read_json_object,
-    _require_record,
-    _serialize_record,
-    api_v1_bp,
-    db,
-)
+from .routes import _read_json_object, _require_record, _serialize_record, _validate_payload, api_v1_bp, db
+from .schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
 from ...models import Accommodation
+
+
 @api_v1_bp.get("/features")
 @login_required
 def list_features():
@@ -23,11 +18,11 @@ def list_features():
 @api_v1_bp.post("/features")
 @login_required
 def create_feature():
-    payload = _read_json_object()
+    payload = _validate_payload(_read_json_object(), FeaturePayloadSchema())
     feature = Accommodation(
-        title=str(payload.get("title") or "").strip(),
-        details=str(payload.get("details") or payload.get("description") or "").strip(),
-        active=bool(payload.get("active", payload.get("enabled", True))),
+        title=payload['title'],
+        details=payload['details'],
+        active=payload['active'],
     )
     if not feature.title:
         raise BadRequestError("title is required")
@@ -48,7 +43,7 @@ def get_feature(feature_id: int):
 @login_required
 def update_feature(feature_id: int):
     feature = _require_record("feature", Accommodation, feature_id)
-    payload = _read_json_object()
+    payload = _validate_payload(_read_json_object(), PartialFeaturePayloadSchema())
     _apply_feature_mutations(feature, payload)
     db.session.commit()
     return jsonify(_serialize_record("feature", feature)), 200
@@ -64,8 +59,7 @@ def delete_feature(feature_id: int):
     return jsonify(response_payload), 200
 
 def _apply_feature_mutations(feature: Accommodation, payload: dict[str, Any]) -> None:
-    field_aliases = {"description": "details", "enabled": "active"}
-    for field in ("title", "details", "active", "description", "enabled"):
+    for field in ("title", "details", "active"):
         if field in payload:
-            setattr(feature, field_aliases.get(field, field), payload[field])
+            setattr(feature, field, payload[field])
 
