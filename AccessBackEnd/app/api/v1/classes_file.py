@@ -4,6 +4,7 @@ from flask import jsonify
 from flask_login import login_required
 
 from .routes import (
+    _apply_field_updates,
     BadRequestError,
     _read_json_object,
     _require_record,
@@ -77,9 +78,15 @@ def delete_class(class_id: int):
     return jsonify(response_payload), 200
 
 def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -> None:
-    for field in ("name", "description", "active"):
-        if field in payload:
-            setattr(class_record, field, payload[field])
+    _apply_field_updates(
+        class_record,
+        payload,
+        (
+            'name',
+            'description',
+            'active'
+        )
+    )
 
     if "instructor_id" in payload:
         _require_record("user", User, int(payload["instructor_id"]))

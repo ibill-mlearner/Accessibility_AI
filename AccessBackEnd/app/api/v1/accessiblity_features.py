@@ -3,7 +3,17 @@ from typing import Any
 from flask import jsonify
 from flask_login import login_required
 
-from .routes import _read_json_object, _require_record, _serialize_record, _validate_payload, api_v1_bp, db
+from .routes import {
+    
+    BadRequestError,
+    _apply_field_updates,
+    _read_json_object, 
+    _require_record, 
+    _serialize_record,
+    _validate_payload, 
+    api_v1_bp, 
+    db,
+    }
 from .schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
 from ...models import Accommodation
 
@@ -59,7 +69,13 @@ def delete_feature(feature_id: int):
     return jsonify(response_payload), 200
 
 def _apply_feature_mutations(feature: Accommodation, payload: dict[str, Any]) -> None:
-    for field in ("title", "details", "active"):
-        if field in payload:
-            setattr(feature, field, payload[field])
+    _apply_field_updates(
+        feature,
+        payload,
+        (
+            'title',
+            'details',
+            'active'
+        )
+    )
 

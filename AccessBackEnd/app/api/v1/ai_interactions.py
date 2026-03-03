@@ -6,6 +6,8 @@ from flask_login import current_user, login_required
 from sqlalchemy.exc import SQLAlchemyError
 
 from .routes import (
+    _apply_field_updates,
+    _assert_chat_permissions,
     _forbidden_response,
     _publish,
     _require_record,
@@ -278,10 +280,9 @@ def create_ai_interaction():
     chat_id = _resolve_chat_id(payload)
     if chat_id is not None:
         chat = _require_record("chat", Chat, chat_id)
-        try:
-            ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-        except PermissionError:
-            return _forbidden_response("access denied")
+        deny = _assert_chat_permissions(chat)
+        if deny is not None:
+            return deny
 
     initiated_by = _resolve_initiated_by(payload)
 
@@ -334,13 +335,9 @@ def create_ai_interaction():
 def list_chat_ai_interactions(chat_id: int):
     """List AI interactions for a target chat when visible to the authenticated user."""
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(
-            chat=chat,
-            user_id=ChatAccessService.get_authenticated_user_id(),
-        )
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+        if deny is not None:
+            return deny
 
     interactions = (
         db.session.query(AIInteraction)
@@ -406,13 +403,22 @@ def update_system_prompt(prompt_id: int):
         class_id = _parse_int_field(payload.get("class_id"), field_name="class_id")
         if class_id is not None:
             _require_record("class", CourseClass, class_id)
-        prompt.class_id = class_id
+        payload['class_id'] = class_id
 
     if "instructor_id" in payload:
         instructor_id = _parse_int_field(payload.get("instructor_id"), field_name="instructor_id")
         if instructor_id is not None:
             _require_record("user", User, instructor_id)
-        prompt.instructor_id = instructor_id
+        ppayload['instructor_id'] = instructor_id
+
+    _apply_field_updates(
+        prompt,
+        payload,
+        (
+            'class_id',
+            'instuctor_id'
+        )
+    )
 
     if "text" in payload:
         text = str(payload.get("text") or "").strip()

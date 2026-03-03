@@ -4,6 +4,7 @@ from flask import current_app, jsonify
 from flask_login import current_user, login_required
 
 from .routes import (
+    _assert_chat_permissions,
     _deserialize_payload,
     _forbidden_response,
     _parse_optional_datetime,
@@ -82,10 +83,9 @@ def create_chat():
 @login_required
 def get_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    if deny is not None:
+        return deny
     return jsonify(_serialize_record("chat", chat)), 200
 
 
@@ -94,10 +94,9 @@ def get_chat(chat_id: int):
 @login_required
 def update_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_chat_owner(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    if deny is not None:
+        return deny
 
     payload = _validate_payload( 
         _deserialize_payload(
@@ -112,10 +111,9 @@ def update_chat(chat_id: int):
 @login_required
 def delete_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_chat_owner(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    if deny is not None:
+        return deny
 
     response_payload = _serialize_record("chat", chat)
     db.session.delete(chat)

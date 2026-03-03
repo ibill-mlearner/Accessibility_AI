@@ -4,6 +4,8 @@ from flask import jsonify
 from flask_login import login_required
 
 from .routes import (
+    _assert_chat_permissions,
+    _apply_field_updates,
     _deserialize_payload,
     _forbidden_response,
     _read_json_object,
@@ -23,13 +25,9 @@ from ...services.chat_access_service import ChatAccessService
 def create_chat_message(chat_id: int):
     """Create a message on a target chat when writable by the current user."""
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(
-            chat=chat,
-            user_id=ChatAccessService.get_authenticated_user_id(),
-        )
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
 
@@ -69,10 +67,9 @@ def create_message():
         raise BadRequestError("chat_id is required")
 
     chat = _require_record("chat", Chat, int(chat_id))
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     message = Message(
         chat_id=chat_id,
@@ -92,10 +89,9 @@ def create_message():
 def get_message(message_id: int):
     message = _require_record("message", Message, message_id)
     chat = _require_record("chat", Chat, message.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     return jsonify(_serialize_record("message", message)), 200
 
@@ -106,10 +102,9 @@ def get_message(message_id: int):
 def update_message(message_id: int):
     message = _require_record("message", Message, message_id)
     chat = _require_record("chat", Chat, message.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
     _apply_message_mutations(message, payload)
@@ -127,10 +122,9 @@ def update_message(message_id: int):
 def delete_message(message_id: int):
     message = _require_record("message", Message, message_id)
     chat = _require_record("chat", Chat, message.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     response_payload = _serialize_record("message", message)
     db.session.delete(message)
@@ -143,13 +137,9 @@ def delete_message(message_id: int):
 def list_chat_messages(chat_id: int):
     """List messages for a target chat when visible to the authenticated user."""
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(
-            chat=chat,
-            user_id=ChatAccessService.get_authenticated_user_id(),
-        )
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     messages = (
         db.session.query(Message)
@@ -164,12 +154,14 @@ def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
     if "chat_id" in payload:
         _require_record("chat", Chat, int(payload["chat_id"]))
         message.chat_id = int(payload["chat_id"])
-    if "message_text" in payload:
-        message.message_text = payload["message_text"]
-    if "vote" in payload:
-        message.vote = payload["vote"]
-    if "note" in payload:
-        message.note = payload["note"]
-    if "help_intent" in payload:
-        message.help_intent = payload["help_intent"]
+    _apply_field_updates(
+        message,
+        payload,
+        (
+            "message_text",
+            'vote',
+            'note',
+            'help_intent'
+        )
+    )
 

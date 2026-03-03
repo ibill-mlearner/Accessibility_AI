@@ -45,20 +45,29 @@ _RESOURCE_API_TO_MODEL_FIELDS: dict[str, dict[str, str]] = {
 }
 
 
-def _deserialize_payload(resource: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _deserialize_payload(
+    resource: str, 
+    payload: dict[str, Any]
+) -> dict[str, Any]:
     """Map API payload keys onto model field names for CRUD operations."""
     field_map = _RESOURCE_API_TO_MODEL_FIELDS.get(resource, {})
     return {field_map.get(key, key): value for key, value in payload.items()}
 
-def _validate_payload(payload: dict[str, Any], schema: Schema) -> dict[str, Any]:
+def _validate_payload(
+    payload: dict[str, Any], 
+    schema: Schema
+) -> dict[str, Any]:
     """Validate and normalize request payloads using Marshmallow schemas."""
 
     try:
         return schema.load(payload)
     except ValidationError as exc:
         raise BadRequestError("request validation failed", details={"fields": exc.messages}) from exc
-        
-def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
+
+def _serialize_record(
+    resource: str, 
+    record: Any
+) -> dict[str, Any]:
     """Serialize ORM objects using API field names for stable endpoint envelopes."""
     if resource == "chat":
         return {
@@ -151,7 +160,10 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
     return {}
 
 
-def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
+def _publish(
+    event_name: str, 
+    payload: dict[str, Any] | None = None
+) -> None:
     """Publish a domain event for endpoint observability."""
     current_app.extensions["event_bus"].publish(DomainEvent(event_name, payload or {}))
 
@@ -166,7 +178,9 @@ def _read_json_object() -> dict[str, Any]:
     return payload
 
 
-def _forbidden_response(message: str = "access denied"):
+def _forbidden_response(
+    message: str = "access denied"
+):
     return (
         jsonify(
             {
@@ -193,7 +207,9 @@ def _raise_bad_request_from_exception(
     raise BadRequestError(message or str(exc), details=details) from exc
 
 
-def _parse_optional_datetime(value: Any) -> datetime | None:
+def _parse_optional_datetime(
+    value: Any
+) -> datetime | None:
     if value in (None, ""):
         return None
     if isinstance(value, datetime):
@@ -209,7 +225,10 @@ def _parse_optional_datetime(value: Any) -> datetime | None:
     raise BadRequestError("started_at must be an ISO-8601 datetime")
 
 
-def _parse_required_date(value: Any, *, field_name: str = "noted_on") -> date:
+def _parse_required_date(
+    value: Any, *, 
+    field_name: str = "noted_on"
+) -> date:
     if isinstance(value, date) and not isinstance(value, datetime):
         return value
     if isinstance(value, str):
@@ -223,7 +242,9 @@ def _parse_required_date(value: Any, *, field_name: str = "noted_on") -> date:
     raise BadRequestError(f"{field_name} must be YYYY-MM-DD")
 
 
-def _resolve_default_class_id_for_user(user_id: int) -> int | None:
+def _resolve_default_class_id_for_user(
+    user_id: int
+) -> int | None:
     class_record = (
         db.session.query(CourseClass)
         .outerjoin(UserClassEnrollment, UserClassEnrollment.class_id == CourseClass.id)
@@ -242,7 +263,11 @@ def _resolve_default_class_id_for_user(user_id: int) -> int | None:
     return None if class_record is None else int(class_record.id)
 
 
-def _parse_int_field(value: Any, *, field_name: str, required: bool = False) -> int | None:
+def _parse_int_field(
+    value: Any, *,
+    field_name: str, 
+    required: bool = False
+) -> int | None:
     if value is None:
         if required:
             raise BadRequestError(f"{field_name} is required")
@@ -265,11 +290,27 @@ def _parse_int_field(value: Any, *, field_name: str, required: bool = False) -> 
         )
 
 
-def _require_record(resource_name: str, model: Any, record_id: int) -> Any:
+def _require_record(
+    resource_name: str, 
+    model: Any, 
+    record_id: int
+) -> Any:
     record = db.session.get(model, record_id)
     if record is None:
         raise NotFoundError(f"{resource_name} not found", details={"id": record_id})
     return record
+
+def _apply_field_updates(
+    record: Any, 
+    payload: dict[str, Any], 
+    fields: tuple[str, ...]
+) -> None:
+    """Apply partial payload field updates onto a mutable ORM record."""
+    for field in fields:
+        if field in payload:
+            setattr(record, field, payload[field])
+
+
 
 @api_v1_bp.get("/health")
 # Intentionally unauthenticated for liveness/readiness checks; rate limiting will follow.

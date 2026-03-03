@@ -4,6 +4,7 @@ from typing import Any
 from .routes import (
     api_v1_bp,
     db,
+    _assert_chat_permissions,
     _serialize_record,
     _deserialize_payload,
     _read_json_object,
@@ -35,7 +36,6 @@ def list_notes():
 @api_v1_bp.post("/notes")
 @login_required
 def create_note():
-    user_id = ChatAccessService.get_authenticated_user_id()
     payload = _deserialize_payload("note", _read_json_object())
     class_id = payload.get("class_id")
     chat_id = payload.get("chat_id")
@@ -44,10 +44,9 @@ def create_note():
 
     _require_record("class", CourseClass, int(class_id))
     chat = _require_record("chat", Chat, int(chat_id))
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=user_id)
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     note = Note(
         class_id=int(class_id),
@@ -69,10 +68,9 @@ def get_note(note_id: int):
     user_id = ChatAccessService.get_authenticated_user_id()
     note = _require_record("note", Note, note_id)
     chat = _require_record("chat", Chat, note.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=user_id)
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
     return jsonify(_serialize_record("note", note)), 200
 
 
@@ -80,13 +78,11 @@ def get_note(note_id: int):
 @api_v1_bp.patch("/notes/<int:note_id>")
 @login_required
 def update_note(note_id: int):
-    user_id = ChatAccessService.get_authenticated_user_id()
     note = _require_record("note", Note, note_id)
     chat = _require_record("chat", Chat, note.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=user_id)
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     payload = _deserialize_payload("note", _read_json_object())
     _apply_note_mutations(note, payload, user_id=user_id)
@@ -103,10 +99,9 @@ def delete_note(note_id: int):
     user_id = ChatAccessService.get_authenticated_user_id()
     note = _require_record("note", Note, note_id)
     chat = _require_record("chat", Chat, note.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=user_id)
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     response_payload = _serialize_record("note", note)
     db.session.delete(note)
@@ -114,17 +109,16 @@ def delete_note(note_id: int):
     return jsonify(response_payload), 200
 
 #HELPERS
-def _apply_note_mutations(note: Note, payload: dict[str, Any], *, user_id: int) -> None:
+def _apply_note_mutations(note: Note, payload: dict[str, Any]) -> None:
     if "class_id" in payload:
         _require_record("class", CourseClass, int(payload["class_id"]))
         note.class_id = int(payload["class_id"])
     if "chat_id" in payload:
         chat = _require_record("chat", Chat, int(payload['chat_id']))
-        try:
-            ChatAccessService.assert_can_access_chat(chat=chat, user_id=user_id)
-        except PermissionError:
+        deny = _assert_chat_permissions(chat)
+        if deny is not None:
+            # return deny
             raise BadRequestError("chat id is not accessible")
-        _require_record("chat", Chat, int(payload["chat_id"]))
         note.chat_id = int(payload["chat_id"])
     if "noted_on" in payload:
         note.noted_on = _parse_required_date(payload["noted_on"], field_name="noted_on")
