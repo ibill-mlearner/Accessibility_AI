@@ -172,4 +172,3 @@ class AIPipelineService:
                 timeout_seconds=self.config.timeout_seconds,
             )
         ).list_available_models()
-
