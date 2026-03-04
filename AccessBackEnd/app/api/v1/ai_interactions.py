@@ -96,6 +96,9 @@ def _normalize_interaction_response(result: Any) -> dict[str, Any]:
 
 def _resolve_selected_model(payload: dict[str, Any]) -> dict[str, str | None]:
     """Resolve currently active provider/model/family from discovered defaults."""
+    selected = _resolve_session_model_selection()
+    if selected is not None:
+        return selected
     provider_defaults = payload.get("provider_defaults")
     if not isinstance(provider_defaults, dict):
         provider_defaults = {}
@@ -273,6 +276,35 @@ def _sync_chat_latest_interaction(chat_id: int | None, interaction_id: int) -> N
 
     chat = _require_record("chat", Chat, chat_id)
     chat.ai_interaction_id = interaction_id
+
+def _resolve_session_model_selection() -> dict[str, str | None] | None:
+    persisted = session.get("ai_model_selection")
+    if not isinstance(persisted, dict):
+        return None
+
+    persisted_user_id = persisted.get("user_id")
+    active_user_id = getattr(current_user, "id", None)
+    if persisted_user_id is None or active_user_id is None:
+        return None
+    if int(persisted_user_id) != int(active_user_id):
+        return None
+
+    persisted_session_id = persisted.get("auth_session_id")
+    active_session_id = session.get("auth_session_id")
+    if persisted_session_id and active_session_id and int(persisted_session_id) != int(active_session_id):
+        return None
+
+    model_id = str(persisted.get("model_id") or "").strip()
+    provider = str(persisted.get("provider") or "").strip().lower()
+    if not provider or not model_id:
+        return None
+
+    return {
+        "provider": provider,
+        "model_id": model_id,
+        "family_id": family_id_from_model_id(model_id),
+    }
+
 
 def _persist_ai_interaction(
     payload: dict[str, Any], prompt: str, result: Any
@@ -550,6 +582,56 @@ def get_ai_catalog():
         "selected": _resolve_selected_model(inventory),
     }
     return jsonify(response_payload), 200
+
+@api_v1_bp.post('/ai/selection')
+@login_required
+def set_ai_selection():
+    """Persist per-session AI model selection for the authenticated user."""
+    payload = _read_json_object()
+    ai_service = current_app.extensions["ai_service"]
+    inventory = ai_service.list_available_models()
+    available_by_provider = _extract_available_model_ids(inventory)
+
+    has_provider_pair = bool(payload.get("provider") and payload.get("model_id"))
+    has_family_pair = bool(payload.get("family_id") and payload.get("provider_preference"))
+    if has_provider_pair == has_family_pair:
+        raise BadRequestError(
+            "Provide either provider/model_id or family_id/provider_preference",
+        )
+
+    try:
+        if has_provider_pair:
+            selected = resolve_model_selection(
+                provider=str(payload.get("provider") or "").strip().lower(),
+                model_id=str(payload.get("model_id") or "").strip(),
+                available_model_ids=available_by_provider,
+            )
+        else:
+            selected = resolve_model_selection(
+                family_id=str(payload.get("family_id") or "").strip(),
+                provider_preference=str(payload.get("provider_preference") or "").strip().lower(),
+                available_model_ids=available_by_provider,
+            )
+    except ValueError as exc:
+        err_msg = str(exc)
+        if "No candidate model available" in err_msg:
+            return jsonify({"error": "no available model for requested family"}), 400
+        raise BadRequestError(err_msg) from exc
+
+    session["ai_model_selection"] = {
+        "user_id": int(current_user.id),
+        "auth_session_id": session.get("auth_session_id"),
+        "provider": selected["provider"],
+        "model_id": selected["model_id"],
+    }
+
+    return jsonify(
+        {
+            "provider": selected["provider"],
+            "model_id": selected["model_id"],
+            "family_id": family_id_from_model_id(selected["model_id"]),
+        }
+    ), 200
 
 @api_v1_bp.get("/system-prompts")
 @login_required
