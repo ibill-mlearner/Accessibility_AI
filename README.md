@@ -80,6 +80,82 @@ That is the complete local startup path for Bash-based environments.
 
 ---
 
+## Docker Quickstart
+
+This repository includes Docker automation for deployment and local orchestration only; API routes and app behavior are unchanged.
+
+### Prerequisites
+
+- Docker
+- Docker Compose plugin (`docker compose`)
+- *(Optional for GPU passthrough)* NVIDIA Container Toolkit on NVIDIA hosts
+
+### Start the stack
+
+From repo root, run one of:
+
+```bash
+docker compose up --build
+```
+
+or (if using the included `Makefile`):
+
+```bash
+make up
+```
+
+### Default URLs
+
+- Frontend: `http://localhost:8080`
+- Backend: `http://localhost:5000`
+
+### Compose environment variables
+
+- `SECRET_KEY` *(recommended for non-dev use)*
+- `JWT_SECRET_KEY` *(recommended for non-dev use)*
+- `CORS_ORIGINS` *(used by backend CORS config in compose)*
+- `VITE_API_BASE_URL` *(frontend build arg for API base URL)*
+
+### Logs, shutdown, and reset
+
+```bash
+docker compose logs -f
+docker compose down
+docker compose down -v
+```
+
+`docker compose down -v` removes project-local Docker volumes (including persisted backend instance volume data).
+
+If using `Makefile` shortcuts:
+
+```bash
+make logs
+make down
+make reset
+```
+
+### Quick verification
+
+- Backend health endpoint:
+
+```bash
+curl http://localhost:5000/api/v1/health
+```
+
+- Frontend load check: open `http://localhost:8080` in a browser.
+
+### GPU passthrough notes
+
+- The compose backend service is configured with `gpus: all` and NVIDIA runtime environment variables so GPU-capable hosts expose all available devices to the container automatically.
+- On hosts without GPU support configured in Docker, remove/comment the `gpus: all` line in `docker-compose.yml` to run CPU-only.
+- Optional GPU visibility check (inside backend container):
+
+```bash
+docker compose exec backend sh -lc 'ls /dev | grep -E "nvidia|dri" || true; command -v nvidia-smi >/dev/null && nvidia-smi || true'
+```
+
+---
+
 ## QOL and QA issues (still unfinished / known issues)
 
 1. **Auth token lifecycle hardening is incomplete.**  

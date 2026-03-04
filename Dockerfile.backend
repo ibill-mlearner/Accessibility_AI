@@ -1,0 +1,27 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser
+
+WORKDIR /app
+
+# Install Python dependencies first for better layer caching
+COPY AccessBackEnd/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+    && (pip show gunicorn >/dev/null 2>&1 || pip install --no-cache-dir gunicorn)
+
+# Copy backend source
+COPY AccessBackEnd/ /app/AccessBackEnd/
+
+# Ensure Flask instance paths exist and are writable
+RUN mkdir -p /app/AccessBackEnd/instance /app/instance \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+EXPOSE 5000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "AccessBackEnd.manage:app"]
