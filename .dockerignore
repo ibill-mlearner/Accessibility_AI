@@ -1,0 +1,41 @@
+# Git metadata
+.git
+.gitignore
+
+# Node / frontend build artifacts
+**/node_modules
+**/dist
+
+# Python caches / virtualenvs
+**/__pycache__
+**/*.pyc
+**/.venv
+.venv
+venv
+
+# Backend runtime instance databases/logs
+AccessBackEnd/instance/*.db
+AccessBackEnd/instance/*.sqlite*
+AccessBackEnd/instance/*.log
+
+# AI model/cache directories (Hugging Face / Transformers / Torch)
+.huggingface/
+.hf/
+cache/
+models/
+**/.cache/huggingface/
+**/.cache/torch/
+**/huggingface/hub/
+
+# Test and coverage caches/artifacts
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/.coverage.*
+**/coverage/
+**/htmlcov/
+
+# Common editor/system artifacts
+**/.DS_Store
+**/*.swp
