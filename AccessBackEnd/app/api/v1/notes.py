@@ -1,6 +1,5 @@
 from flask import jsonify
 from flask_login import login_required
-from typing import Any
 from .routes import (
     api_v1_bp,
     db,
@@ -11,11 +10,11 @@ from .routes import (
     BadRequestError,
     _require_record,
     CourseClass,
-    _forbidden_response,
     _parse_required_date
 )
 from ...services.chat_access_service import ChatAccessService
 from ...models import Note, Chat
+from .helpers.mutations import _apply_note_mutations
 
 
 #ROUTES
@@ -108,19 +107,3 @@ def delete_note(note_id: int):
     db.session.commit()
     return jsonify(response_payload), 200
 
-#HELPERS
-def _apply_note_mutations(note: Note, payload: dict[str, Any]) -> None:
-    if "class_id" in payload:
-        _require_record("class", CourseClass, int(payload["class_id"]))
-        note.class_id = int(payload["class_id"])
-    if "chat_id" in payload:
-        chat = _require_record("chat", Chat, int(payload['chat_id']))
-        deny = _assert_chat_permissions(chat)
-        if deny is not None:
-            # return deny
-            raise BadRequestError("chat id is not accessible")
-        note.chat_id = int(payload["chat_id"])
-    if "noted_on" in payload:
-        note.noted_on = _parse_required_date(payload["noted_on"], field_name="noted_on")
-    if "content" in payload:
-        note.content = str(payload["content"] or "").strip()

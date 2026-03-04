@@ -1,10 +1,7 @@
-from typing import Any
-
 from flask import jsonify
 from flask_login import login_required
 
 from .routes import (
-    _apply_field_updates,
     BadRequestError,
     _read_json_object,
     _require_record,
@@ -14,8 +11,9 @@ from .routes import (
     db,
 )
 from .schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
-from ...models import CourseClass, User
+from ...models import CourseClass
 from ...services.chat_access_service import ChatAccessService
+from .helpers.mutations import _apply_class_mutations
 
 
 @api_v1_bp.get("/classes")
@@ -77,17 +75,3 @@ def delete_class(class_id: int):
     db.session.commit()
     return jsonify(response_payload), 200
 
-def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -> None:
-    _apply_field_updates(
-        class_record,
-        payload,
-        (
-            'name',
-            'description',
-            'active'
-        )
-    )
-
-    if "instructor_id" in payload:
-        _require_record("user", User, int(payload["instructor_id"]))
-        class_record.instructor_id = int(payload["instructor_id"])
