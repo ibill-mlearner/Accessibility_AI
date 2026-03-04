@@ -22,7 +22,11 @@ class ChatPayloadSchema(BaseAPISchema):
     started_at = fields.DateTime(required=False, allow_none=True)
 
     @pre_load
-    def normalize_strings(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_strings(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
         for field in ("title", "model"):
             if field in payload and payload[field] is not None:
@@ -38,8 +42,19 @@ class MessagePayloadSchema(BaseAPISchema):
     help_intent = fields.String(required=True, validate=validate.Length(min=1))
 
     @pre_load
-    def normalize_strings(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_strings(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
+
+        #variable with litteral string for linting
+        accom_ids = "selected_accommodations_id_system_prompts_ids"
+        access_ids = "accommodations_id_system_prompts_id"
+        if (accom_ids not in payload and access_ids in payload):
+            payload[accom_ids] = payload[access_ids]
+
         for field in ("message_text", "help_intent", "vote", "note"):
             if field in payload and payload[field] is not None:
                 payload[field] = str(payload[field]).strip()
@@ -58,7 +73,11 @@ class ClassPayloadSchema(BaseAPISchema):
     active = fields.Boolean(required=False, load_default=True)
 
     @pre_load
-    def normalize_strings(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_strings(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
         for field in ("name", "description"):
             if field in payload and payload[field] is not None:
@@ -73,7 +92,11 @@ class PartialClassPayloadSchema(BaseAPISchema):
     active = fields.Boolean(required=False)
 
     @pre_load
-    def normalize_strings(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_strings(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
         for field in ("name", "description"):
             if field in payload and payload[field] is not None:
@@ -87,7 +110,11 @@ class FeaturePayloadSchema(BaseAPISchema):
     active = fields.Boolean(required=False, load_default=True)
 
     @pre_load
-    def normalize_feature_aliases(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_feature_aliases(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
         if "details" not in payload and "description" in payload:
             payload["details"] = payload["description"]
@@ -106,7 +133,11 @@ class PartialFeaturePayloadSchema(BaseAPISchema):
     active = fields.Boolean(required=False)
 
     @pre_load
-    def normalize_feature_aliases(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_feature_aliases(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
         if "details" not in payload and "description" in payload:
             payload["details"] = payload["description"]
@@ -133,7 +164,11 @@ class AIInteractionPayloadSchema(BaseAPISchema):
     messages = fields.List(fields.Dict(keys=fields.String(), values=fields.Raw()), required=False, load_default=list)
 
     @pre_load
-    def normalize_strings(self, data: dict[str, Any], **_: Any) -> dict[str, Any]:
+    def normalize_strings(
+        self, 
+        data: dict[str, Any], 
+        **_: Any
+    ) -> dict[str, Any]:
         payload = dict(data)
         for field in ("prompt", "system_prompt", "conversation_id", "request_id"):
             if field in payload and payload[field] is not None:

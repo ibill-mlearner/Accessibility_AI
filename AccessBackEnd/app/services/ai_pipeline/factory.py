@@ -13,10 +13,12 @@ def build_ai_service_from_config(config: Mapping[str, Any]) -> AIPipelineService
     ollama_endpoint = config.get("AI_OLLAMA_ENDPOINT")
     live_endpoint = config.get("AI_LIVE_ENDPOINT")
     logger.debug(
-        "ai_pipeline.build_service provider=%s ollama_endpoint=%s live_endpoint=%s model_name=%s timeout_seconds=%s",
+        "ai_pipeline.build_service request_id=%s provider=%s ollama_endpoint=%s live_endpoint=%s model_name=%s timeout_seconds=%s",
+        "",
+        "n/a",
         provider,
-        ollama_endpoint,
-        live_endpoint,
+        bool(ollama_endpoint),
+        bool(live_endpoint),
         config.get("AI_MODEL_NAME"),
         config.get("AI_TIMEOUT_SECONDS")
     )
@@ -50,4 +52,13 @@ def build_ai_service_from_config(config: Mapping[str, Any]) -> AIPipelineService
         max_new_tokens=pipeline_config.max_new_tokens,
         temperature=pipeline_config.temperature,
     )
-    return AIPipelineService(config=pipeline_config, provider=provider_impl)
+    service = AIPipelineService(config=pipeline_config, provider=provider_impl)
+    logger.debug(
+        "ai_pipeline.build_service.ready request_id=%s provider=%s model=%s timeout_seconds=%s",
+        "n/a",
+        pipeline_config.provider,
+        pipeline_config.model_name,
+        pipeline_config.timeout_seconds
+    )
+
+    return service
