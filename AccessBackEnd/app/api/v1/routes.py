@@ -10,6 +10,7 @@ from .api_view import register_api_view_route
 from ...extensions import db
 from ...models import CourseClass, UserClassEnrollment
 from ...services.logging import DomainEvent
+from ...services.chat_access_service import ChatAccessService
 
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 

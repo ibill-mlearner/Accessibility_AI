@@ -1,5 +1,5 @@
 from __future__ import annotations
-import logging
+import logging, time
 from dataclasses import dataclass
 from typing import Any
 
@@ -77,8 +77,23 @@ class AIPipelineService:
             context["messages"] = request.messages
         if request.system_prompt:
             context["system_instructions"] = request.system_prompt
-
+        invoke_start_time = time.time()
+        logger.debug(
+            "ai_pipeline.run.invoke provider=%s endpoint=%s model=%s invoke_called=%s invoke_start_time=%s",
+            self.config.provider,
+            self.config.live_endpoint or self.config.ollama_endpoint or "n/a",
+            self.config.model_name,
+            True,
+            invoke_start_time
+        )
         payload = invoke_provider_or_raise(self._provider, prompt, context)
+
+        logger.debug(
+            "ai_pipeline.run.invoke.completed provider=%s return_value=%s duration_ms=%s",
+            self.config.provider,
+            payload is None,
+            round((time.time() - invoke_start_time) * 1000, 2)
+        )
 
         assistant_text = next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
         confidence = float(payload["confidence"]) if isinstance(payload.get("confidence"), (int, float)) else None
@@ -113,13 +128,15 @@ class AIPipelineService:
             request_id,
             self.config.provider,
             self.config.model_name,
+            len(assistant_text),
+            len(notes),
             assistant_text[:200]
         )
 
         return result
 
     @staticmethod
-    def _resolve_prompt(messages: list[dict]) -> str:
+    def _resolve_prompt(request: AIPipelineRequest) -> str:
         explicit_prompt = request.prompt if isinstance(request.prompt, str) else ""
         prompt = explicit_prompt.strip()
         if prompt:

@@ -1,7 +1,7 @@
 from typing import Any
 
-from flask import jsonify
-from flask_login import login_required
+from flask import jsonify, current_app, request
+from flask_login import login_required, current_user
 
 from .routes import (
     _assert_chat_permissions,
@@ -61,6 +61,15 @@ def list_messages():
 @api_v1_bp.post("/messages")
 @login_required
 def create_message():
+    payload_raw = _read_json_object()
+    user_identity = getattr(current_user, "email", None) or getattr(current_user, "id", None) or "anonymous"
+    current_app.logger.debug(
+        "api.messages.create.request method=%s path=%s user=%s json_keys=%s",
+        request.method,
+        request.path,
+        user_identity,
+        sorted(payload_raw.keys()),
+    )
     payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
     chat_id = payload.get("chat_id")
     if chat_id is None:
@@ -81,6 +90,12 @@ def create_message():
 
     db.session.add(message)
     db.session.commit()
+    current_app.logger.debug(
+        "api.messages.create.response path=%s status=%s message_id=%s",
+        request.path,
+        201,
+        message.id,
+    )
     return jsonify(_serialize_record("message", message)), 201
 
 
@@ -136,6 +151,12 @@ def delete_message(message_id: int):
 @login_required
 def list_chat_messages(chat_id: int):
     """List messages for a target chat when visible to the authenticated user."""
+    current_app.logger.debug(
+        "api.chat_messages.list.request method=%s path=%s user_id=%s",
+        request.method,
+        request.path,
+        ChatAccessService.get_authenticated_user_id(),
+    )
     chat = _require_record("chat", Chat, chat_id)
     deny = _assert_chat_permissions(chat)
     if deny is not None:
@@ -146,6 +167,13 @@ def list_chat_messages(chat_id: int):
         .filter(Message.chat_id == chat_id)
         .order_by(Message.id.asc())
         .all()
+    )
+
+    current_app.logger.debug(
+        "api.chat_messages.list.response path=%s status=%s count=%s", 
+        request.path, 
+        200, 
+        len(messages)
     )
     return jsonify([_serialize_record("message", message) for message in messages]), 200
 
