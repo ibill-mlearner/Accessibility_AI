@@ -2,7 +2,7 @@
 
 ## Endpoint flow
 
-`POST /api/v1/ai/interactions` (`app/api/v1/ai_interactions.py`) processes a request in the following sequence:
+`POST /api/v1/ai/interactions` (`app/api/v1/ai_interactions_routes.py`) processes a request in the following sequence:
 
 1. Parse and validate payload with `AIInteractionPayloadSchema`.
 2. Normalize prompt/messages/context in-route:

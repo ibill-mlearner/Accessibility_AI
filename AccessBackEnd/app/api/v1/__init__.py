@@ -9,12 +9,14 @@ def _register_route_modules() -> None:
 
     # Need to change to explicit imports if I want anonymous functions
     from . import accessiblity_features
-    from . import ai_interactions
+    from . import ai_interactions_routes
+    from . import ai_model_catalog_routes
     from . import auth
     from . import chats
     from . import classes_file
     from . import messages
     from . import notes
+    from . import system_prompts_routes
 
     setattr(api_v1_bp, "_split_routes_loaded", True)
 
