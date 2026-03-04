@@ -103,7 +103,19 @@ def create_ai_interaction():
             return deny
 
     initiated_by = _resolve_initiated_by(payload)
+    override_provider = str(payload.get("provider") or "").strip().lower()
+    override_model_id = str(payload.get("model_id") or "").strip()
+    override_family_id = str(payload.get("family_id") or "").strip()
+    override_provider_preference = str(payload.get("provider_preference") or "").strip().lower() or "any"
 
+    resolved_model_selection: dict[str, str] | None = None
+    has_direct_override = bool(override_provider or override_model_id)
+    has_family_override = bool(override_family_id)
+    if has_direct_override or has_family_override:
+        if bool(override_provider) != bool(override_model_id):
+            raise BadRequestError("provider and model_id must be supplied together")
+        if has_direct_override and has_family_override:
+            raise BadRequestError("Provide either provider/model_id overrides or family_id override")
     # `ai_service` is registered during app startup in `app/__init__.py` via
     # `build_ai_service(...)`, which constructs `AIPipelineService` from
     # `app.services.ai_pipeline` and stores it at `app.extensions["ai_service"]`.
@@ -112,6 +124,48 @@ def create_ai_interaction():
     # `InteractionLoggingService`, but `run_interaction(...)` still delegates to
     # the same underlying `AIPipelineService` implementation.
     ai_service = current_app.extensions["ai_service"]
+    
+    if has_direct_override or has_family_override:
+        available_by_provider = _extract_available_model_ids(ai_service.list_available_models())
+        try:
+            if has_direct_override:
+                resolved_model_selection = resolve_model_selection(
+                    provider=override_provider,
+                    model_id=override_model_id,
+                    available_model_ids=available_by_provider,
+                )
+            else:
+                resolved_model_selection = resolve_model_selection(
+                    family_id=override_family_id,
+                    provider_preference=override_provider_preference,
+                    available_model_ids=available_by_provider,
+                )
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+        current_app.logger.debug(
+            "api.ai_interactions.create.override_resolved request_id=%s provider=%s model_id=%s family_id=%s provider_preference=%s",
+            request_id,
+            resolved_model_selection.get("provider"),
+            resolved_model_selection.get("model_id"),
+            resolved_model_selection.get("family_id") or family_id_from_model_id(resolved_model_selection.get("model_id") or ""),
+            override_provider_preference,
+        )
+
+        runtime_selection_meta = context_payload.get("runtime_model_selection")
+        if not isinstance(runtime_selection_meta, dict):
+            runtime_selection_meta = {}
+            context_payload["runtime_model_selection"] = runtime_selection_meta
+        runtime_selection_meta.update(
+            {
+                "provider": resolved_model_selection.get("provider"),
+                "model_id": resolved_model_selection.get("model_id"),
+                "family_id": resolved_model_selection.get("family_id")
+                or family_id_from_model_id(resolved_model_selection.get("model_id") or ""),
+                "source": "request_override",
+            }
+        )
+
     dto = AIPipelineRequest(
         prompt=prompt,
         messages=messages,

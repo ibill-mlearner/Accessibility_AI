@@ -159,6 +159,10 @@ class AIInteractionPayloadSchema(BaseAPISchema):
     class_id = fields.Integer(required=False, allow_none=True)
     user_id = fields.Raw(required=False, allow_none=True)
     request_id = fields.String(required=False, allow_none=True)
+    provider = fields.String(required=False, allow_none=True)
+    model_id = fields.String(required=False, allow_none=True)
+    family_id = fields.String(required=False, allow_none=True)
+    provider_preference = fields.String(required=False, allow_none=True)
     accommodations_id_system_prompts_id = fields.Integer(required=False, allow_none=True)
     selected_accommodations_id_system_prompts_ids = fields.List(fields.Integer(), required=False)
     messages = fields.List(fields.Dict(keys=fields.String(), values=fields.Raw()), required=False, load_default=list)
@@ -169,8 +173,18 @@ class AIInteractionPayloadSchema(BaseAPISchema):
         data: dict[str, Any], 
         **_: Any
     ) -> dict[str, Any]:
+    
         payload = dict(data)
-        for field in ("prompt", "system_prompt", "conversation_id", "request_id"):
+        for field in (
+            "prompt",
+            "system_prompt",
+            "conversation_id",
+            "request_id",
+            "provider",
+            "model_id",
+            "family_id",
+            "provider_preference",
+        ):
             if field in payload and payload[field] is not None:
                 payload[field] = str(payload[field]).strip()
         return payload
