@@ -23,6 +23,7 @@ from .routes import (
 
 from ...services.chat_access_service import ChatAccessService
 from ...services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id
 from ...services.ai_pipeline.types import AIPipelineRequest
 from ...models import AIModel, AIInteraction, Chat, CourseClass, SystemPrompt, User
 from ...models.ai_interaction import AccommodationSystemPrompt
@@ -93,6 +94,77 @@ def _normalize_interaction_response(result: Any) -> dict[str, Any]:
 
     return normalized_response
 
+def _resolve_selected_model(payload: dict[str, Any]) -> dict[str, str | None]:
+    """Resolve currently active provider/model/family from discovered defaults."""
+    provider_defaults = payload.get("provider_defaults")
+    if not isinstance(provider_defaults, dict):
+        provider_defaults = {}
+
+    provider = str(
+        provider_defaults.get("provider")
+        or current_app.config.get("AI_PROVIDER")
+        or ""
+    ).strip().lower()
+    selected_model_id = ""
+
+    if provider == "ollama":
+        selected_model_id = str(
+            provider_defaults.get("ollama_model_id")
+            or current_app.config.get("AI_OLLAMA_MODEL")
+            or current_app.config.get("AI_MODEL_NAME")
+            or ""
+        ).strip()
+    elif provider == "huggingface":
+        selected_model_id = str(
+            provider_defaults.get("huggingface_model_id")
+            or current_app.config.get("AI_MODEL_NAME")
+            or ""
+        ).strip()
+    else:
+        selected_model_id = str(
+            provider_defaults.get("model_name")
+            or current_app.config.get("AI_MODEL_NAME")
+            or ""
+        ).strip()
+
+    return {
+        "provider": provider or None,
+        "model_id": selected_model_id or None,
+        "family_id": family_id_from_model_id(selected_model_id) if selected_model_id else None,
+    }
+
+
+def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
+    """Build provider-indexed model id sets from model inventory payload."""
+
+    provider_models: dict[str, set[str]] = {
+        "ollama": set(),
+        "huggingface": set(),
+    }
+
+    ollama_payload = payload.get("ollama")
+    if isinstance(ollama_payload, dict):
+        models = ollama_payload.get("models")
+        if isinstance(models, list):
+            for model in models:
+                if not isinstance(model, dict):
+                    continue
+                model_id = str(model.get("id") or "").strip()
+                if model_id:
+                    provider_models["ollama"].add(model_id.lower())
+
+    huggingface_payload = payload.get("huggingface_local")
+    if isinstance(huggingface_payload, dict):
+        models = huggingface_payload.get("models")
+        if isinstance(models, list):
+            for model in models:
+                if not isinstance(model, dict):
+                    continue
+                model_id = str(model.get("id") or "").strip()
+                if model_id:
+                    provider_models["huggingface"].add(model_id.lower())
+
+    return provider_models
 
 def _resolve_initiated_by(payload: dict[str, Any]) -> str:
     """Resolve actor identifier used for AI interaction auditing."""
@@ -442,6 +514,42 @@ def list_available_ai_models():
     ai_service = current_app.extensions["ai_service"]
     payload = ai_service.list_available_models()
     return jsonify(payload), 200
+
+
+@api_v1_bp.get("/ai/catalog")
+@login_required
+def get_ai_catalog():
+    """Return catalog grouped by model family with discoverability and current selection."""
+    ai_service = current_app.extensions["ai_service"]
+    inventory = ai_service.list_available_models()
+    available_by_provider = _extract_available_model_ids(inventory)
+
+    families: list[dict[str, Any]] = []
+    for family in MODEL_FAMILIES:
+        models: list[dict[str, Any]] = []
+        for provider, candidates in family.provider_candidates.items():
+            for model_id in candidates:
+                models.append(
+                    {
+                        "provider": provider,
+                        "model_id": model_id,
+                        "available": model_id.lower() in available_by_provider.get(provider, set()),
+                    }
+                )
+        families.append(
+            {
+                "family_id": family.family_id,
+                "label": family.label,
+                "owner": family.owner,
+                "models": models,
+            }
+        )
+
+    response_payload = {
+        "families": families,
+        "selected": _resolve_selected_model(inventory),
+    }
+    return jsonify(response_payload), 200
 
 @api_v1_bp.get("/system-prompts")
 @login_required
