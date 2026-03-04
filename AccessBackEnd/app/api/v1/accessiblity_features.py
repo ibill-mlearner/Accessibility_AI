@@ -1,11 +1,8 @@
-from typing import Any
-
 from flask import jsonify
 from flask_login import login_required
 
 from .routes import (
     BadRequestError,
-    _apply_field_updates,
     _read_json_object, 
     _require_record, 
     _serialize_record,
@@ -15,6 +12,7 @@ from .routes import (
 )
 from .schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
 from ...models import Accommodation
+from .helpers.mutations import _apply_feature_mutations
 
 
 @api_v1_bp.get("/features")
@@ -66,15 +64,4 @@ def delete_feature(feature_id: int):
     db.session.delete(feature)
     db.session.commit()
     return jsonify(response_payload), 200
-
-def _apply_feature_mutations(feature: Accommodation, payload: dict[str, Any]) -> None:
-    _apply_field_updates(
-        feature,
-        payload,
-        (
-            'title',
-            'details',
-            'active'
-        )
-    )
 

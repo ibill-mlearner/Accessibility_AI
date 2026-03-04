@@ -1,13 +1,9 @@
-from typing import Any
-
 from flask import jsonify, current_app, request
 from flask_login import login_required, current_user
 
 from .routes import (
     _assert_chat_permissions,
-    _apply_field_updates,
     _deserialize_payload,
-    _forbidden_response,
     _read_json_object,
     _require_record,
     _serialize_record,
@@ -19,6 +15,7 @@ from .routes import (
 from .schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
 from ...models import Chat, Message
 from ...services.chat_access_service import ChatAccessService
+from .helpers.mutations import _apply_message_mutations
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
@@ -176,20 +173,4 @@ def list_chat_messages(chat_id: int):
         len(messages)
     )
     return jsonify([_serialize_record("message", message) for message in messages]), 200
-
-#HELPERs
-def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
-    if "chat_id" in payload:
-        _require_record("chat", Chat, int(payload["chat_id"]))
-        message.chat_id = int(payload["chat_id"])
-    _apply_field_updates(
-        message,
-        payload,
-        (
-            "message_text",
-            'vote',
-            'note',
-            'help_intent'
-        )
-    )
 

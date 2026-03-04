@@ -1,5 +1,3 @@
-from typing import Any
-
 from flask import current_app, jsonify
 from flask_login import current_user, login_required
 
@@ -18,9 +16,9 @@ from .routes import (
     db,
 )
 from .schemas.validation import ChatPayloadSchema
-from ...models import Chat, CourseClass, User
+from ...models import Chat, CourseClass
 from ...services.chat_access_service import ChatAccessService
-
+from .helpers.mutations import _apply_chat_mutations
 
 @api_v1_bp.get("/chats")
 @login_required
@@ -119,22 +117,3 @@ def delete_chat(chat_id: int):
     db.session.delete(chat)
     db.session.commit()
     return jsonify(response_payload), 200
-def _apply_chat_mutations(chat: Chat, payload: dict[str, Any]) -> None:
-    if "class_id" in payload:
-        class_record = _require_record("class", CourseClass, int(payload["class_id"]))
-        chat.class_id = int(class_record.id)
-
-    if "user_id" in payload:
-        _require_record("user", User, int(payload["user_id"]))
-        chat.user_id = int(payload["user_id"])
-
-    if "title" in payload:
-        chat.title = payload["title"] or ""or chat.title
-
-    if "model" in payload:
-        chat.model = payload["model"] or ""or chat.model
-
-    if "started_at" in payload:
-        parsed = _parse_optional_datetime(payload["started_at"])
-        if parsed is not None:
-            chat.started_at = parsed
