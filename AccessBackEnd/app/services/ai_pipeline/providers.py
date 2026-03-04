@@ -11,14 +11,19 @@ from .bootstrap import HuggingFaceModelBootstrap
 _MAX_CONTEXT_MESSAGES = 4
 logger = logging.getLogger(__name__)
 
-def _clip(value: Any, limit: int = 500) -> str:
+def _clip(
+    value: Any, 
+    limit: int = 500
+) -> str:
     text = str(value or "").strip()
     return text if len(text) <= limit else f"{text[:limit]}… [truncated]"
 
 
 def _sanitize_context(context: dict[str, Any] | None) -> dict[str, Any]:
+
     if not isinstance(context, dict):
         return {}
+
     data = {k: context[k] for k in ("chat_id", "class_id") if context.get(k) is not None}
     messages = [
         {"role": str(m.get("role") or "").lower(), "content": _clip(m.get("content"), 300)}
@@ -29,10 +34,20 @@ def _sanitize_context(context: dict[str, Any] | None) -> dict[str, Any]:
         data["messages"] = messages
     return data
 
-
 def _contract() -> str:
     return 'Return only JSON: {"assistant_text": string, "confidence": number|null, "notes": [string]}.'
 
+
+def _request_id_from_context(context: dict[str, Any] | None) -> str:
+    if isinstance(context, dict) and context.get("request_id") is not None:
+        return str(context.get("request_id"))
+    return "n/a"
+
+def _context_messages_count(context: dict[str, Any] | None) -> int:
+    if not isinstance(context, dict):
+        return 0
+    messages = context.get("messages")
+    return len(messages) if isinstance(messages, list) else 0
 
 class AIProvider(Protocol):
     def invoke(
@@ -53,11 +68,25 @@ class MockJSONProvider:
         self.mock_resource_path = mock_resource_path
 
     def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
+        request_id = _request_id_from_context(context)
+        logger.debug(
+            "ai_provider.invoke.start request_id=%s provider=mock_json prompt_len=%s context_messages_count=%s prompt_preview=%r",
+            request_id,
+            len(prompt or ""),
+            _context_messages_count(context),
+            _clip(prompt, 200),
+        )
         resource = Path(self.mock_resource_path)
         if not resource.exists():
             raise FileNotFoundError(f"Mock AI resource not found: {resource}")
         payload = json.loads(resource.read_text(encoding="utf-8"))
         payload.setdefault("meta", {}).update({"provider": "mock_json", "prompt_echo": prompt})
+        logger.debug(
+            "ai_provider.invoke.end request_id=%s provider=mock_json response_keys_count=%s response_preview=%r",
+            request_id,
+            len(payload.keys()) if isinstance(payload, dict) else 0,
+            _clip(payload, 200),
+        )
         return payload
 
     def health(self) -> dict[str, Any]: 
@@ -80,17 +109,28 @@ class HTTPEndpointProvider:
         self.model_name = model_name
         self.timeout_seconds = timeout_seconds
 
-    def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
+    def invoke(
+        self, 
+        prompt: str, 
+        context: dict[str, Any]
+    ) -> dict[str, Any]:
+
         if not self.endpoint:
             raise ValueError("HTTP endpoint must be configured")
+
+        request_id = _request_id_from_context(context)
         logger.debug(
-            "ai_provider.invoke.start provider=http endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
-            # f"Invoking HTTP AI provider at {self.endpoint} with prompt: {_clip(prompt)} and context: {_clip(context)}"
-            self.endpoint, 
-            self.model_name, 
-            self.timeout_seconds, 
+
+            "ai_provider.invoke.start request_id=%s provider=http endpoint=%s model=%s timeout_seconds=%s prompt_len=%s context_messages_count=%s prompt_preview=%r",
+            request_id,
+            self.endpoint,
+            self.model_name,
+            self.timeout_seconds,
+            len(prompt or ""),
+            _context_messages_count(context),
             _clip(prompt, 200)
         )
+
         try:
             response = requests.post(
                 self.endpoint,
@@ -107,9 +147,11 @@ class HTTPEndpointProvider:
             payload.setdefault("meta", {}).update({"provider": "http", "model": self.model_name})
 
         logger.debug(
-            "ai_provider.invoke.end provider=http endpoint=%s model=%s response_preview=%r",
-            self.endpoint, 
-            self.model_name, 
+            "ai_provider.invoke.end request_id=%s provider=http endpoint=%s model=%s response_keys_count=%s response_preview=%r",
+            request_id,
+            self.endpoint,
+            self.model_name,
+            len(payload.keys()) if isinstance(payload, dict) else 0,
             _clip(payload, 200)
         )
         return payload
@@ -133,22 +175,33 @@ class OllamaProvider:
         options: dict | None = None, 
         timeout_seconds: int = 60
     ) -> None:
+
         self.endpoint = endpoint
         self.model_id = model_id
         self.options = options or {}
         self.timeout_seconds = timeout_seconds
 
-    def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
+    def invoke(
+        self, 
+        prompt: str, 
+        context: dict[str, Any]
+    ) -> dict[str, Any]:
+
         if not self.endpoint or not self.model_id:
             raise ValueError("Ollama endpoint and model_id must be configured")
         endpoint = self._resolve_chat_endpoint(self.endpoint)
+        request_id = _request_id_from_context(context)
         logger.debug(
-            "ai_provider.invoke.start provider=ollama endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
-            endpoing,
+            "ai_provider.invoke.start request_id=%s provider=ollama endpoint=%s model=%s timeout_seconds=%s prompt_len=%s context_messages_count=%s prompt_preview=%r",
+            request_id,
+            endpoint,
             self.model_id,
             self.timeout_seconds,
+            len(prompt or ""),
+            _context_messages_count(context),
             _clip(prompt, 200)
         )
+
         body = {
             "model": self.model_id,
             "stream": False,
@@ -160,6 +213,7 @@ class OllamaProvider:
                 *([{"role": "system", "content": f"Context summary: {json.dumps(_sanitize_context(context), ensure_ascii=False)}"}] if _sanitize_context(context) else []),
             ],
         }
+
         req = Request(endpoint, data=json.dumps(body).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
         try:
             with urlopen(req, timeout=self.timeout_seconds) as response:
@@ -170,9 +224,11 @@ class OllamaProvider:
         payload.setdefault("meta", {}).update({"provider": "ollama", "model": self.model_id, "model_id": self.model_id, "endpoint": endpoint})
         
         logger.debug(
-            "ai_provider.invoke.end provider=ollama endpoint=%s model=%s response_preview=%r",
+            "ai_provider.invoke.end request_id=%s provider=ollama endpoint=%s model=%s response_keys_count=%s response_preview=%r",
+            request_id,
             endpoint,
             self.model_id,
+            len(payload.keys()) if isinstance(payload, dict) else 0,
             _clip(payload, 200)
         )
         return payload
@@ -181,6 +237,7 @@ class OllamaProvider:
     def _resolve_chat_endpoint(
             endpoint: str
         ) -> str:
+
         cleaned = (endpoint or "").strip().rstrip("/")
         if cleaned.lower().endswith("/api/chat"):
             return cleaned
@@ -192,6 +249,7 @@ class OllamaProvider:
 
     @staticmethod
     def _parse_payload(raw: str) -> dict[str, Any]:
+
         parsed = json.loads(raw or "{}")
         if not isinstance(parsed, dict):
             raise ValueError("Ollama response must be a JSON object")
@@ -229,12 +287,27 @@ class HuggingFaceLangChainProvider:
         max_new_tokens: int = 256, 
         temperature: float = 0.1
     ) -> None:
+
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self._bootstrap = HuggingFaceModelBootstrap(model_id=model_id, cache_dir=cache_dir)
 
-    def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
+    def invoke(
+        self, 
+        prompt: str, 
+        context: dict[str, Any]
+    ) -> dict[str, Any]:
+
+        request_id = _request_id_from_context(context)
+        logger.debug(
+            "ai_provider.invoke.start request_id=%s provider=huggingface_langchain model=%s timeout_seconds=n/a prompt_len=%s context_messages_count=%s prompt_preview=%r",
+            request_id,
+            self.model_id,
+            len(prompt or ""),
+            _context_messages_count(context),
+            _clip(prompt, 200)
+        )
         model_path = self._bootstrap.ensure_model()
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline as hf_pipeline
@@ -243,11 +316,41 @@ class HuggingFaceLangChainProvider:
             from langchain_core.prompts import PromptTemplate
         except Exception as exc:  # pragma: no cover
             raise RuntimeError("LangChain + transformers dependencies are required for HuggingFace provider.") from exc
-        generator = hf_pipeline("text-generation", model=AutoModelForCausalLM.from_pretrained(model_path), tokenizer=AutoTokenizer.from_pretrained(model_path), max_new_tokens=self.max_new_tokens, temperature=self.temperature)
-        chain = PromptTemplate.from_template("You are a concise assistant for accessibility learning support.\n{contract}\nUser prompt:\n{prompt}\nContext summary:\n{context}") | HuggingFacePipeline(pipeline=generator) | StrOutputParser()
-        raw = chain.invoke({"prompt": _clip(prompt), "context": json.dumps(_sanitize_context(context), ensure_ascii=False), "contract": _contract()})
+        generator = hf_pipeline(
+            "text-generation", 
+            model=AutoModelForCausalLM.from_pretrained(model_path), 
+            tokenizer=AutoTokenizer.from_pretrained(model_path), 
+            max_new_tokens=self.max_new_tokens, 
+            temperature=self.temperature
+        )
+        
+        chain = PromptTemplate.from_template(
+            "You are a concise assistant for accessibility learning support.\n{contract}\nUser prompt:\n{prompt}\nContext summary:\n{context}"
+        ) | HuggingFacePipeline(pipeline=generator) | StrOutputParser()
+
+        raw = chain.invoke(
+            {
+                "prompt": _clip(prompt), 
+                "context": json.dumps(_sanitize_context(context), 
+                ensure_ascii=False), 
+                "contract": _contract()
+            }
+        )
         parsed = self._parse_json(raw)
-        parsed.setdefault("meta", {}).update({"provider": parsed.get("meta", {}).get("provider", "huggingface_langchain"), "model": self.model_id, "model_id": self.model_id})
+        parsed.setdefault("meta", {}).update(
+            {
+                "provider": parsed.get("meta", {}).get("provider", "huggingface_langchain"), 
+                "model": self.model_id, 
+                "model_id": self.model_id
+            }
+        )
+        logger.debug(
+            "ai_provider.invoke.end request_id=%s provider=huggingface_langchain model=%s response_keys_count=%s response_preview=%r",
+            request_id,
+            self.model_id,
+            len(parsed.keys()) if isinstance(parsed, dict) else 0,
+            _clip(parsed, 200),
+        )
         return parsed
 
     def _parse_json(self, raw: str) -> dict[str, Any]:

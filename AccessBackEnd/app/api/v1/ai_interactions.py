@@ -29,6 +29,8 @@ from ...models.ai_interaction import AccommodationSystemPrompt
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from .schemas.validation import AIInteractionPayloadSchema
 
+_EMPTY_ASSISTANT_NOTE = "assistant_empty_after_normalization"
+
 def _extract_response_text(result: Any) -> str:
     """Normalize provider payload into a storable interaction response string."""
     normalized = _normalize_interaction_response(result)
@@ -85,7 +87,8 @@ def _normalize_interaction_response(result: Any) -> dict[str, Any]:
 
     # Keep raw provider payload only in debug metadata for investigation.
     if not normalized_response["assistant_text"]:
-        normalized_response["notes"].append("Assistant response was empty after normalization.")
+        if _EMPTY_ASSISTANT_NOTE not in normalized_response["meta"]:
+            normalized_response['notes'].append(_EMPTY_ASSISTANT_NOTE)
         normalized_response["meta"].setdefault("debug", {})["raw_payload_preview"] = _truncate_debug_payload(result)
 
     return normalized_response
@@ -244,12 +247,15 @@ def create_ai_interaction():
     payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
 
     prompt = (payload.get("prompt") or "").strip()
-    current_app.logger.debug(
-        "api.ai_interactions.create.start provider=%s endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+    request_id = str(payload.get("request_id") or "n/a")
+    logger.debug(
+        "api.ai_interactions.create.start request_id=%s provider=%s model=%s timeout_seconds=%s prompt_len=%s messages_count=%s prompt_preview=%r",
+        request_id,
         current_app.config.get("AI_PROVIDER"),
-        current_app.config.get("AI_OLLAMA_ENDPOINT") or current_app.config.get("AI_LIVE_ENDPOINT") or "no_endpoint",
         current_app.config.get("AI_MODEL_NAME"),
         current_app.config.get("AI_TIMEOUT_SECONDS"),
+        len(prompt),
+        len(payload.get("messages")) if isinstance(payload.get("messages"), list) else 0,
         prompt[:200]
     )
 
@@ -317,23 +323,25 @@ def create_ai_interaction():
     )
 
     current_app.logger.debug(
-        "api.ai_interactions.dto.created provider=%s endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+        "api.ai_interactions.dto.created request_id=%s provider=%s model=%s prompt_len=%s messages_count=%s has_system_prompt=%s",
+        request_id,
         current_app.config.get("AI_PROVIDER"),
-        current_app.config.get("AI_OLLAMA_ENDPOINT") or current_app.config.get("AI_LIVE_ENDPOINT") or "no_endpoint",
         current_app.config.get("AI_MODEL_NAME"),
-        current_app.config.get("AI_TIMEOUT_SECONDS"),
-        prompt[:200]
+        len(prompt),
+        len(messages),
+        bool(dto.system_prompt)
     )
 
     try:
         result = ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
-        current_app.logger.debug(
-            "api.ai_interactions.upstream_error provider=%s endpoint=%s model=%s timeout_seconds=%s prompt_preview=%r",
+        current_app.logger.warning(
+            "api.ai_interactions.ai_service.run.error request_id=%s provider=%s model=%s upstream_source=%s error_type=%s prompt_preview=%r",
+            request_id,
             current_app.config.get("AI_PROVIDER"),
-            current_app.config.get("AI_OLLAMA_ENDPOINT") or current_app.config.get("AI_LIVE_ENDPOINT") or "no_endpoint",
             current_app.config.get("AI_MODEL_NAME"),
-            current_app.config.get("AI_TIMEOUT_SECONDS"),
+            (exc.details or {}).get("source", "unknown"),
+            exc.__class__.__name__,
             prompt[:200]
         )
         return (
@@ -349,18 +357,41 @@ def create_ai_interaction():
             502,
         )
     current_app.logger.debug(
-        "api.ai_interactions.ai_service.run.end provider=%s model=%s response_preview=%r",
+        "api.ai_interactions.ai_service.run.end request_id=%s provider=%s model=%s response_text_len=%s notes_count=%s response_preview=%r",
+        request_id,
         current_app.config.get("AI_PROVIDER"),
         current_app.config.get("AI_MODEL_NAME"),
+        len(str((result or {}).get("assistant_text") if isinstance(result, dict) else result or "")),
+        len((result or {}).get("notes")) if isinstance(result, dict) and isinstance((result or {}).get("notes"), list) else 0,
         str(result)[:200],
     )
     normalized_result = _normalize_interaction_response(result)
     normalized_result["meta"]["provider"] = _resolve_provider(result)
+    if not normalized_result.get("assistant_text"):
+        current_app.logger.warning(
+            "api.ai_interactions.normalize.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
+            request_id,
+            normalized_result["meta"].get("provider") or current_app.config.get("AI_PROVIDER") or "unknown",
+            normalized_result["meta"].get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown",
+            len(normalized_result.get("notes") or []),
+        )
 
     persistence_error = _persist_ai_interaction(payload, prompt, normalized_result)
     if persistence_error is not None:
-        return persistence_error
+        current_app.logger.debug(
+            "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
+            request_id,
+            payload.get("chat_id"),
+            True,
+        )
+    return persistence_error
 
+    current_app.logger.debug(
+        "api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s",
+        request_id,
+        payload.get("chat_id"),
+        len(normalized_result.get("assistant_text") or ""),
+    )
     return jsonify(normalized_result), 200
 
 @api_v1_bp.get("/chats/<int:chat_id>/ai/interactions")

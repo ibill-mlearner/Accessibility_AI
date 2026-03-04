@@ -28,7 +28,12 @@ class AIPipelineConfig:
 
 
 class AIPipelineService:
-    def __init__(self, config: AIPipelineConfig, provider: AIProvider | None = None) -> None:
+    def __init__(
+        self, 
+        config: AIPipelineConfig, 
+        provider: AIProvider | None = None
+    ) -> None:
+
         self.config = config
         self._provider = provider or create_provider(
             provider=config.provider,
@@ -45,21 +50,34 @@ class AIPipelineService:
             temperature=config.temperature
         )
 
-    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+    def run(
+        self, 
+        request: AIPipelineRequest
+    ) -> dict[str, Any]:
+
         prompt = self._resolve_prompt(request)
         # i didn't make _clip available ........... 
+        request_id = str(request.request_id) if request.request_id is not None else "n/a"
         logger.debug(
-            "ai_pipeline.run.start provider=%s model=%s timeout_seconds=%s prompt_preview=%r",
+            "ai_pipeline.run.start request_id=%s provider=%s model=%s timeout_seconds=%s prompt_len=%s messages_count=%s prompt_preview=%r",
+            request_id,
             self.config.provider,
             self.config.model_name,
             self.config.timeout_seconds,
+            len(prompt),
+            len(request.messages) if isinstance(request.messages, list) else 0,
             prompt[:200],
         )
+
         context = request.context.copy() if isinstance(request.context, dict) else {}
+
+        if request.request_id and "request_id" not in context:
+            context["request_id"] = request.request_id
         if request.messages and "messages" not in context:
             context["messages"] = request.messages
         if request.system_prompt:
             context["system_instructions"] = request.system_prompt
+
         payload = invoke_provider_or_raise(self._provider, prompt, context)
 
         assistant_text = next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
@@ -80,8 +98,19 @@ class AIPipelineService:
             },
         }
 
+        if not assistant_text:
+            logger.warning(
+                "ai_pipeline.run.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
+                request_id,
+                self.config.provider,
+                self.config.model_name,
+                len(notes)
+
+            )
+
         logger.debug(
-            "ai_pipeline.run.end provider=%s model=%s assistant_text_preview=%r",
+            "ai_pipeline.run.end request_id=%s provider=%s model=%s assistant_text_len=%s notes_count=%s assistant_text_preview=%r",
+            request_id,
             self.config.provider,
             self.config.model_name,
             assistant_text[:200]
@@ -90,18 +119,31 @@ class AIPipelineService:
         return result
 
     @staticmethod
-    def _resolve_prompt(request: AIPipelineRequest) -> str:
-        prompt = (request.prompt or "").strip() if isinstance(request.prompt, str) else ""
+    def _resolve_prompt(messages: list[dict]) -> str:
+        explicit_prompt = request.prompt if isinstance(request.prompt, str) else ""
+        prompt = explicit_prompt.strip()
         if prompt:
             return prompt
 
-        messages = request.messages if isinstance(request.messages, list) else []
-        for message in reversed(messages):
-            if isinstance(message, dict) and str(message.get("role") or "").lower() == "user" and isinstance(message.get("content"), str) and message["content"].strip():
+        for message in reversed(
+            request.messages if isinstance(request.messages, list) else []
+        ):
+            if (
+                isinstance(message, dict) 
+                and str(message.get("role") or "").lower() == "user" 
+                and isinstance(message.get("content"), str) 
+                and message["content"].strip()
+            ):
                 return message["content"].strip()
         return ""
 
-    def run_interaction(self, prompt: str, context: dict[str, Any] | None = None, **metadata: Any) -> dict[str, Any]:
+    def run_interaction(
+        self, 
+        prompt: str, 
+        context: dict[str, Any] | None = None, 
+        **metadata: Any
+    ) -> dict[str, Any]:
+    
         return self.run(
             AIPipelineRequest(
                 prompt=prompt,
