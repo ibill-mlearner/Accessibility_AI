@@ -4,11 +4,11 @@ from typing import Any
 
 from flask import current_app, jsonify
 
-from ....services.ai_pipeline.exceptions import AIPipelineUpstreamError
-from ....services.ai_pipeline.model_catelog import family_id_from_model_id
-from ....services.ai_pipeline.types import AIPipelineRequest
-from ..helpers.ai_interaction_helpers import _extract_available_model_ids, _resolve_system_instructions, resolve_model_selection
-from ..routes import BadRequestError
+from app.services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from app.services.ai_pipeline.model_catelog import family_id_from_model_id
+from app.services.ai_pipeline.types import AIPipelineRequest
+from app.helpers.ai_interaction_helpers import _extract_available_model_ids, _resolve_system_instructions, resolve_model_selection
+from app.api.v1.routes import BadRequestError
 
 
 def build_prompt_and_messages(payload: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:

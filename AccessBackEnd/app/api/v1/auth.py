@@ -4,7 +4,7 @@ from flask_login import current_user, login_user, login_required, logout_user
 from .routes import BadRequestError, api_v1_bp, db, _read_json_object
 from ...models import User
 from ...models.identity_defaults import build_transitional_identity_defaults
-from .helpers.auth_helpers import (
+from ...helpers.auth_helpers import (
     _create_user_session,
     _enforce_roles,
     _normalize_auth_email,
