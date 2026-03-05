@@ -3,7 +3,7 @@ from typing import Any
 from flask import current_app, jsonify, session
 from flask_login import current_user, login_required
 
-from .helpers.ai_interaction_helpers import (
+from ...helpers.ai_interaction_helpers import (
     _extract_available_model_ids,
     _resolve_selected_model,
     resolve_model_selection,

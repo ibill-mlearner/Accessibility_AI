@@ -4,8 +4,8 @@ import secrets
 from flask import current_app, jsonify, session
 from flask_login import current_user
 
-from ....models import UserSession
-from ..routes import db
+from app.models import UserSession
+from app.api.v1.routes import db
 
 
 class AuthHelpers:

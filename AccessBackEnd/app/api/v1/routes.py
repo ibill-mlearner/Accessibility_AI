@@ -5,7 +5,7 @@ from flask import Blueprint, current_app, jsonify
 from ..errors import BadRequestError, NotFoundError
 from ...extensions import db
 from ...models import CourseClass
-from .helpers.route_helpers import (
+from ...helpers.route_helpers import (
     _apply_field_updates,
     _assert_chat_permissions,
     _deserialize_payload,

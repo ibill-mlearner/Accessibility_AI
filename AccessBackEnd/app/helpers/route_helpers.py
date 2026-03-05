@@ -6,11 +6,11 @@ from flask import current_app, jsonify, request
 from marshmallow import Schema, ValidationError
 from sqlalchemy import and_, or_
 
-from ...errors import BadRequestError, NotFoundError
-from ....extensions import db
-from ....models import CourseClass, UserClassEnrollment
-from ....services.chat_access_service import ChatAccessService
-from ....services.logging import DomainEvent
+from app.api.errors import BadRequestError, NotFoundError
+from app.extensions import db
+from app.models import CourseClass, UserClassEnrollment
+from app.services.chat_access_service import ChatAccessService
+from app.services.logging import DomainEvent
 
 _RESOURCE_API_TO_MODEL_FIELDS: dict[str, dict[str, str]] = {
     "chat": {

@@ -5,11 +5,11 @@ from flask import current_app, jsonify, session
 from flask_login import current_user
 from sqlalchemy.exc import SQLAlchemyError
 
-from ....db.repositories.interaction_repo import AIInteractionRepository
-from ....models import AIInteraction, AIModel, Chat
-from ....models.ai_interaction import AccommodationSystemPrompt
-from ....services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
-from ..routes import _raise_bad_request_from_exception, _require_record, db
+from app.db.repositories.interaction_repo import AIInteractionRepository
+from app.models import AIInteraction, AIModel, Chat
+from app.models.ai_interaction import AccommodationSystemPrompt
+from app.services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
+from app.api.v1.routes import _raise_bad_request_from_exception, _require_record, db
 
 
 class AIInteractionHelpers:

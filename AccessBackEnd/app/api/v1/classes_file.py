@@ -10,10 +10,10 @@ from .routes import (
     api_v1_bp,
     db,
 )
-from .schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
+from ...schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
 from ...models import CourseClass
 from ...services.chat_access_service import ChatAccessService
-from .helpers.mutations import _apply_class_mutations
+from ...helpers.mutations import _apply_class_mutations
 
 
 @api_v1_bp.get("/classes")

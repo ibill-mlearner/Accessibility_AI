@@ -10,9 +10,9 @@ from .routes import (
     api_v1_bp, 
     db,
 )
-from .schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
+from ...schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
 from ...models import Accommodation
-from .helpers.mutations import _apply_feature_mutations
+from ...helpers.mutations import _apply_feature_mutations
 
 
 @api_v1_bp.get("/features")

@@ -12,10 +12,10 @@ from .routes import (
     api_v1_bp,
     db,
 )
-from .schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
+from ...schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
 from ...models import Chat, Message
 from ...services.chat_access_service import ChatAccessService
-from .helpers.mutations import _apply_message_mutations
+from ...helpers.mutations import _apply_message_mutations
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
