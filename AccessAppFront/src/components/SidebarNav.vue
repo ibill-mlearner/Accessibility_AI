@@ -28,7 +28,7 @@
           >
           Saved Notes
         </RouterLink>
-        <RouterLink :to="`/classes/${auth.role === 'instructor' ? 'instructor' : 'student'}`" 
+        <RouterLink :to="`/classes/${auth.role === 'admin' ? 'admin' : auth.role === 'instructor' ? 'instructor' : 'student'}`" 
           class="btn btn-outline-primary text-start"
           active-class="bg-purple-200 text-dark border-0"
           >
