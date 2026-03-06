@@ -67,7 +67,7 @@ export const useChatStore = defineStore('chats', {
       } catch (error) {
         this.modelCatalogError = 'Unable to load model catalog. error: ' + (error?.message || 'unknown error')
         this.modelCatalog = []
-        this.modelSelected = ''
+        this.selectedModel = ''
       } finally {
         this.modelCatalogLoading = false
       }
@@ -83,10 +83,10 @@ export const useChatStore = defineStore('chats', {
       try {
         const response = await api.post('/api/v1/ai/selection', { 
           provider, 
-          model_id 
+          model_id: modelId
         })
         const persistedProvider = String(response?.data?.provider || provider).trim().toLowerCase()
-        const persistedModelId = String(response?.data?.model_id || model_id).trim()
+        const persistedModelId = String(response?.data?.model_id || modelId).trim()
         this.selectedModel = `${persistedProvider}::${persistedModelId}`
       } catch {
         this.modelCatalogError = 'Unable to update model selection. Please try again.'

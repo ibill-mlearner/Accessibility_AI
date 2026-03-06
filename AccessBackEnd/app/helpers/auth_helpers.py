@@ -89,7 +89,7 @@ class AuthHelpers:
     def _resolved_allowed_actions(user_role: str) -> list[str]:
         role_val = (user_role or "").strip().lower()
         action_map = {
-            "admin": ["users:read", "users:write", "classes:read", "classes:write"],
+            "admin": ["users:read", "users:write", "classes:read", "classes:write", "classes:delete"],
             "instructor": ["classes:read", "classes:write", "students:read"],
             "student": ["classes:read", "profile:read", "profile:write"]
         }

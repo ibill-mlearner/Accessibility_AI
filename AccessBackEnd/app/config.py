@@ -125,6 +125,7 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
+    LOG_LEVEL = _env("LOG_LEVEL", "DEBUG")
 
 class TestingConfig(BaseConfig):
     TESTING = True

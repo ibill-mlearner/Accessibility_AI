@@ -59,7 +59,7 @@ def list_classes():
             .all()
         )
 
-    classes = db.session.query(CourseClass).order_by(CourseClass.id.asc()).all()
+    # classes = db.session.query(CourseClass).order_by(CourseClass.id.asc()).all()
     return jsonify([_serialize_record("class", c) for c in classes]), 200
 
 
@@ -104,7 +104,7 @@ def update_class(class_id: int):
 
     denied = _enforce_roles("admin", "instructor")
     if denied is not None:
-        return
+        return denied
 
     if getattr(current_user, "role", "").strip().lower() == "instructor":
         if int(class_record.instructor_id) != int(current_user.id):
@@ -115,7 +115,7 @@ def update_class(class_id: int):
 
     payload = _validate_payload(_read_json_object(), PartialClassPayloadSchema())
 
-    if "instructor_id" in payload and getattr(current_user, "role", "").strip().lower != "admin":
+    if "instructor_id" in payload and getattr(current_user, "role", "").strip().lower() != "admin":
         return jsonify({
             "error": "forbidden",
             "message": "only amins can reassign class instructors"

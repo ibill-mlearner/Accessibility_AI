@@ -51,10 +51,8 @@ export const useAuthStore = defineStore('auth', {
             const chatStore = useChatStore()
             const response = await api.post('/api/v1/auth/login', { email, password })
             this.applyAuthenticatedUser(response?.data?.user || {})
-            this.session = null
-            this.allowedActions = []
-            this.sessionChecked = true
             chatStore.resetChatState()
+            await this.me()
             return true
         } catch (error) {
             this.clearAuthState()
@@ -76,9 +74,8 @@ export const useAuthStore = defineStore('auth', {
             const chatStore = useChatStore()
             const response = await api.post('/api/v1/auth/register', { email, password, role })
             this.applyAuthenticatedUser(response?.data?.user || {})
-            this.session = null
-            this.allowedActions = []
             chatStore.resetChatState()
+            await this.me()
             return true
         } catch (error) {
             this.clearAuthState()
