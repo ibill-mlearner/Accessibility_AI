@@ -7,7 +7,10 @@ import { toResourceError } from '../stores/helpers/apiErrors'
 export const useChatStore = defineStore('chats', {
   state: () => ({
     selectedChatId: null,
-    selectedModel: 'General',
+    selectedModel: '',
+    modelCatalog: [],
+    modelCatalogLoading: false,
+    modelCatalogError: '',
     newChatRequestId: 0,
     chats: [],
     actionStatus: {}
@@ -18,6 +21,77 @@ export const useChatStore = defineStore('chats', {
     }
   },
   actions: {
+    resetChatState() {
+      this.selectedChatId = null
+      this.selectedModel = ''
+      this.modelCatalog = []
+      this.modelCatalogLoading = false
+      this.modelCatalogError = ''
+      this.newChatRequestId = 0
+      this.chats = []
+      this.actionStatus = {}
+    },
+    async fetchModelCatalog() {
+      this.modelCatalogLoading = true
+      this.modelCatalogError = ''
+      try {
+        const response = await api.get('/api/v1/ai/catalog')
+        const families = Array.isArray(response?.data?.families) ? response.data.families : []
+        const options = []
+
+        families.forEach((f) => {
+          const models = Array.isArray(f?.models) ? f.models : []
+          models.forEach((m) => {
+            if (!m?.available) return
+            const provider = String(m?.provider || '').trim().toLowerCase()
+            const modelId = String(m?.model_id || '').trim()
+            if (!provider || !modelId) return
+            options.push({
+              value: `${provider}::${modelId}`,
+              provider,
+              modelId,
+              label: `${f?.label || modelId} (${provider})`
+            })
+          })
+        })
+
+        this.modelCatalog = options
+        const selectedProvider = String(response?.data?.selected?.provider || '').trim().toLowerCase()
+        const selectedModelId = String(response?.data?.selected?.model_id || '').trim()
+        const selectedValue = selectedProvider && selectedModelId ? `${selectedProvider}::${selectedModelId}` : ''
+
+        this.selectedModel = selectedValue && options.some(
+          (o) => o.value === selectedValue) 
+          ? selectedValue : options[0]?.value || ''
+
+      } catch (error) {
+        this.modelCatalogError = 'Unable to load model catalog. error: ' + (error?.message || 'unknown error')
+        this.modelCatalog = []
+        this.modelSelected = ''
+      } finally {
+        this.modelCatalogLoading = false
+      }
+    },
+    async updateModelSelection(selectedValue) {
+      const normalizedValue = String(selectedValue || '').trim()
+      if (!normalizedValue || !normalizedValue.includes('::')) return
+      const [provider, modelId] = normalizedValue.split('::')
+      if (!provider || !modelId) return
+
+      this.selectedModel = normalizedValue
+
+      try {
+        const response = await api.post('/api/v1/ai/selection', { 
+          provider, 
+          model_id 
+        })
+        const persistedProvider = String(response?.data?.provider || provider).trim().toLowerCase()
+        const persistedModelId = String(response?.data?.model_id || model_id).trim()
+        this.selectedModel = `${persistedProvider}::${persistedModelId}`
+      } catch {
+        this.modelCatalogError = 'Unable to update model selection. Please try again.'
+      }
+    },
     async fetchChats() {
       const key = 'fetchChats'
       setActionStatus(this.actionStatus, key, { loading: true, error: '' })

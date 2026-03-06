@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
+import { useChatStore } from './chatStore'
 
 function buildGuestState() {
   return {
@@ -28,6 +29,7 @@ export const useAuthStore = defineStore('auth', {
         this.authError = ''
 
     }, clearAuthState() {
+        const chatStore = useChatStore()
         const guestState = buildGuestState()
         this.role = guestState.role
         this.user = guestState.user
@@ -37,6 +39,7 @@ export const useAuthStore = defineStore('auth', {
         this.session = guestState.session
         this.allowedActions = guestState.allowedActions
         this.sessionChecked = guestState.sessionChecked
+        chatStore.resetChatState()
 
     }, async initFromSession() {
         return this.me()
@@ -45,11 +48,13 @@ export const useAuthStore = defineStore('auth', {
     }, async login({email, password} = {}) {
         this.authError = ''
         try {
+            const chatStore = useChatStore()
             const response = await api.post('/api/v1/auth/login', { email, password })
             this.applyAuthenticatedUser(response?.data?.user || {})
             this.session = null
             this.allowedActions = []
             this.sessionChecked = true
+            chatStore.resetChatState()
             return true
         } catch (error) {
             this.clearAuthState()
@@ -68,10 +73,12 @@ export const useAuthStore = defineStore('auth', {
         // const temp = keyword -- password for registering as admin maybe?
         this.authError = ''
         try {
+            const chatStore = useChatStore()
             const response = await api.post('/api/v1/auth/register', { email, password, role })
             this.applyAuthenticatedUser(response?.data?.user || {})
             this.session = null
             this.allowedActions = []
+            chatStore.resetChatState()
             return true
         } catch (error) {
             this.clearAuthState()

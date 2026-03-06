@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import json, os
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from typing import Literal
@@ -16,7 +16,7 @@ class ModelFamily:
     provider_candidates: Mapping[ProviderId, tuple[str, ...]]
 
 
-MODEL_FAMILIES: tuple[ModelFamily, ...] = (
+DEFAULT_MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ModelFamily(
         family_id="qwen2_5",
         label="Qwen 2.5",
@@ -81,8 +81,63 @@ MODEL_FAMILIES: tuple[ModelFamily, ...] = (
     ),
 )
 
-_FAMILY_BY_ID: dict[str, ModelFamily] = {family.family_id: family for family in MODEL_FAMILIES}
+def _load_model_families_from_env() -> tuple[ModelFamily, ...]:
+    """Load optional client-approved catalog from AI_MODEL_FAMILIES_JSON."""
+    raw = os.getenv("AI_MODEL_FAMILIES_JSON")
+    if not raw or not raw.strip():
+        return DEFAULT_MODEL_FAMILIES
 
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return DEFAULT_MODEL_FAMILIES
+
+    if not isinstance(parsed, list):
+        return DEFAULT_MODEL_FAMILIES
+
+    families: list[ModelFamily] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            return DEFAULT_MODEL_FAMILIES
+        family_id = str(item.get("family_id") or "").strip()
+        label = str(item.get("label") or "").strip()
+        owner = str(item.get("owner") or "").strip()
+        provider_candidates = item.get("provider_candidates")
+        if not family_id or not label or not owner or not isinstance(provider_candidates, dict):
+            return DEFAULT_MODEL_FAMILIES
+
+        normalized_provider_candidates: dict[ProviderId, tuple[str, ...]] = {}
+        for provider in ("ollama", "huggingface"):
+            candidates = provider_candidates.get(provider, ())
+            if not isinstance(candidates, list):
+                candidates = []
+            normalized_provider_candidates[provider] = tuple(
+                str(candidate).strip()
+                for candidate in candidates
+                if str(candidate).strip()
+            )
+
+        if not normalized_provider_candidates["ollama"] and not normalized_provider_candidates["huggingface"]:
+            return DEFAULT_MODEL_FAMILIES
+
+        families.append(
+            ModelFamily(
+                family_id=family_id,
+                label=label,
+                owner=owner,
+                provider_candidates=normalized_provider_candidates,
+            )
+        )
+
+    if not families:
+        return DEFAULT_MODEL_FAMILIES
+
+    return tuple(families)
+
+
+MODEL_FAMILIES: tuple[ModelFamily, ...] = _load_model_families_from_env()
+
+_FAMILY_BY_ID: dict[str, ModelFamily] = {family.family_id: family for family in MODEL_FAMILIES}
 
 def get_model_catalog_metadata() -> list[dict[str, object]]:
     """Return serializable model-family metadata for API usage."""

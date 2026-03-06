@@ -1,7 +1,7 @@
 from typing import Any
 
-from app.models import Accommodation, Chat, CourseClass, Message, Note, User
-from app.api.v1.routes import (
+from ..models import Accommodation, Chat, CourseClass, Message, Note, User
+from ..api.v1.routes import (
     BadRequestError,
     _apply_field_updates,
     _assert_chat_permissions,

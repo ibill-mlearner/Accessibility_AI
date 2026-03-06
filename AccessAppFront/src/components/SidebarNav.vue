@@ -28,12 +28,14 @@
           >
           Saved Notes
         </RouterLink>
-        <RouterLink :to="`/classes/${auth.role === 'admin' ? 'admin' : auth.role === 'instructor' ? 'instructor' : 'student'}`" 
+
+        <RouterLink 
+          to="/classes" 
           class="btn btn-outline-primary text-start"
-          active-class="bg-purple-200 text-dark border-0"
-          >
+          active-class="bg-purple-200 text-dark border-0" >
           My Classes
         </RouterLink>
+        
       </div>
     </nav>
 

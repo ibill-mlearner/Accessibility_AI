@@ -115,7 +115,6 @@ def create_app(config_name: str | None = None) -> Flask:
 
     app.extensions["ai_service"] = build_ai_service(app)
     initialize_logging(app)
-
     app.register_blueprint(api_v1_bp)
     # app.register_blueprint(auth_bp)
     # removing and moving auth routes over to v1 api

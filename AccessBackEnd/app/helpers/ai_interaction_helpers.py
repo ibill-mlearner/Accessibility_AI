@@ -5,11 +5,11 @@ from flask import current_app, jsonify, session
 from flask_login import current_user
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.db.repositories.interaction_repo import AIInteractionRepository
-from app.models import AIInteraction, AIModel, Chat
-from app.models.ai_interaction import AccommodationSystemPrompt
-from app.services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
-from app.api.v1.routes import _raise_bad_request_from_exception, _require_record, db
+from ..db.repositories.interaction_repo import AIInteractionRepository
+from ..models import AIInteraction, AIModel, Chat, CourseClass
+from ..models.ai_interaction import AccommodationSystemPrompt
+from ..services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
+from ..api.v1.routes import _raise_bad_request_from_exception, _require_record, db
 
 
 class AIInteractionHelpers:
@@ -234,6 +234,29 @@ class AIInteractionHelpers:
                 )
                 if prompt_link is not None:
                     return resolved_id
+
+        selected_feature_ids = payload.get("selected_accessibility_link_ids")
+        if isinstance(selected_feature_ids, list):
+            normalized_feature_ids: list[int] = []
+            for f_id in selected_feature_ids:
+                try:
+                    normalized_feature_ids.append(int(f_id))
+                except (TypeError, ValueError):
+                    continue
+                    # I should find some error catching for this here in a future patch
+
+            # this could cause too much DB lookup, need to watchout for how many query actions happen when using the app
+            if normalized_feature_ids:
+                mapped_link = (
+                    db.session.query(AccommodationSystemPrompt.id)
+                    .filter(AccommodationSystemPrompt.accommodation_id.in_(normalized_feature_ids))
+                    .order_by(AccommodationSystemPrompt.id.asc())
+                    .first()
+                )
+                if mapped_link is not None:
+                    return int(mapped_link[0])
+
+
         link_id = payload.get("accommodations_id_system_prompts_id")
         if link_id is None:
             return None
@@ -322,13 +345,42 @@ class AIInteractionHelpers:
     def _resolve_system_instructions(payload: dict[str, Any]) -> str:
         """Resolve DB backed system instructions for AI providers"""
         prompt_link_id = AIInteractionHelpers._resolve_prompt_link_id(payload)
-        if prompt_link_id is None:
-            return ""
+        prompt_link = None
 
-        prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id)
+        if prompt_link_id is not None:
+            prompt_link = _require_record(
+                "accommodation_system_prompt",
+                AccommodationSystemPrompt,
+                prompt_link_id
+            )
+        class_id: int | None = None
+
+        raw_class_id = payload.get("class_id")
+
+        if raw_class_id is not None:
+            try:
+                class_id = int(raw_class_id)
+            except (TypeError, ValueError) as e:
+                _raise_bad_request_from_exception(
+                    e,
+                    message="class id must be an integer/number"
+                )
+        else:
+            chat_id = AIInteractionHelpers._resolve_chat_id(payload)
+            if chat_id is not None:
+                chat = _require_record("chat", Chat, chat_id)
+                class_id = int(chat.class_id)
+
+        class_record = _require_record(
+            "class",
+            CourseClass,
+            class_id
+        ) if class_id is not None else None
+
         parts = [
-            (prompt_link.system_prompt.text or "").strip() if prompt_link.system_prompt else "",
-            (prompt_link.accommodation.details or "").strip() if prompt_link.accommodation else ""
+            (prompt_link.system_prompt.text or "").strip() if prompt_link and prompt_link.system_prompt else "",
+            (prompt_link.accommodation.details or "").strip() if prompt_link and prompt_link.accommodation else "",
+            (class_record.description or "").strip() if class_record else ""
         ]
 
         return "\n\n".join(p for p in parts if p)

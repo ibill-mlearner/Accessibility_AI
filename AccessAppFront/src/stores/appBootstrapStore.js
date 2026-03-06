@@ -33,6 +33,7 @@ export const useAppBootstrapStore = defineStore('appBootstrap', {
       const features = useFeatureStore()
 
       const results = await Promise.allSettled([
+        chats.fetchModelCatalog(),
         chats.fetchChats(),
         classes.fetchClasses(),
         notes.fetchNotes(),

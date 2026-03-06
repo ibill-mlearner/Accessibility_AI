@@ -4,8 +4,8 @@ import secrets
 from flask import current_app, jsonify, session
 from flask_login import current_user
 
-from app.models import UserSession
-from app.api.v1.routes import db
+from ..models import UserSession
+from ..api.v1.routes import db
 
 
 class AuthHelpers:
@@ -170,7 +170,7 @@ class AuthHelpers:
             return jsonify({"error": "authentication required"}), 401
 
         user_role = (getattr(current_user, "role") or "").strip().lower()
-        if allowed_role and user_role not in allowed_roles:
+        if allowed_role and user_role not in allowed_role:
             return (
                 jsonify(
                     {

@@ -15,6 +15,7 @@ from ...helpers.ai_interactions_flow import (
     build_prompt_and_messages,
     resolve_model_override,
     run_pipeline,
+    compose_system_prompt
 )
 from .routes import (
     _assert_chat_permissions,
@@ -63,6 +64,7 @@ def create_ai_interaction():
     )
 
     context_payload, system_instructions = build_context_and_system_instructions(payload, messages)
+    composed_system_prompt = compose_system_prompt(system_instructions, payload)
 
     _publish(
         "api.ai_interaction_requested",
@@ -70,6 +72,7 @@ def create_ai_interaction():
             "has_prompt": bool(prompt),
             "has_messages": bool(messages),
             "has_system_prompt": bool(payload.get("system_prompt")),
+            "has_guardrail_system_prompt": bool(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT")),
             "has_db_system_instructions": bool(system_instructions),
             "has_rag": bool(payload.get("rag")),
         },
@@ -89,7 +92,7 @@ def create_ai_interaction():
     dto = AIPipelineRequest(
         prompt=prompt,
         messages=messages,
-        system_prompt=system_instructions or (payload.get("system_prompt") or None),
+        system_prompt=composed_system_prompt,
         context=context_payload,
         chat_id=chat_id,
         initiated_by=initiated_by,

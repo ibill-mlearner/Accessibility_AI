@@ -1,5 +1,4 @@
 import { computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
 
 const allowedRoles = ['student', 'instructor', 'admin']
 
@@ -8,14 +7,25 @@ function normalizeRole(roleLike) {
   return allowedRoles.includes(normalized) ? normalized : 'student'
 }
 
-export function useClassesViewState({ props, auth, classStore }) {
-  const route = useRoute()
+export function useClassesViewState({ auth, classStore }) {
+
 
   const normalizedRole = computed(() => normalizeRole(auth.role))
+  const allowedActions = computed(() => new Set(auth.allowedActions || []))
+  const canEditClass = computed(() =>
+    (normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
+    && allowedActions.value.has('classes:write')
+  )
+  const canCreateClass = computed(() =>
+    normalizedRole.value === 'admin' && allowedActions.value.has('classes:write')
+  )
+  const canDeleteClass = computed(() =>
+    normalizedRole.value === 'admin' && allowedActions.value.has('classes:delete')
+  )
 
-  const canEditClass = computed(() => normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
-  const canCreateClass = computed(() => normalizedRole.value === 'admin')
-  const canDeleteClass = computed(() => normalizedRole.value === 'admin')
+// const canEditClass = computed(() => normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
+// const canCreateClass = computed(() => normalizedRole.value === 'admin')
+// const canDeleteClass = computed(() => normalizedRole.value === 'admin')
 
   const roleSummary = computed(() => {
     if (normalizedRole.value === 'admin') return 'Admin access: create, update, and delete classes.'
@@ -51,18 +61,18 @@ export function useClassesViewState({ props, auth, classStore }) {
     }
   })
 
-  watch(
-    () => props.role || route.params.role,
-    (value) => {
-      const paramRole = normalizeRole(value)
-      if (!auth.isAuthenticated) return
-      if (auth.role === 'admin') return
-      if (paramRole !== auth.role) {
-        auth.setRole(paramRole)
-      }
-    },
-    { immediate: true }
-  )
+  // watch(
+  //   () => props.role || route.params.role,
+  //   (value) => {
+  //     const paramRole = normalizeRole(value)
+  //     if (!auth.isAuthenticated) return
+  //     if (auth.role === 'admin') return
+  //     if (paramRole !== auth.role) {
+  //       auth.setRole(paramRole)
+  //     }
+  //   },
+  //   { immediate: true }
+  // )
 
   async function handleCreateClass(payload) {
     if (!canCreateClass.value) return

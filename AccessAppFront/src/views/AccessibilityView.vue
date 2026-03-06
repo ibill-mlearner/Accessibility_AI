@@ -33,7 +33,15 @@ function setFeatureEnabled(feature, enabled) {
     featureTitle: feature.title,
     enabled
   })
+  const selectedSet = new Set(fstore.selectedLinkIds)
+  const featureId = Number(feature.id)
 
+  if (enabled) {
+    selectedSet.add(featureId)
+  } else {
+    selectedSet.delete(featureId) 
+  }
+  fstore.setSelectedAccessibilityLinkIds(Array.from(selectedSet))
   fstore.updateFeature(feature.id, { active: enabled })
 }
 </script>

@@ -58,7 +58,7 @@ import ClassOptionCard from '../components/classes/ClassOptionCard.vue'
 import ClassDetailsEditor from '../components/classes/ClassDetailsEditor.vue'
 import ClassAdminActions from '../components/classes/ClassAdminActions.vue'
 
-const props = defineProps({ role: { type: String, default: '' } })
+// const props = defineProps({ role: { type: String, default: '' } })
 
 const auth = useAuthStore()
 const classStore = useClassStore()
@@ -80,5 +80,5 @@ const {
   handleCreateClass,
   handleUpdateClass,
   handleDeleteClass
-} = useClassesViewState({ props, auth, classStore })
+} = useClassesViewState({ /* props, */ auth, classStore })
 </script>

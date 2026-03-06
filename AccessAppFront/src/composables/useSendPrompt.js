@@ -45,7 +45,7 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
       timelineMessages.value.push({ id: userMessage.id, role: 'user', text: userMessage.message_text })
       await scrollToLatestTurn()
 
-      const selectedAccessibilityLinkIds = useFeatureStore.selectedLinkIds
+      const selectedAccessibilityLinkIds = featureStore.selectedLinkIds
 
       let aiResponse
       try {
@@ -53,6 +53,7 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
             prompt: cleanPrompt,
             chat_id: ensuredChat.id,
             selected_accessibility_link_ids: selectedAccessibilityLinkIds,
+            selected_accomodations_id_system_prompts_ids: selectedAccessibilityLinkIds,
             context: 
             { 
                 chat_id: ensuredChat.id, 

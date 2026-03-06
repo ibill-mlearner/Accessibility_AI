@@ -4,14 +4,28 @@ from typing import Any
 
 from flask import current_app, jsonify
 
-from app.services.ai_pipeline.exceptions import AIPipelineUpstreamError
-from app.services.ai_pipeline.model_catelog import family_id_from_model_id
-from app.services.ai_pipeline.types import AIPipelineRequest
-from app.helpers.ai_interaction_helpers import _extract_available_model_ids, _resolve_system_instructions, resolve_model_selection
-from app.api.v1.routes import BadRequestError
+from ..services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from ..services.ai_pipeline.model_catelog import family_id_from_model_id
+from ..services.ai_pipeline.types import AIPipelineRequest
+from ..helpers.ai_interaction_helpers import _extract_available_model_ids, _resolve_system_instructions, resolve_model_selection
+from ..api.v1.routes import BadRequestError
 
+def compose_system_prompt(
+        system_instructions: str,
+        payload: dict[str, Any]
+    ) -> str | None:
 
-def build_prompt_and_messages(payload: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    configured_guardrail = str(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT") or "").strip()
+    request_system_prompt = str(payload.get("system_prompt") or "").strip()
+    parts = [configured_guardrail, (system_instructions or "").strip(), request_system_prompt]
+    combined = "\n\n".join(part for part in parts if part)
+    return combined or None
+
+def build_prompt_and_messages(
+        payload: dict[str, Any]
+    ):
+    #  -> tuple[str, list[dict[str, Any]]] i don't think i had the return expectation right
+    # at least it doesn't affect logic but i should get it right
     prompt = (payload.get("prompt") or "").strip()
     raw_messages = payload.get("messages")
     messages = raw_messages if isinstance(raw_messages, list) else []
@@ -45,8 +59,12 @@ def build_context_and_system_instructions(
 
 
 def resolve_model_override(
-    payload: dict[str, Any], ai_service: Any, context_payload: dict[str, Any], request_id: str
-) -> None:
+        payload: dict[str, Any],
+        ai_service: Any,
+        context_payload: dict[str, Any],
+        request_id: str
+    ) -> None:
+
     override_provider = str(payload.get("provider") or "").strip().lower()
     override_model_id = str(payload.get("model_id") or "").strip()
     override_family_id = str(payload.get("family_id") or "").strip()
@@ -109,7 +127,13 @@ def resolve_model_override(
     )
 
 
-def run_pipeline(ai_service: Any, dto: AIPipelineRequest, request_id: str, prompt: str) -> Any:
+def run_pipeline(
+        ai_service: Any,
+        dto: AIPipelineRequest,
+        request_id: str,
+        prompt: str
+    ) -> Any:
+
     try:
         return ai_service.run(dto)
     except AIPipelineUpstreamError as exc:

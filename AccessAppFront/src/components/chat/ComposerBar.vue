@@ -24,12 +24,16 @@
       <select
         v-if="showModelSelect"
         class="form-select"
+        :disabled="modelLoading || !modelOptions.length"
         :value="selectedModel"
         @change="$emit('update:selectedModel', $event.target.value)"
       >
-        <option>Model selection . . .</option>
-        <option>General</option>
-        <option>Lecture Assistant</option>
+        <option value="" disabled> {{ modelLoading ? 'Loading models...' : 'Select a model' }}</option>
+        <option v-for="option in modelOptions" 
+          :key="option.value" 
+          :value="option.value">
+          {{ option.label }}
+        </option>
       </select>
     </div>
   </div>
@@ -41,7 +45,9 @@ defineProps({
   showModelSelect: { type: Boolean, default: true },
   placeholder: { type: String, default: 'Type here . . .' },
   modelValue: { type: String, default: '' },
-  selectedModel: { type: String, default: 'General' }
+  selectedModel: { type: String, default: '' },
+  modelOptions: { type: Array, default: () => [] },
+  modelLoading: { type: Boolean, default: false }
 })
 
 defineEmits(['login', 'send', 'update:modelValue', 'update:selectedModel'])
