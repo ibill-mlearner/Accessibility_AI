@@ -14,7 +14,6 @@ def build_ai_service_from_config(config: Mapping[str, Any]) -> AIPipelineService
     live_endpoint = config.get("AI_LIVE_ENDPOINT")
     logger.debug(
         "ai_pipeline.build_service request_id=%s provider=%s ollama_endpoint=%s live_endpoint=%s model_name=%s timeout_seconds=%s",
-        "",
         "n/a",
         provider,
         bool(ollama_endpoint),
