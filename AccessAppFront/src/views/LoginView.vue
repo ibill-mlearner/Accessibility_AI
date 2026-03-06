@@ -10,12 +10,14 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useAppBootstrapStore } from '../stores/appBootstrapStore'
+import { useChatStore } from '../stores/chatStore'
 import LoginFormCard from '../components/auth/LoginFormCard.vue'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const bootstrap = useAppBootstrapStore()
+const chatStore = useChatStore()
 const username = ref('')
 const password = ref('')
 
@@ -27,6 +29,9 @@ async function doLogin() {
     // `next` restores the intended destination, while `prompt` is only forwarded when
     // present so we don't leave an empty query string on normal logins.
     const prompt = typeof route.query?.prompt === 'string' ? route.query.prompt : ''
+    if (nextPath === '/') {
+        chatStore.prepareNewChat()
+    }
     await router.push({ path: nextPath, query: prompt ? { prompt } : {} })
   } catch {
     // auth error is set by store.login; remain on /login

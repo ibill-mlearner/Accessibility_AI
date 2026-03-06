@@ -33,9 +33,9 @@ def create_chat_message(chat_id: int):
     message = Message(
         chat_id=chat_id,
         message_text=payload["message_text"],
-        vote=payload['vote'],
-        note=payload['note'],
-        help_intent=payload['help_intent'],
+        vote=payload.get('vote') or 'good',
+        note=payload.get('note') or 'no',
+        help_intent=payload.get('help_intent') or 'summarization'
     )
     db.session.add(message)
     db.session.commit()
