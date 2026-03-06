@@ -26,7 +26,7 @@
         class="form-select"
         :disabled="modelLoading || !modelOptions.length"
         :value="selectedModel"
-        @change="$emit('update:selectedModel', $event.target.value)"
+        @change="$emit('update:selected-model', $event.target.value)"
       >
         <option value="" disabled> {{ modelLoading ? 'Loading models...' : 'Select a model' }}</option>
         <option v-for="option in modelOptions" 
@@ -50,5 +50,5 @@ defineProps({
   modelLoading: { type: Boolean, default: false }
 })
 
-defineEmits(['login', 'send', 'update:modelValue', 'update:selectedModel'])
+defineEmits(['login', 'send', 'update:modelValue', 'update:selected-model'])
 </script>

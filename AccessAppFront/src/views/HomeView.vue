@@ -24,7 +24,7 @@
       :show-login="auth.role === 'guest'"
       @login="router.push('/login')"
       @send="sendPrompt"
-      @update:selected-model="handleModelSelection"
+      @update:selectedModel="handleModelSelection"
     />
   </section>
 </template>

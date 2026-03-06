@@ -50,6 +50,44 @@ def get_ai_catalog():
             }
         )
 
+        known_candidates_by_provider: dict[str, set[str]] = {"ollama": set(), "huggingface": set()}
+
+        for family in MODEL_FAMILIES:
+            for provider, candidates in family.provider_candidates.items():
+                provider_key = str(provider).strip().lower()
+                if provider_key not in known_candidates_by_provider:
+                    continue
+                known_candidates_by_provider[provider_key].update(
+                    str(candidate).strip().lower()
+                    for candidate in candidates
+                    if str(candidate).strip()
+                )
+
+        uncataloged_models: list[dict[str, Any]] = []
+        for provider in ("ollama", "huggingface"):
+            available_models = sorted(available_by_provider.get(provider, set()))
+            for model_id in available_models:
+                if model_id in known_candidates_by_provider[provider]:
+                    continue
+                uncataloged_models.append(
+                    {
+                        "provider": provider,
+                        "model_id": model_id,
+                        "available": True,
+                    }
+                )
+
+        if uncataloged_models:
+            families.append(
+                {
+                    "family_id": "other_available",
+                    "label": "Other Available Models",
+                    "owner": "Discovered",
+                    "models": uncataloged_models,
+                }
+            )
+
+
     response_payload = {
         "families": families,
         "selected": _resolve_selected_model(inventory),

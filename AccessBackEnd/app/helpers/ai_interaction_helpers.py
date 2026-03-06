@@ -178,7 +178,9 @@ class AIInteractionHelpers:
                         continue
                     model_id = str(model.get("id") or "").strip()
                     if model_id:
-                        provider_models["huggingface"].add(model_id.lower())
+                        provider_models["huggingface"].update(
+                            AIInteractionHelpers._expand_huggingface_model_aliases(model_id)
+                        )
 
         return provider_models
 
@@ -278,6 +280,22 @@ class AIInteractionHelpers:
                 exc,
                 message="chat_id must be an integer",
             )
+    @staticmethod
+    def _expand_huggingface_model_aliases(model_id: str) -> set[str]:
+        """Expand local cache ids into canonical huggingface repo-id variants."""
+        normalized = str(model_id or "").strip().lower()
+        if not normalized:
+            return set()
+
+        aliases = {normalized}
+
+        # HuggingFace cache folders typically look like models--org--repo.
+        if normalized.startswith("models--"):
+            repo_id = normalized[len("models--"):].replace("--", "/")
+            if repo_id:
+                aliases.add(repo_id)
+
+        return aliases
 
     @staticmethod
     def _build_interaction_persistence_payload(payload: dict[str, Any], result: Any) -> dict[str, int | None]:
