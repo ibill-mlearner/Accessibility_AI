@@ -15,7 +15,8 @@ from ...helpers.ai_interactions_flow import (
     build_prompt_and_messages,
     resolve_model_override,
     run_pipeline,
-    compose_system_prompt
+    compose_system_prompt,
+    validate_runtime_model_selection
 )
 from .routes import (
     _assert_chat_permissions,
@@ -107,6 +108,12 @@ def create_ai_interaction():
 
     initiated_by = _resolve_initiated_by(payload)
     ai_service = current_app.extensions["ai_service"]
+    preflight_error = validate_runtime_model_selection(
+        payload,
+        ai_service
+    )
+    if preflight_error is not None:
+        return jsonify(preflight_error[0]), preflight_error[1]
     resolve_model_override(payload, ai_service, context_payload, request_id)
 
     dto = AIPipelineRequest(

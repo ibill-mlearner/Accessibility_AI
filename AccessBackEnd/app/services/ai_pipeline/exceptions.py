@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.error import HTTPError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,13 +15,52 @@ class AIPipelineUpstreamError(RuntimeError):
 def map_exception_to_upstream_error(exc: Exception) -> AIPipelineUpstreamError:
     if isinstance(exc, AIPipelineUpstreamError):
         return exc
+
+    if isinstance(exc, HTTPError):
+        return AIPipelineUpstreamError(
+            f"Upstream provider HTTP error: {exc.code}",
+            details={
+                "source": "provider_http",
+                "exception": exc.__class__.__name__,
+                "upstream_status": int(exc.code)
+            }
+        )
+
     if isinstance(exc, FileNotFoundError):
-        return AIPipelineUpstreamError("AI provider resource not found", details={"source": "provider_resource", "exception": exc.__class__.__name__})
+        return AIPipelineUpstreamError(
+            "AI provider resource not found",
+            details={
+                "source": "provider_resource",
+                "exception": exc.__class__.__name__
+            }
+        )
+
     if isinstance(exc, ValueError):
-        return AIPipelineUpstreamError("AI provider returned invalid output", details={"source": "provider_parse", "exception": exc.__class__.__name__})
+        return AIPipelineUpstreamError(
+            "AI provider returned invalid output",
+            details={
+                "source": "provider_parse",
+                "exception": exc.__class__.__name__
+            }
+        )
+
     if isinstance(exc, TypeError):
-        return AIPipelineUpstreamError("AI provider returned an invalid response payload", details={"source": "provider_payload", "exception": exc.__class__.__name__})
-    return AIPipelineUpstreamError(str(exc) or "AI provider execution failed", details={"source": "provider_runtime", "exception": exc.__class__.__name__})
+        return AIPipelineUpstreamError(
+            "AI provider returned an invalid response payload",
+            details={
+                "source": "provider_payload",
+                "exception": exc.__class__.__name__
+            }
+        )
+
+    return AIPipelineUpstreamError(
+        str(exc)
+        or "AI provider execution failed",
+        details={
+            "source": "provider_runtime",
+            "exception": exc.__class__.__name__
+        }
+    )
 
 def _provider_name(provider: Any) -> str:
     name_attr = getattr(provider, "name", None)
@@ -38,15 +78,21 @@ def invoke_provider_or_raise(
     prompt: str, 
     context: dict[str, Any] | None = None
 ) -> dict[str, Any]:
+
     try:
         payload = provider.invoke(prompt, context or {})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
+        provider_name = _provider_name(provider)
         logger.exception(
             "ai_provider.invoke.failed provider=%s prompt_preview=%r",
-            _provider_name(provider),
+            provider_name,
             str(prompt or "")[:200]
         )
-        raise map_exception_to_upstream_error(exc) from exc
+        mapped = map_exception_to_upstream_error(exc)
+        mapped.details.setdefault("provider", provider_name)
+        mapped.details.setdefault("model_id", str(getattr(provider, "model_id", "") or ""))
+        mapped.details.setdefault("request_id", str((context or {}).get("request_id") or "n/a"))
+        raise mapped from exc
     if not isinstance(payload, dict):
         logger.error(
             "ai_provider.invoke.invalid_payload provider=%s prompt_preview=%r payload_type=%s",

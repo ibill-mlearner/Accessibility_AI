@@ -264,6 +264,34 @@ class AIPipelineService:
             )
         )
 
+    def provider_health(self) -> dict[str, Any]:
+
+        statuses: dict[str, Any] = {}
+
+        defaults = {
+            "ollama": self.config.ollama_model_id or self.config.model_name,
+            "huggingface": self.config.huggingface_model_id or self.config.model_name,
+        }
+        for provider_name in ("ollama", "huggingface"):
+            model_id = str(defaults.get(provider_name) or "").strip()
+
+            if not model_id:
+                statuses[provider_name] = {"ok": False, "status": "not_configured"}
+                continue
+
+            try:
+                provider = self._get_or_create_provider(provider_name, model_id)
+                statuses[provider_name] = provider.health()
+
+            except Exception as exc:
+                statuses[provider_name] = {
+                    "ok": False,
+                    "status": "health_check_failed",
+                    "error": str(exc),
+                    "model_id": model_id,
+                }
+        return statuses
+
     def list_available_models(self) -> dict[str, Any]:
         return ModelInventoryService(
             ModelInventoryConfig(

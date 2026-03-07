@@ -21,6 +21,93 @@ def compose_system_prompt(
     combined = "\n\n".join(part for part in parts if part)
     return combined or None
 
+def validate_runtime_model_selection(
+    payload: dict[str, Any],
+    ai_service: Any,
+) -> tuple[dict[str, str], int] | None:
+    """Validate provider/model_id request pair before invoking provider runtime."""
+    provider = str(payload.get("provider") or "").strip().lower()
+    model_id = str(payload.get("model_id") or "").strip()
+    if not provider and not model_id:
+        return None
+    if bool(provider) != bool(model_id):
+        raise BadRequestError("provider and model_id must be supplied together")
+
+    available_by_provider = _extract_available_model_ids(ai_service.list_available_models())
+    try:
+        resolved = resolve_model_selection(
+            provider=provider,
+            model_id=model_id,
+            available_model_ids=available_by_provider,
+        )
+    except ValueError as exc:
+        return (
+            {
+                "error": {
+                    "code": "invalid_model_id",
+                    "message": str(exc),
+                    "details": {
+                        "provider": provider,
+                        "model_id": model_id,
+                        "source": "model_preflight",
+                        "available_models": sorted(available_by_provider.get(provider, set())),
+                    },
+                }
+            },
+            400,
+        )
+
+    payload["provider"] = resolved["provider"]
+    payload["model_id"] = resolved["model_id"]
+    return None
+
+
+def classify_upstream_error(
+    exc: AIPipelineUpstreamError,
+    *,
+    provider: str,
+    model_id: str,
+    request_id: str,
+) -> tuple[str, int, dict[str, Any]]:
+    details = exc.details if isinstance(exc.details, dict) else {}
+    upstream_status = details.get("upstream_status")
+    source = str(details.get("source") or "provider_runtime")
+    message_lower = str(exc).lower()
+
+    error_code = "upstream_error"
+    status_code = 502
+
+    if isinstance(upstream_status, int):
+        if upstream_status in (401, 403):
+            error_code = "provider_auth_failed"
+            status_code = 502
+        elif upstream_status == 404:
+            error_code = "provider_model_not_found"
+            status_code = 502
+
+    if error_code == "upstream_error":
+        if "gated" in message_lower and "model" in message_lower:
+            error_code = "provider_gated_model"
+            status_code = 502
+        elif any(token in message_lower for token in ("unauthorized", "invalid token", "forbidden", "authentication")):
+            error_code = "provider_auth_failed"
+            status_code = 502
+        elif any(token in message_lower for token in ("not found", "no such model", "404")):
+            error_code = "provider_model_not_found"
+            status_code = 502
+
+    normalized_details = {
+        **details,
+        "source": source,
+        "provider": provider or details.get("provider") or "unknown",
+        "model_id": model_id or details.get("model_id") or "unknown",
+        "upstream_status": upstream_status,
+        "request_id": request_id,
+    }
+    return error_code, status_code, normalized_details
+
+
+
 def build_prompt_and_messages(
         payload: dict[str, Any]
     ):
@@ -137,12 +224,21 @@ def run_pipeline(
     try:
         return ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
+        details = exc.details if isinstance(exc.details, dict) else {}
+        error_code, status_code, normalized_details = classify_upstream_error(
+            exc,
+            provider=str(details.get("provider") or current_app.config.get("AI_PROVIDER") or ""),
+            model_id=str(details.get("model_id") or current_app.config.get("AI_MODEL_NAME") or ""),
+            request_id=request_id
+        )
         current_app.logger.warning(
-            "api.ai_interactions.ai_service.run.error request_id=%s provider=%s model=%s upstream_source=%s error_type=%s prompt_preview=%r",
+            "api.ai_interactions.failure request_id=%s provider=%s model_id=%s error_code=%s upstream_status=%s source=%s error_type=%s prompt_preview=%r",
             request_id,
-            current_app.config.get("AI_PROVIDER"),
-            current_app.config.get("AI_MODEL_NAME"),
-            (exc.details or {}).get("source", "unknown"),
+            normalized_details.get("provider"),
+            normalized_details.get("model_id"),
+            error_code,
+            normalized_details.get("upstream_status"),
+            normalized_details.get("source"),
             exc.__class__.__name__,
             prompt[:200],
         )
@@ -150,9 +246,9 @@ def run_pipeline(
             jsonify(
                 {
                     "error": {
-                        "code": "upstream_error",
+                        "code": error_code,
                         "message": str(exc),
-                        "details": exc.details,
+                        "details": normalized_details,
                     }
                 }
             ),

@@ -2,7 +2,7 @@ from typing import Any
 
 from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
-
+from difflib import get_close_matches
 from ...helpers.ai_interaction_helpers import (
     _extract_available_model_ids,
     _resolve_selected_model,
@@ -150,9 +150,11 @@ def get_ai_catalog():
             }
         )
 
+    provider_health = ai_service.provider_health() if hasattr(ai_service, 'provider_health') else {}
     response_payload = {
         "families": families,
         "selected": _resolve_selected_model(inventory),
+        "provider_health": provider_health
     }
     return jsonify(response_payload), 200
 
@@ -188,6 +190,27 @@ def set_ai_selection():
             )
     except ValueError as exc:
         err_msg = str(exc)
+        if has_provider_pair:
+            provider = str(payload.get('provider') or '').strip().lower()
+            requested_model = str(payload.get("model_id") or "").strip().lower()
+            candidates = sorted(available_by_provider.get(provider, set()))
+            suggestions = get_close_matches(requested_model, candidates, n=5, cutoff=0.4)
+            return (
+                jsonify(
+                    {
+                        "error": {
+                            "code" : "invalid_model_selection",
+                            "message": err_msg,
+                            "details": {
+                                "provider": provider,
+                                "model_id": requested_model,
+                                "available_models": candidates,
+                                "suggested_alternatives": suggestions
+                            }
+                        }
+                    }
+                ), 400
+            )
         if "No candidate model available" in err_msg:
             return jsonify({"error": "no available model for requested family"}), 400
         raise BadRequestError(err_msg) from exc

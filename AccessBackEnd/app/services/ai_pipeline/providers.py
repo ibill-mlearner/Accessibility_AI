@@ -393,7 +393,34 @@ class HuggingFaceLangChainProvider:
         return {"assistant_text": "", "notes": ["non_json_fallback"], "meta": {"provider": "huggingface_langchain:non_json_fallback", "debug": {"raw_payload_preview": _clip(text)}}}
 
     def health(self) -> dict[str, Any]:
-        return {"ok": bool(self.model_id), "model_id": self.model_id}
+        authenticated = False
+        status = "unavailable"
+        error_message = None
+        try:
+            from huggingface_hub import HfApi
+
+            token = HfApi().token
+            if token:
+                authenticated = True
+                status = "authenticated"
+                try:
+                    HfApi().model_info(self.model_id, token=token)
+                except Exception as exc:  # noqa: BLE001
+                    status = "authenticated_unverified_model_access"
+                    error_message = str(exc)
+            else:
+                status = "missing_token"
+        except Exception as exc:  # noqa: BLE001
+            status = "health_probe_unavailable"
+            error_message = str(exc)
+
+        return {
+            "ok": bool(self.model_id),
+            "model_id": self.model_id,
+            "authenticated": authenticated,
+            "status": status,
+            "error": error_message,
+        }
 
     def name(self) -> str:
         return "huggingface_langchain"

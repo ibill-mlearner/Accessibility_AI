@@ -8,7 +8,9 @@ from .providers import create_provider
 
 logger = logging.getLogger(__name__)
 
-def build_ai_service_from_config(config: Mapping[str, Any]) -> AIPipelineService:
+def build_ai_service_from_config(
+        config: Mapping[str, Any]
+) -> AIPipelineService:
     provider = config["AI_PROVIDER"]
     ollama_endpoint = config.get("AI_OLLAMA_ENDPOINT")
     live_endpoint = config.get("AI_LIVE_ENDPOINT")
