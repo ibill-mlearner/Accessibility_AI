@@ -7,4 +7,4 @@ __pycache__/
 .venv
 AccessBackEnd/app/instance/
 AccessBackEnd/instance/models/
-AccessBackEnd/instance/acessibility_ai.db
+AccessBackEnd/instance/accessibility_ai.db
