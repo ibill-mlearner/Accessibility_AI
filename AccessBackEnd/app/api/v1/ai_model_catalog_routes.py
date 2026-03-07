@@ -29,16 +29,40 @@ def get_ai_catalog():
     inventory = ai_service.list_available_models()
     available_by_provider = _extract_available_model_ids(inventory)
 
+    known_candidats_by_provider: dict[str, set[str]] = {
+        "ollama": set(),
+        "huggingface": set()
+    }
+    for family in MODEL_FAMILIES:
+        for provider, candidates in family.provider_candidates.items():
+            if provider not in known_candidats_by_provider:
+                continue
+
+            known_candidats_by_provider[provider].update(
+                c.lower() for c in candidates
+            )
+
     families: list[dict[str, Any]] = []
     for family in MODEL_FAMILIES:
         models: list[dict[str, Any]] = []
+        seen_pairs: set[tuple[str, str]] = set()
+        # seen_pairs = { EXAMPLE
+        #     ("user", "gpt"),
+        #     ("system", "gpt"),
+        #     ("user", "llama")
+        # }
+
         for provider, candidates in family.provider_candidates.items():
+            available_models = available_by_provider.get(provider, set())
             for model_id in candidates:
+                pair = (provider, model_id)
+                if pair in seen_pairs:
+                    continue
                 models.append(
                     {
                         "provider": provider,
                         "model_id": model_id,
-                        "available": model_id.lower() in available_by_provider.get(provider, set()),
+                        "available": model_id.lower() in available_models,
                     }
                 )
         families.append(
@@ -50,43 +74,30 @@ def get_ai_catalog():
             }
         )
 
-        known_candidates_by_provider: dict[str, set[str]] = {"ollama": set(), "huggingface": set()}
-
-        for family in MODEL_FAMILIES:
-            for provider, candidates in family.provider_candidates.items():
-                provider_key = str(provider).strip().lower()
-                if provider_key not in known_candidates_by_provider:
-                    continue
-                known_candidates_by_provider[provider_key].update(
-                    str(candidate).strip().lower()
-                    for candidate in candidates
-                    if str(candidate).strip()
-                )
-
-        uncataloged_models: list[dict[str, Any]] = []
-        for provider in ("ollama", "huggingface"):
-            available_models = sorted(available_by_provider.get(provider, set()))
-            for model_id in available_models:
-                if model_id in known_candidates_by_provider[provider]:
-                    continue
-                uncataloged_models.append(
-                    {
-                        "provider": provider,
-                        "model_id": model_id,
-                        "available": True,
-                    }
-                )
-
-        if uncataloged_models:
-            families.append(
+    uncataloged_models: list[dict[str, Any]] = []
+    for provider in ('ollama', 'huggingface'):
+        available_models = sorted(available_by_provider.get(provider, set()))
+        known_models = known_candidats_by_provider[provider]
+        for model_id in available_models:
+            if model_id in known_models:
+                continue
+            uncataloged_models.append(
                 {
-                    "family_id": "other_available",
-                    "label": "Other Available Models",
-                    "owner": "Discovered",
-                    "models": uncataloged_models,
+                    "provider": provider,
+                    'model_id': model_id,
+                    'available': True
                 }
             )
 
+    if uncataloged_models:
+        families.append(
+            {
+                'familiy_id': 'other_available',
+                'label': 'other available models',
+                'owner': 'discovered',
+                'models': uncataloged_models
+            }
+        )
 
     response_payload = {
         "families": families,
