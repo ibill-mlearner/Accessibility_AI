@@ -53,7 +53,7 @@ class AIPipelineService:
         self._provider_cache: dict[tuple[str, str], AIProvider] = {}
         default_key = (
             normalize_provider_name(self.config.provider),
-            self._resolve_prompt(self.config.provider),
+            # self._resolve_prompt(self.config.provider),
             self._resolve_model_id_for_provider(self.config.provider)
         )
         if all(default_key):
@@ -74,7 +74,7 @@ class AIPipelineService:
                 or self.config.model_name
                 or ""
             ).strip()
-
+        return str(self.config.model_name or "").strip()
     def _resolve_runtime_selection(
             self,
             context: dict[str, Any]

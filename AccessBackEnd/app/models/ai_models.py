@@ -10,7 +10,7 @@ from .base import Base
 
 class AIModel(Base):
     def __init__(self, **kw: Any):
-        super().__init__(kw)
+        super().__init__(**kw)
 
     """Catalog of AI providers/models available to interactions."""
 
@@ -20,9 +20,9 @@ class AIModel(Base):
             "provider",
             "model_id",
             name="uq_ai_models_provider_model_id"
-        )
+        ),
     )
-
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     provider: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
     model_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     source: Mapped[str | None] = mapped_column(String(80), nullable=True)
