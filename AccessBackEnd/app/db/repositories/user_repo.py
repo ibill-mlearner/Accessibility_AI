@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
-
+from ..contracts import UserRepositoryInterface
 from ...models.identity_defaults import build_transitional_identity_defaults
 
 
-class UserRepository:
+class UserRepository(UserRepositoryInterface):
     """Persistence helpers for standalone DB user records."""
 
     def __init__(self, user_model: type):

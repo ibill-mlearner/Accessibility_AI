@@ -89,8 +89,8 @@ def create_app(config_name: str | None = None) -> Flask:
                     {
                         "error": {
                             "code": "unauthorized",
-                            "message": "session expired; please log in again",
-                            "details": {},
+                            "message": "session invalid",
+                            "details": {"reason": "security stamp mismatch"}
                         }
                     }
                 ),

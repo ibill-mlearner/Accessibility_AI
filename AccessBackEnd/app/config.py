@@ -26,7 +26,11 @@ def _env(key: str, default=None, cast=None):
     return cast(val)
 
 
-
+def _env_positive_int(key: str, default: int) -> int:
+    value = _env(key, default, int)
+    if value <= 0:
+        raise ValueError(f"{key} must be a positive integer; got {value}")
+    return value
 
 def _env_json(key: str, default: dict | None = None):
     raw = os.getenv(key)

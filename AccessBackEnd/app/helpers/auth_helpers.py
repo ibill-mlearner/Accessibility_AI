@@ -4,11 +4,34 @@ import secrets
 from flask import current_app, jsonify, session
 from flask_login import current_user
 
+from ..models.role import Role
 from ..models import UserSession
 from ..api.v1.routes import db
 
 
 class AuthHelpers:
+    TEMP_ROLE_ACTION_POLICY: dict[str, list[str]] = {
+        Role.ADMIN.value: [
+            "users:read",
+            "users:write",
+            "classes:read",
+            "classes:write",
+            "classes:delete",
+        ],
+        Role.INSTRUCTOR.value: [
+            "classes:read", 
+            "classes:write", 
+            "students:read"
+            ],
+        Role.STUDENT.value: [
+            "classes:read", 
+            "profile:read", 
+            "profile:write"
+            ],
+    }
+    FALLBACK_ALLOWED_ACTIONS: list[str] = ["profile:read"]
+
+
     @staticmethod
     def _normalize_auth_email(value:str | None) -> str:
         return (value or "").strip().lower()
@@ -88,12 +111,31 @@ class AuthHelpers:
     @staticmethod
     def _resolved_allowed_actions(user_role: str) -> list[str]:
         role_val = (user_role or "").strip().lower()
-        action_map = {
-            "admin": ["users:read", "users:write", "classes:read", "classes:write", "classes:delete"],
-            "instructor": ["classes:read", "classes:write", "students:read"],
-            "student": ["classes:read", "profile:read", "profile:write"]
-        }
-        return action_map.get(role_val, ["profile:read"])
+        configured_policy = current_app.config.get("AUTH_ROLE_ACTION_POLICY")
+        policy_source = (
+            configured_policy
+            if isinstance(configured_policy, dict)
+            else AuthHelpers.TEMP_ROLE_ACTION_POLICY
+        )
+        normalized_policy: dict[str, list[str]] = {}
+        for role_name, allowed_actions in policy_source.items():
+            normalized_role = str(role_name or "").strip().lower()
+            if not normalized_role:
+                continue
+            if not isinstance(allowed_actions, list):
+                continue
+            normalized_policy[normalized_role] = [
+                str(action).strip()
+                for action in allowed_actions
+                if str(action or "").strip()
+            ]
+        # action_map = {
+        #     "admin": ["users:read", "users:write", "classes:read", "classes:write", "classes:delete"],
+        #     "instructor": ["classes:read", "classes:write", "students:read"],
+        #     "student": ["classes:read", "profile:read", "profile:write"]
+        # }
+        # return action_map.get(role_val, ["profile:read"])
+        return normalized_policy.get(role_val, AuthHelpers.FALLBACK_ALLOWED_ACTIONS.copy())
 
     @staticmethod
     def _resolve_authenticated_session_state() -> tuple[UserSession | None, datetime, tuple | None]:

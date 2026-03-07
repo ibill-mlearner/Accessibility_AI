@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-
+from .interfaces import DatabaseRuntime
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
@@ -29,7 +29,7 @@ class DatabaseConfig:
     echo: bool = False
 
 
-class StandaloneDatabase:
+class StandaloneDatabase(DatabaseRuntime):
     """Small standalone DB runtime independent from Flask app wiring."""
 
     def __init__(self, config: DatabaseConfig):

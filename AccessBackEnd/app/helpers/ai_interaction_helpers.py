@@ -5,6 +5,7 @@ from flask import current_app, jsonify, session
 from flask_login import current_user
 from sqlalchemy.exc import SQLAlchemyError
 
+from ..db.interfaces import InteractionRepositoryFactory
 from ..db.repositories.interaction_repo import AIInteractionRepository
 from ..models import AIInteraction, AIModel, Chat, CourseClass
 from ..models.ai_interaction import AccommodationSystemPrompt
@@ -14,6 +15,7 @@ from ..api.v1.routes import _raise_bad_request_from_exception, _require_record, 
 
 class AIInteractionHelpers:
     _EMPTY_ASSISTANT_NOTE = "assistant_empty_after_normalization"
+    interaction_repository_factory: InteractionRepositoryFactory = AIInteractionRepository
 
     @staticmethod
     def _extract_response_text(result: Any) -> str:
@@ -379,8 +381,8 @@ class AIInteractionHelpers:
         payload: dict[str, Any], prompt: str, result: Any
     ) -> tuple[Any, int] | None:
         """Persist an AI interaction; return error response tuple when persistence fails."""
-        interaction_repo = AIInteractionRepository(AIInteraction)
-
+        interaction_repo = AIInteractionHelpers.interaction_repository_factory(AIInteraction)
+        
         try:
             normalized = AIInteractionHelpers._normalize_interaction_response(result)
             persistence_ids = AIInteractionHelpers._build_interaction_persistence_payload(payload, result)

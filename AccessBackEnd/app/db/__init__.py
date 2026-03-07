@@ -6,6 +6,7 @@ from flask import Flask
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
+from .inerfaces import AIinteractionRepositoryInterface, UserRepositoryInterface
 from ..models.db_schema import get_schema_bundle
 from .base import DatabaseConfig, StandaloneDatabase
 from .json_backend import create_json_backed_db
@@ -27,7 +28,7 @@ def create_standalone_db(
     if create_schema:
         runtime.create_schema()
 
-    repositories = {
+        repositories: dict[str, UserRepositoryInterface | AIInteractionRepositoryInterface] = {
         "users": UserRepository(runtime.models["user"]),
         "ai_interactions": AIInteractionRepository(runtime.models["ai_interaction"]),
     }
@@ -135,4 +136,6 @@ __all__ = [
     "init_standalone_schema",
     "resolve_database_url",
     "create_standalone_db",
+    "UserRepositoryInterface",
+    "AIInteractionRepositoryInterface"
 ]

@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from .interfaces import AIInteractionRepositoryInterface, DatabaseRuntime, UserRepositoryInterface
 
 from ..models.entity_metadata import EntityMetadata
 from ..models.identity_defaults import build_transitional_identity_defaults
@@ -41,7 +42,7 @@ class JsonAIInteraction:
     chat_id: int | None = None
 
 
-class JsonDatabaseRuntime:
+class JsonDatabaseRuntime(DatabaseRuntime):
     """In-memory JSON runtime with a DB-like session_scope API."""
 
     def __init__(self, *, json_path: str):
@@ -73,7 +74,7 @@ class JsonDatabaseRuntime:
         yield self
 
 
-class JsonUserRepository:
+class JsonUserRepository(UserRepositoryInterface):
     def __init__(self, runtime: JsonDatabaseRuntime):
         self.runtime = runtime
         self.user_model = runtime.models["user"]
@@ -111,7 +112,7 @@ class JsonUserRepository:
         return None
 
 
-class JsonAIInteractionRepository:
+class JsonAIInteractionRepository(AIInteractionRepositoryInterface):
     def __init__(self, runtime: JsonDatabaseRuntime):
         self.runtime = runtime
         self.interaction_model = runtime.models["ai_interaction"]
