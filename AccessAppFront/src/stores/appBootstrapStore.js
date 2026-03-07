@@ -3,6 +3,7 @@ import { useChatStore } from './chatStore'
 import { useClassStore } from './classStore'
 import { useNoteStore } from './noteStore'
 import { useAuthStore } from './authStore'
+import { useFeatureStore } from './featureStore'
 
 export const useAppBootstrapStore = defineStore('appBootstrap', {
   state: () => ({
@@ -17,14 +18,26 @@ export const useAppBootstrapStore = defineStore('appBootstrap', {
       this.authError = ''
 
       const auth = useAuthStore()
+      if (!auth.sessionChecked) {
+        await auth.me()
+      }
+
+      if (!auth.isAuthenticated) {
+        this.loading = false
+        return
+      }
+
       const chats = useChatStore()
       const classes = useClassStore()
       const notes = useNoteStore()
+      const features = useFeatureStore()
 
       const results = await Promise.allSettled([
+        chats.fetchModelCatalog(),
         chats.fetchChats(),
         classes.fetchClasses(),
-        notes.fetchNotes()
+        notes.fetchNotes(),
+        features.fetchFeatures()
       ])
 
       const failures = results

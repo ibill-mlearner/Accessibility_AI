@@ -13,11 +13,12 @@ export const useClassStore = defineStore('classes', {
   }),
   getters: {
     roleClasses(state) {
-      const auth = useAuthStore()
-      const role = auth.role
-      if (role === 'guest') return []
-      const matching = state.classes.filter((c) => c.role === role)
-      return matching.length ? matching : state.classes
+      // const auth = useAuthStore()
+      // const role = auth.role
+      // if (role === 'guest') return []
+      // const matching = state.classes.filter((c) => c.role === role)
+      // return matching.length ? matching : state.classes
+      return state.classes
     },
     selectedClass(state) {
       return state.classes.find((c) => c.id === state.selectedClassId) || null

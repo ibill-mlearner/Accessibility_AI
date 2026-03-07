@@ -9,7 +9,7 @@
       </div>
       <main class="col-12 col-xl-9 d-flex flex-column gap-3">
         <HeaderBar />
-        <p v-if="store.error" class="alert alert-danger mb-0">{{ store.error }}</p>
+        <p v-if="appError" class="alert alert-danger mb-0">{{ appError }}</p>
         <router-view />
       </main>
     </div>
@@ -19,16 +19,25 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAppStore } from './stores/appStore'
+import { useAppBootstrapStore } from './stores/appBootstrapStore'
+import { useAuthStore } from './stores/authStore'
 import SidebarNav from './components/SidebarNav.vue'
 import HeaderBar from './components/HeaderBar.vue'
 
 const route = useRoute()
-const store = useAppStore()
+const bootstrap = useAppBootstrapStore()
+const auth = useAuthStore()
 
 const isComponentPreviewRoute = computed(() => route.path.startsWith('/component-previews/'))
+const appError = computed(() => bootstrap.error || bootstrap.authError)
 
-onMounted(() => {
-  store.bootstrap()
+onMounted(async () => {
+  if (!auth.sessionChecked) {
+    await auth.me()
+  }
+
+  if (auth.isAuthenticated) {
+    await bootstrap.bootstrap()
+  }
 })
 </script>

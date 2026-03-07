@@ -21,6 +21,12 @@ python AccessBackEnd/manage.py --init-db
 
 When prompted during `--init-db`, enter `y` to apply baseline seed data.
 
+After the seed completes, stop that backend process (`Ctrl+C`) and restart without DB init:
+
+```powershell
+python AccessBackEnd/manage.py
+```
+
 Backend runs at: `http://localhost:5000`
 
 ### 2) Start frontend
@@ -34,6 +40,43 @@ npm run dev --prefix AccessAppFront
 Frontend runs at: `http://localhost:5173`
 
 That is the complete local startup path.
+
+---
+
+## Fastest install + run (macOS/Linux Bash)
+
+### 1) Start backend
+From repo root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r AccessBackEnd/requirements.txt
+python AccessBackEnd/manage.py --init-db
+```
+
+When prompted during `--init-db`, enter `y` to apply baseline seed data.
+
+After the seed completes, stop that backend process (`Ctrl+C`) and restart without DB init:
+
+```bash
+python AccessBackEnd/manage.py
+```
+
+Backend runs at: `http://localhost:5000`
+
+### 2) Start frontend
+Open a second terminal window at repo root:
+
+```bash
+npm install --prefix AccessAppFront
+npm run dev --prefix AccessAppFront
+```
+
+Frontend runs at: `http://localhost:5173`
+
+That is the complete local startup path for Bash-based environments.
 
 ---
 

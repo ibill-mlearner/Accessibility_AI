@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from pathlib import Path
 from collections.abc import Iterable
 
 from flask import Flask
@@ -38,7 +38,39 @@ def init_standalone_schema(runtime: StandaloneDatabase) -> None:
     """Explicit schema initialization for standalone DB runtimes."""
 
     runtime.create_schema()
+def _run_sqlite_ai_models_migration(app: Flask) -> None:
+    """Apply ai_models provider/model_id migration for legacy SQLite databases."""
 
+    from ..extensions import db
+
+    migration_script = Path(__file__).resolve().parent / "migrations" / "sqlite_ai_models_provider_model_id.sql"
+    if not migration_script.exists():
+        app.logger.warning("AI model migration script missing at %s", migration_script)
+        return
+
+    with app.app_context():
+        engine = db.engine
+        if engine.dialect.name != "sqlite":
+            return
+
+        inspector = inspect(engine)
+        if "ai_models" not in set(inspector.get_table_names()):
+            return
+
+        columns = {column["name"] for column in inspector.get_columns("ai_models")}
+        if "model_id" in columns:
+            return
+
+        script = migration_script.read_text(encoding="utf-8")
+        statements = [stmt.strip() for stmt in script.split(";") if stmt.strip()]
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                for statement in statements:
+                    conn.execute(text(statement))
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+        except SQLAlchemyError as exc:
+            app.logger.warning("Unable to migrate ai_models provider/model_id schema: %s", exc)
 
 def init_flask_database(app: Flask) -> None:
     """Explicitly create every configured SQLAlchemy table set for the app DB."""
@@ -61,7 +93,7 @@ def ensure_sqlite_compat_schema(app: Flask) -> None:
     """Best-effort compatibility patching for legacy SQLite files missing new columns."""
 
     from ..extensions import db
-
+    _run_sqlite_ai_models_migration(app)
     column_updates: Iterable[tuple[str, str, str]] = (
         ("classes", "active", "BOOLEAN NOT NULL DEFAULT 1"),
         ("chats", "ai_interaction_id", "INTEGER"),

@@ -16,7 +16,22 @@ class PipelineRequest:
     prompt: str
     context: dict[str, Any] = field(default_factory=dict)
 
+@dataclass(slots=True)
+class AIPipelineRequest:
+    """Stable API-layer request DTO for AI pipeline execution."""
+    prompt: str | None = None
+    messages: list[dict] = field(default_factory=list)
+    system_prompt: str | None = None
+    context: dict[str, Any] = field(default_factory=dict)
 
+    # Optional request metadata
+    chat_id: int | None = None
+    initiated_by: str | None = None
+    class_id: int | None = None
+    user_id: int | str | None = None
+    rag: dict[str, Any] | None = None
+    request_id: str | None = None
+    
 @dataclass(slots=True)
 class PipelineResponse:
     """Output payload returned from the AI pipeline.

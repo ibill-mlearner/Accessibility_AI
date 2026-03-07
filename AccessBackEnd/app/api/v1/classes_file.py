@@ -1,42 +1,87 @@
-from flask_login import login_required
 from flask import jsonify
-from typing import Any
+from flask_login import login_required, current_user
+from sqlalchemy import and_, or_
+
 from .routes import (
-    db,
-    CourseClass,
-    _serialize_record,
+    BadRequestError,
     _read_json_object,
     _require_record,
+    _serialize_record,
+    _validate_payload,
     api_v1_bp,
-    BadRequestError,
-    User
+    db,
 )
-
+from ...schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
+from ...models import CourseClass, User
+from ...models.chats import UserClassEnrollment
 from ...services.chat_access_service import ChatAccessService
+from ...helpers.mutations import _apply_class_mutations
+from ...helpers.auth_helpers import _enforce_roles
 
 
 @api_v1_bp.get("/classes")
 @login_required
 def list_classes():
-    classes = db.session.query(CourseClass).order_by(CourseClass.id.asc()).all()
+    user_id = ChatAccessService.get_authenticated_user_id()
+    role = (getattr(current_user, "role", "") or "").strip().lower()
+
+    base_query = db.session.query(CourseClass)
+    if role == "admin":
+        classes = base_query.order_by(CourseClass.id.asc()).all()
+    elif role == "instructor":
+        classes = (
+            base_query
+            .outerjoin(UserClassEnrollment, UserClassEnrollment.class_id == CourseClass.id)
+            .filter(
+                or_(
+                    CourseClass.instructor_id == user_id,
+                    and_(
+                        UserClassEnrollment.user_id == user_id,
+                        UserClassEnrollment.active.is_(True)
+                    )
+                )
+            )
+            .distinct()
+            .order_by(CourseClass.id.asc())
+            .all()
+
+        )
+    else:
+        classes = (
+            base_query
+            .join(UserClassEnrollment, UserClassEnrollment.class_id == CourseClass.id)
+            .filter(
+                UserClassEnrollment.user_id == user_id,
+                UserClassEnrollment.active.is_(True)
+            )
+            .distinct()
+            .order_by(CourseClass.id.asc())
+            .all()
+        )
+
+    # classes = db.session.query(CourseClass).order_by(CourseClass.id.asc()).all()
     return jsonify([_serialize_record("class", c) for c in classes]), 200
 
 
 @api_v1_bp.post("/classes")
 @login_required
 def create_class():
+    denied = _enforce_roles("admin")
+    if denied is not None:
+        return denied
     payload = _read_json_object()
     if payload.get("instructor_id") is None:
         payload["instructor_id"] = ChatAccessService.get_authenticated_user_id()
 
+    payload = _validate_payload(payload, ClassPayloadSchema())
+
     class_record = CourseClass(
-        name=str(payload.get("name") or "").strip(),
-        description=str(payload.get("description") or "").strip(),
-        instructor_id=int(payload["instructor_id"]),
-        active=bool(payload.get("active", True)),
+        name=payload["name"],
+        description=payload["description"],
+        instructor_id=payload["instructor_id"],
+        active=payload["active"],
     )
-    if not class_record.name or not class_record.description:
-        raise BadRequestError("name and description are required")
+
 
     _require_record("user", User, class_record.instructor_id)
     db.session.add(class_record)
@@ -56,8 +101,30 @@ def get_class(class_id: int):
 @login_required
 def update_class(class_id: int):
     class_record = _require_record("class", CourseClass, class_id)
-    payload = _read_json_object()
+
+    denied = _enforce_roles("admin", "instructor")
+    if denied is not None:
+        return denied
+
+    if getattr(current_user, "role", "").strip().lower() == "instructor":
+        if int(class_record.instructor_id) != int(current_user.id):
+            return jsonify({
+                "error": "forbidden",
+                "message": "instructors can only update classes they own"
+            }), 403
+
+    payload = _validate_payload(_read_json_object(), PartialClassPayloadSchema())
+
+    if "instructor_id" in payload and getattr(current_user, "role", "").strip().lower() != "admin":
+        return jsonify({
+            "error": "forbidden",
+            "message": "only amins can reassign class instructors"
+        }), 403
+
     _apply_class_mutations(class_record, payload)
+    if not class_record.name or not class_record.description:
+        raise BadRequestError("name and description are required")
+
     db.session.commit()
     return jsonify(_serialize_record("class", class_record)), 200
 
@@ -65,17 +132,13 @@ def update_class(class_id: int):
 @api_v1_bp.delete("/classes/<int:class_id>")
 @login_required
 def delete_class(class_id: int):
+    deneid = _enforce_roles("admin")
+    if deneid is not None:
+        return deneid
+
     class_record = _require_record("class", CourseClass, class_id)
     response_payload = _serialize_record("class", class_record)
     db.session.delete(class_record)
     db.session.commit()
     return jsonify(response_payload), 200
 
-def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -> None:
-    for field in ("name", "description", "active"):
-        if field in payload:
-            setattr(class_record, field, payload[field])
-
-    if "instructor_id" in payload:
-        _require_record("user", User, int(payload["instructor_id"]))
-        class_record.instructor_id = int(payload["instructor_id"])

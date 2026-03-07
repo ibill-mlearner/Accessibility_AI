@@ -1,47 +1,41 @@
-from flask_login import login_required
-from flask import jsonify
+from flask import jsonify, current_app, request
+from flask_login import login_required, current_user
+
 from .routes import (
-    _require_record,
-    ChatAccessService,
-    Chat,
-    _forbidden_response,
+    _assert_chat_permissions,
     _deserialize_payload,
     _read_json_object,
-    api_v1_bp,
+    _require_record,
+    _serialize_record,
+    _validate_payload,
     BadRequestError,
-    Message,
+    api_v1_bp,
     db,
-    _serialize_record
 )
-from typing import Any
+from ...schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
+from ...models import Chat, Message
+from ...services.chat_access_service import ChatAccessService
+from ...helpers.mutations import _apply_message_mutations
+
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required
 def create_chat_message(chat_id: int):
     """Create a message on a target chat when writable by the current user."""
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(
-            chat=chat,
-            user_id=ChatAccessService.get_authenticated_user_id(),
-        )
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
-    payload = _deserialize_payload("message", _read_json_object())
-    message_text = (payload.get("message_text") or "").strip()
-    help_intent = (payload.get("help_intent") or "").strip()
+    payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
 
-    if not message_text:
-        raise BadRequestError("message_text is required")
-    if not help_intent:
-        raise BadRequestError("help_intent is required")
+
 
     message = Message(
         chat_id=chat_id,
-        message_text=message_text,
-        vote=(payload.get("vote") or "good").strip(),
-        note=(payload.get("note") or "no").strip(),
-        help_intent=help_intent,
+        message_text=payload["message_text"],
+        vote=payload.get('vote') or 'good',
+        note=payload.get('note') or 'no',
+        help_intent=payload.get('help_intent') or 'summarization'
     )
     db.session.add(message)
     db.session.commit()
@@ -64,31 +58,45 @@ def list_messages():
 @api_v1_bp.post("/messages")
 @login_required
 def create_message():
-    payload = _deserialize_payload("message", _read_json_object())
+    payload_raw = _read_json_object()
+    user_identity = getattr(current_user, "email", None) or getattr(current_user, "id", None) or "anonymous"
+    current_app.logger.debug(
+        "api.messages.create.request method=%s path=%s user=%s json_keys=%s",
+        request.method,
+        request.path,
+        user_identity,
+        sorted(payload_raw.keys()),
+    )
+    payload = _validate_payload(_deserialize_payload("message", payload_raw), MessagePayloadSchema())
     chat_id = payload.get("chat_id")
     if chat_id is None:
         raise BadRequestError("chat_id is required")
 
     chat = _require_record("chat", Chat, int(chat_id))
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     message = Message(
-        chat_id=chat.id,
-        message_text=str(payload.get("message_text") or "").strip(),
-        vote=str(payload.get("vote") or "good").strip() or "good",
-        note=str(payload.get("note") or "no").strip() or "no",
-        help_intent=str(payload.get("help_intent") or "").strip(),
+        chat_id=chat_id,
+        message_text=payload["message_text"],
+        vote=payload.get("vote") or "good",
+        note=payload.get("note") or "no",
+        help_intent=payload.get("help_intent") or "summarization"
     )
-    if not message.message_text:
-        raise BadRequestError("message_text is required")
-    if not message.help_intent:
-        raise BadRequestError("help_intent is required")
-
+    try:
+        print(message)
+    except:
+        pass
     db.session.add(message)
     db.session.commit()
+    current_app.logger.debug(
+        "api.messages.create.response path=%s status=%s message_id=%s message=%s",
+        request.path,
+        201,
+        message.id,
+        message.chat
+    )
     return jsonify(_serialize_record("message", message)), 201
 
 
@@ -97,10 +105,9 @@ def create_message():
 def get_message(message_id: int):
     message = _require_record("message", Message, message_id)
     chat = _require_record("chat", Chat, message.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     return jsonify(_serialize_record("message", message)), 200
 
@@ -111,12 +118,11 @@ def get_message(message_id: int):
 def update_message(message_id: int):
     message = _require_record("message", Message, message_id)
     chat = _require_record("chat", Chat, message.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
-    payload = _deserialize_payload("message", _read_json_object())
+    payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
     _apply_message_mutations(message, payload)
     if not message.message_text:
         raise BadRequestError("message_text is required")
@@ -132,10 +138,9 @@ def update_message(message_id: int):
 def delete_message(message_id: int):
     message = _require_record("message", Message, message_id)
     chat = _require_record("chat", Chat, message.chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     response_payload = _serialize_record("message", message)
     db.session.delete(message)
@@ -147,14 +152,16 @@ def delete_message(message_id: int):
 @login_required
 def list_chat_messages(chat_id: int):
     """List messages for a target chat when visible to the authenticated user."""
+    current_app.logger.debug(
+        "api.chat_messages.list.request method=%s path=%s user_id=%s",
+        request.method,
+        request.path,
+        ChatAccessService.get_authenticated_user_id(),
+    )
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(
-            chat=chat,
-            user_id=ChatAccessService.get_authenticated_user_id(),
-        )
-    except PermissionError:
-        return _forbidden_response("access denied")
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
 
     messages = (
         db.session.query(Message)
@@ -162,18 +169,12 @@ def list_chat_messages(chat_id: int):
         .order_by(Message.id.asc())
         .all()
     )
-    return jsonify([_serialize_record("message", message) for message in messages]), 200
 
-def _apply_message_mutations(message: Message, payload: dict[str, Any]) -> None:
-    if "chat_id" in payload:
-        _require_record("chat", Chat, int(payload["chat_id"]))
-        message.chat_id = int(payload["chat_id"])
-    if "message_text" in payload:
-        message.message_text = str(payload["message_text"] or "").strip()
-    if "vote" in payload:
-        message.vote = str(payload["vote"] or "").strip() or message.vote
-    if "note" in payload:
-        message.note = str(payload["note"] or "").strip() or message.note
-    if "help_intent" in payload:
-        message.help_intent = str(payload["help_intent"] or "").strip()
+    current_app.logger.debug(
+        "api.chat_messages.list.response path=%s status=%s count=%s", 
+        request.path, 
+        200, 
+        len(messages)
+    )
+    return jsonify([_serialize_record("message", message) for message in messages]), 200
 

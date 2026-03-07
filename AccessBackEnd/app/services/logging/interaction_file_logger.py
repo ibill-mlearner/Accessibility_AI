@@ -6,12 +6,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any, Protocol
+from ..ai_pipeline.types import AIPipelineRequest
 
 MAX_LOG_LINES = 2000
 DEFAULT_LOG_BASENAME = "ai_interactions"
 
 
 class InteractionRunner(Protocol):
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        ...
     def run_interaction(
         self,
         prompt: str,
@@ -96,3 +99,6 @@ class InteractionLoggingService:
                 "context": context_payload,
             }
             self._writer.append(json.dumps(payload, default=str, sort_keys=True))
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        return self._wrapped.run(request)

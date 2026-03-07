@@ -1,12 +1,24 @@
-from flask import jsonify, current_app
-from flask_login import login_required, current_user
+from flask import current_app, jsonify
+from flask_login import current_user, login_required
 
-from .routes import db, _serialize_record, BadRequestError, _require_record, _resolve_default_class_id_for_user, \
-    _parse_int_field, _deserialize_payload, _read_json_object, api_v1_bp, _forbidden_response, _parse_optional_datetime
-from ...models import CourseClass, User, Chat
+from .routes import (
+    _assert_chat_permissions,
+    _deserialize_payload,
+    _forbidden_response,
+    _parse_optional_datetime,
+    _read_json_object,
+    _require_record,
+    _resolve_default_class_id_for_user,
+    _serialize_record,
+    _validate_payload,
+    BadRequestError,
+    api_v1_bp,
+    db,
+)
+from ...schemas.validation import ChatPayloadSchema
+from ...models import Chat, CourseClass
 from ...services.chat_access_service import ChatAccessService
-
-from typing import Any
+from ...helpers.mutations import _apply_chat_mutations
 
 @api_v1_bp.get("/chats")
 @login_required
@@ -28,10 +40,11 @@ def list_chats():
 @login_required
 def create_chat():
     """Create a chat for the authenticated user in a class context."""
-    payload = _deserialize_payload("chat", _read_json_object())
+    payload = _validate_payload( 
+        _deserialize_payload("chat", _read_json_object()), ChatPayloadSchema())
     authenticated_user_id = ChatAccessService.get_authenticated_user_id()
 
-    class_id = _parse_int_field(payload.get("class_id"), field_name="class_id", required=False)
+    class_id = payload.get("class_id")
     if class_id is None:
         class_id = _resolve_default_class_id_for_user(authenticated_user_id)
         if class_id is None:
@@ -39,7 +52,7 @@ def create_chat():
 
     class_record = _require_record("class", CourseClass, class_id)
 
-    requested_user_id = _parse_int_field(payload.get("user_id"), field_name="user_id", required=False)
+    requested_user_id = payload.get("user_id")
     try:
         owner_user_id = ChatAccessService.assert_can_create_chat(
             class_record=class_record,
@@ -52,8 +65,8 @@ def create_chat():
     chat = Chat(
         class_id=int(class_id),
         user_id=owner_user_id,
-        title=(payload.get("title") or "New Chat").strip(),
-        model=(payload.get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown").strip(),
+        title=payload.get("title") or "New Chat",
+        model=payload.get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown",
     )
     started_at = _parse_optional_datetime(payload.get("started_at"))
     if started_at is not None:
@@ -68,10 +81,9 @@ def create_chat():
 @login_required
 def get_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_can_access_chat(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    if deny is not None:
+        return deny
     return jsonify(_serialize_record("chat", chat)), 200
 
 
@@ -80,12 +92,14 @@ def get_chat(chat_id: int):
 @login_required
 def update_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_chat_owner(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    if deny is not None:
+        return deny
 
-    payload = _deserialize_payload("chat", _read_json_object())
+    payload = _validate_payload( 
+        _deserialize_payload(
+            "chat", _read_json_object()), ChatPayloadSchema(partial=True))
+    
     _apply_chat_mutations(chat, payload)
     db.session.commit()
     return jsonify(_serialize_record("chat", chat)), 200
@@ -95,31 +109,11 @@ def update_chat(chat_id: int):
 @login_required
 def delete_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    try:
-        ChatAccessService.assert_chat_owner(chat=chat, user_id=ChatAccessService.get_authenticated_user_id())
-    except PermissionError:
-        return _forbidden_response("user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    if deny is not None:
+        return deny
 
     response_payload = _serialize_record("chat", chat)
     db.session.delete(chat)
     db.session.commit()
     return jsonify(response_payload), 200
-def _apply_chat_mutations(chat: Chat, payload: dict[str, Any]) -> None:
-    if "class_id" in payload:
-        class_record = _require_record("class", CourseClass, int(payload["class_id"]))
-        chat.class_id = int(class_record.id)
-
-    if "user_id" in payload:
-        _require_record("user", User, int(payload["user_id"]))
-        chat.user_id = int(payload["user_id"])
-
-    if "title" in payload:
-        chat.title = str(payload["title"] or "").strip() or chat.title
-
-    if "model" in payload:
-        chat.model = str(payload["model"] or "").strip() or chat.model
-
-    if "started_at" in payload:
-        parsed = _parse_optional_datetime(payload["started_at"])
-        if parsed is not None:
-            chat.started_at = parsed

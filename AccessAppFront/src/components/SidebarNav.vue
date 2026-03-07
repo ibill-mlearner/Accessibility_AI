@@ -28,22 +28,24 @@
           >
           Saved Notes
         </RouterLink>
-        <RouterLink :to="`/classes/${store.role === 'instructor' ? 'instructor' : 'student'}`" 
+
+        <RouterLink 
+          to="/classes" 
           class="btn btn-outline-primary text-start"
-          active-class="bg-purple-200 text-dark border-0"
-          >
+          active-class="bg-purple-200 text-dark border-0" >
           My Classes
         </RouterLink>
+        
       </div>
     </nav>
 
-    <section v-if="store.role !== 'guest'" 
+    <section v-if="auth.role !== 'guest'" 
       class="card shadow-sm flex-grow overflow-auto">
       <h3>Chats</h3>
       <ul>
-        <li v-for="chat in store.chats" 
+        <li v-for="chat in chats.chats" 
           :key="chat.id" 
-          :class="{ 'bg-purple-200': chat.id === store.selectedChatId }"
+          :class="{ 'bg-purple-200': chat.id === chats.selectedChatId }"
           class="list-group-item p-0">
           <button 
             class="w-100 text-start border-0 bg-transparent px-3 py-2" 
@@ -67,24 +69,28 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AccountActionsCard from './auth/AccountActionsCard.vue'
-import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
+import { useChatStore } from '../stores/chatStore'
+
+
 
 const router = useRouter()
-const store = useAppStore()
-const isLoggedIn = computed(() => store.isAuthenticated && store.role !== 'guest')
+const auth = useAuthStore()
+const chats = useChatStore()
+const isLoggedIn = computed(() => auth.isAuthenticated && auth.role !== 'guest')
 
-function handleLogout() {
-  store.logout()
+async function handleLogout() {
+  await auth.logout()
   router.push('/')
 }
 
 function handleNewChatClick() {
-  store.prepareNewChat()
+  chats.prepareNewChat()
   router.push('/')
 }
 
 function selectedChat(id) {
-  store.selectedChatId = id
+  chats.selectedChatId = id
   router.push('/')
 }
 

@@ -11,7 +11,13 @@ class HuggingFaceModelBootstrap:
     # - Centralize model caching rules so providers can remain focused on inference.
     """
 
-    def __init__(self, *, model_id: str, cache_dir: str | None = None) -> None:
+    def __init__(
+        self, 
+        *, 
+        model_id: str, 
+        cache_dir: str | None = None
+    ) -> None:
+    
         # Logic intent:
         # - Store model identity and cache target so callers can reuse one bootstrap object.
         self.model_id = model_id

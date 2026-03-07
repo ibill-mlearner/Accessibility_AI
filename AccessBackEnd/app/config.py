@@ -115,11 +115,17 @@ class BaseConfig:
     AI_OLLAMA_MODEL = _env("AI_OLLAMA_MODEL", AI_MODEL_NAME)
     AI_OLLAMA_OPTIONS = _env_json("AI_OLLAMA_OPTIONS", {})
     AI_LIVE_ENDPOINT = _env("AI_LIVE_ENDPOINT", AI_OLLAMA_ENDPOINT)
+    AI_MODEL_FAMILIES_JSON = _env("AI_MODEL_FAMILIES_JSON")
     AI_INTERACTION_LOG_DIR = _env("AI_INTERACTION_LOG_DIR") or _env("INTERACTION_LOG_DIR")
     DB_LOG_DIRECTORY = _env("DB_LOG_DIRECTORY")  # Deprecated: use AI_INTERACTION_LOG_DIR
+    AI_SYSTEM_GUARDRAIL_PROMPT = _env(
+        "AI_SYSTEM_GUARDRAIL_PROMPT",
+        "You are an accessibility-focused educational assistant. Refuse or safely redirect requests that are harmful, illegal, privacy-invasive, or outside educational support. Keep responses factual and classroom-appropriate.",
+    )
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
+    LOG_LEVEL = _env("LOG_LEVEL", "DEBUG")
 
 class TestingConfig(BaseConfig):
     TESTING = True
