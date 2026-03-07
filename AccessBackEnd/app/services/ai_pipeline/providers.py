@@ -10,6 +10,12 @@ from .bootstrap import HuggingFaceModelBootstrap
 
 _MAX_CONTEXT_MESSAGES = 4
 logger = logging.getLogger(__name__)
+_PROVIDER_ALIASES: dict[str, set[str]] = {
+    "mock_json": {"mock", "mock_json", "json"},
+    "ollama": {"ollama", "ollama_local"},
+    "http": {"live", "live_agent", "http"},
+    "huggingface": {"hf", "huggingface", "langchain_hf"},
+}
 
 def _clip(
     value: Any, 
@@ -18,7 +24,12 @@ def _clip(
     text = str(value or "").strip()
     return text if len(text) <= limit else f"{text[:limit]}… [truncated]"
 
-
+def normalize_provider_name(provider: str | None) -> str:
+    selected = str(provider or "").strip().lower()
+    for canonical, aliases in _PROVIDER_ALIASES.items():
+        if selected in aliases:
+            return canonical
+    return selected
 def _sanitize_context(context: dict[str, Any] | None) -> dict[str, Any]:
 
     if not isinstance(context, dict):
@@ -405,7 +416,7 @@ def create_provider(
     max_new_tokens: int = 256, 
     temperature: float = 0.1
 ) -> AIProvider:
-    selected = (provider or "ollama").strip().lower()
+    selected = normalize_provider_name(provider or "ollama")
     logger.debug(
         "ai_provider.select provider=%s live_endpoint=%s ollama_endpoint=%s model_name=%s ollama_model_id=%s timeout_seconds=%s",
         selected,
@@ -415,12 +426,12 @@ def create_provider(
         ollama_model_id,
         timeout_seconds
     )
-    if selected in {"mock", "mock_json", "json"}:
+    if selected == "mock_json":
         return MockJSONProvider(mock_resource_path=mock_resource_path)
-    if selected in {"ollama", "ollama_local"}:
+    if selected == "ollama":
         return OllamaProvider(endpoint=ollama_endpoint or live_endpoint, model_id=ollama_model_id or model_name or huggingface_model_id, options=ollama_options, timeout_seconds=timeout_seconds)
-    if selected in {"live", "live_agent", "http"}:
+    if selected == "http":
         return HTTPEndpointProvider(endpoint=live_endpoint, model_name=model_name, timeout_seconds=timeout_seconds)
-    if selected in {"hf", "huggingface", "langchain_hf"}:
+    if selected == "huggingface":
         return HuggingFaceLangChainProvider(model_id=huggingface_model_id, cache_dir=huggingface_cache_dir, max_new_tokens=max_new_tokens, temperature=temperature)
     raise ValueError(f"Unsupported AI provider: {provider}")

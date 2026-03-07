@@ -5,7 +5,7 @@ from typing import Any
 
 from .exceptions import invoke_provider_or_raise
 from .model_inventory import ModelInventoryConfig, ModelInventoryService
-from .providers import AIProvider, create_provider
+from .providers import AIProvider, create_provider, normalize_provider_name
 from .types import AIPipelineRequest
 
 _ASSISTANT_TEXT_KEYS = ("assistant_text", "result", "answer", "response_text", "response", "output", "text")
@@ -50,26 +50,112 @@ class AIPipelineService:
             temperature=config.temperature
         )
 
+        self._provider_cache: dict[tuple[str, str], AIProvider] = {}
+        default_key = (
+            normalize_provider_name(self.config.provider),
+            self._resolve_prompt(self.config.provider),
+            self._resolve_model_id_for_provider(self.config.provider)
+        )
+        if all(default_key):
+            self._provider_cache[default_key] = self._provider
+
+    def _resolve_model_id_for_provider(self, provider: str) -> str:
+        selected = normalize_provider_name(provider)
+        if selected == 'ollama':
+            return str(
+                self.config.ollama_model_id
+                or self.config.model_name
+                or self.config.huggingface_model_id
+                or ""
+            ).strip()
+        if selected == "huggingface":
+            return str(
+                self.config.huggingface_model_id
+                or self.config.model_name
+                or ""
+            ).strip()
+
+    def _resolve_runtime_selection(
+            self,
+            context: dict[str, Any]
+    ) -> tuple[str, str] | None:
+        runtime_selection = context.get("runtime_model_selection")
+        if not isinstance(runtime_selection, dict):
+            return None
+
+        provider = normalize_provider_name(runtime_selection.get("provider"))
+        model_id = str(runtime_selection.get('model_id') or '').strip()
+        if not provider or not model_id:
+            return None
+
+        return provider, model_id
+
+    def _get_or_create_provider(
+            self,
+            provider: str,
+            model_id: str
+    ):
+        key = (normalize_provider_name(provider), (model_id or '').strip())
+        if key in self._provider_cache:
+            return self._provider_cache[key]
+
+        selected_provider, selected_mdoel_id = key
+        provider_instance = create_provider(
+            provider=selected_provider,
+            model_name=selected_mdoel_id or self.config.model_name,
+            mock_resource_path=self.config.mock_resource_path,
+            live_endpoint=self.config.live_endpoint,
+            ollama_endpoint=self.config.ollama_endpoint,
+            ollama_model_id=selected_mdoel_id if selected_provider == 'ollama' else self.config.ollama_model_id,
+            ollama_options=self.config.ollama_options,
+            timeout_seconds=self.config.timeout_seconds,
+            huggingface_model_id=selected_mdoel_id if selected_provider == 'huggingface' else self.config.huggingface_model_id,
+            huggingface_cache_dir=self.config.huggingface_cache_dir,
+            max_new_tokens=self.config.max_new_tokens,
+            temperature=self.config.temperature
+        )
+        self._provider_cache[key] = provider_instance
+        return provider_instance
+
     def run(
         self, 
         request: AIPipelineRequest
     ) -> dict[str, Any]:
 
         prompt = self._resolve_prompt(request)
-        # i didn't make _clip available ........... 
         request_id = str(request.request_id) if request.request_id is not None else "n/a"
+        context = request.context.copy() if isinstance(request.context, dict) else {}
+        runtime_selection = self._resolve_runtime_selection(context)
+        provider_instance = self._provider
+        selected_provider = normalize_provider_name(self.config.provider)
+        selected_model = self._resolve_model_id_for_provider(selected_provider)
+
+        if runtime_selection is not None:
+            override_provider, override_model_id = runtime_selection
+            try:
+                provider_instance = self._get_or_create_provider(override_provider, override_model_id)
+                selected_provider = override_provider
+                selected_model = override_model_id
+            except ValueError:
+                logger.warning(
+                    "ai.pipeline.run.runtime_selection_invalid requst_id=%s provier=%s model=%s",
+                    request_id,
+                    override_provider,
+                    override_model_id,
+                )
+
         logger.debug(
             "ai_pipeline.run.start request_id=%s provider=%s model=%s timeout_seconds=%s prompt_len=%s messages_count=%s prompt_preview=%r",
             request_id,
-            self.config.provider,
-            self.config.model_name,
+            selected_provider,
+            selected_model,
             self.config.timeout_seconds,
             len(prompt),
             len(request.messages) if isinstance(request.messages, list) else 0,
             prompt[:200],
         )
 
-        context = request.context.copy() if isinstance(request.context, dict) else {}
+        # context = request.context.copy() if isinstance(request.context, dict) else {}
 
         if request.request_id and "request_id" not in context:
             context["request_id"] = request.request_id
@@ -80,17 +166,17 @@ class AIPipelineService:
         invoke_start_time = time.time()
         logger.debug(
             "ai_pipeline.run.invoke provider=%s endpoint=%s model=%s invoke_called=%s invoke_start_time=%s",
-            self.config.provider,
+            selected_provider,
             self.config.live_endpoint or self.config.ollama_endpoint or "n/a",
-            self.config.model_name,
+            selected_model,
             True,
             invoke_start_time
         )
-        payload = invoke_provider_or_raise(self._provider, prompt, context)
+        payload = invoke_provider_or_raise(provider_instance, prompt, context)
 
         logger.debug(
             "ai_pipeline.run.invoke.completed provider=%s return_value=%s duration_ms=%s",
-            self.config.provider,
+            selected_provider,
             payload is None,
             round((time.time() - invoke_start_time) * 1000, 2)
         )
@@ -107,9 +193,11 @@ class AIPipelineService:
             "notes": notes,
             "meta": {
                 **meta,
-                "model": meta.get("model") or meta.get("model_id") or self.config.model_name,
+                "provider": meta.get("provider") or selected_provider,
+                "model": meta.get("model") or meta.get("model_id") or selected_model,
                 "pipeline": "app.services.ai_pipeline",
-                "selected_provider": self.config.provider,
+                "selected_provider": selected_provider,
+                "selected_model_id": selected_model
             },
         }
 
@@ -117,8 +205,8 @@ class AIPipelineService:
             logger.warning(
                 "ai_pipeline.run.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
                 request_id,
-                self.config.provider,
-                self.config.model_name,
+                selected_provider,
+                selected_model,
                 len(notes)
 
             )
