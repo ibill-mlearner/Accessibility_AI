@@ -183,6 +183,40 @@ class AIInteractionHelpers:
                         )
 
         return provider_models
+    @staticmethod
+    def _resolve_provider_model_metadata(
+            result: Any
+    ) -> tuple[str, str, str | None, str | None]:
+
+        provider_name = AIInteractionHelpers._resolve_provider(result).strip().lower() or "unknown"
+        source: str | None = None
+        path: str | None = None
+
+        model_name = (
+            current_app.config.get("AI_OLLAMA_MODEL")
+            or current_app.config.get("AI_MODEL_NAME")
+            or ""
+        )
+        if isinstance(result, dict):
+            meta_payload = result.get("meta")
+            if isinstance(meta_payload, dict):
+                model_name = (
+                    meta_payload.get("model_id")
+                    or meta_payload.get("model")
+                    or meta_payload.get("name")
+                    or model_name
+                )
+                source = str(meta_payload.get("source") or "").strip() or None
+                path = str(meta_payload.get("path") or "").strip() or None
+            model_name = (
+                result.get("model_id")
+                or result.get("model")
+                or result.get("name")
+                or model_name
+            )
+
+        normalized_model_id = str(model_name or "").strip() or f"{provider_name}-default"
+        return provider_name, normalized_model_id, source, path
 
     @staticmethod
     def _resolve_initiated_by(payload: dict[str, Any]) -> str:
@@ -212,13 +246,33 @@ class AIInteractionHelpers:
 
     @staticmethod
     def _resolve_ai_model_id(result: Any) -> int:
-        provider_name = AIInteractionHelpers._resolve_provider(result)
-        model = db.session.query(AIModel).filter(AIModel.provider == provider_name).first()
+        provider_name, model_id, source, path = AIInteractionHelpers._resolve_provider_model_metadata(result)
+        # model = db.session.query(AIModel).filter(AIModel.provider == provider_name).first()
+        model = (
+            db.session.query(AIModel)
+            .filter(AIModel.provider == provider_name, AIModel.model_id == model_id)
+            .first()
+        )
+
         if model is None:
-            model = AIModel(provider=provider_name, active=True)
+            # model = AIModel(provider=provider_name, active=True)
+            model = AIModel(
+                provider=provider_name,
+                model_id=model_id,
+                source=source,
+                path=path,
+                active=True
+            )
             db.session.add(model)
             db.session.flush()
-        return int(model.id)
+            return int(model_id)
+
+        model.active = True
+        if source:
+            model.source = source
+        if path:
+            model.path = path
+        return int(model_id)
 
     @staticmethod
     def _resolve_prompt_link_id(payload: dict[str, Any]) -> int | None:

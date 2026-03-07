@@ -1,6 +1,6 @@
 from typing import Any
 
-from flask import current_app, jsonify, session
+from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
 
 from ...helpers.ai_interaction_helpers import (
@@ -10,7 +10,58 @@ from ...helpers.ai_interaction_helpers import (
 )
 from .routes import BadRequestError, _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id
+from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
+from ...models import AIModel
+from ...extensions import db
 
+@api_v1_bp.get("/ai/models")
+@login_required
+def list_persisted_ai_models():
+    include_live = str(request.args.get("include_live") or '').strip().lower() in {'1', 'true', 'yes'}
+    reconcile = str(request.args.get('reconcile') or '').strip().lower() in {'1', 'true', 'yes'}
+    ai_service = current_app.extensions['ai_service']
+    if reconcile:
+        AIModelReconciliationService(ai_service).reconcile()
+
+    availability: dict[tuple[str, str], bool] = {}
+    if include_live:
+        inventory = ai_service.list_available_models()
+        available_by_provider = _extract_available_model_ids(inventory)
+        availability = {
+            (provider, model_id.lower()): True
+            for provider, model_ids in available_by_provider.items()
+            for model_id in model_ids
+        }
+    records = (
+        db.session.query(AIModel)
+        .order_by(AIModel.provider.asc(), AIModel.model_id.asc())
+        .all()
+    )
+    response = []
+
+    for model in records:
+        payload = {
+            "id": model.id,
+            "provider": model.provider,
+            "model_id": model.model_id,
+            "source": model.source,
+            "path": model.path,
+            "active": model.active,
+            "last_seen_at": model.last_seen_at.isoformat() if model.last_seen_at else None,
+        }
+        if include_live:
+            payload['available_live'] = availability.get(
+                (model.provider, model.model_id.lower()),
+                False
+            )
+        response.append(payload)
+
+    return jsonify(
+        {
+            "models": response,
+            "count" : len(response)
+        }
+    ), 200
 
 @api_v1_bp.get("/ai/models/available")
 @login_required
