@@ -12,6 +12,8 @@ from .routes import (
     BadRequestError,
 )
 from ...models import CourseClass, SystemPrompt, User
+from ...helpers.auth_helpers import _enforce_roles
+from ...helpers.system_prompt_access_helpers import ensure_instructor_owns_system_prompt_class
 
 
 @api_v1_bp.get("/system-prompts")
@@ -24,6 +26,9 @@ def list_system_prompts():
 @api_v1_bp.post("/system-prompts")
 @login_required
 def create_system_prompt():
+    denied = _enforce_roles("admin", "instructor")
+    if denied is not None:
+        return denied
     payload = _read_json_object()
 
     #todo: Restrict writes to instructor/admin roles and class ownership.
@@ -35,6 +40,12 @@ def create_system_prompt():
 
     if class_id is not None:
         _require_record("class", CourseClass, class_id)
+
+    denied = ensure_instructor_owns_system_prompt_class(class_id=class_id, action="create")
+    if denied is not None:
+        return denied
+
+
     if instructor_id is not None:
         _require_record("user", User, instructor_id)
 
@@ -54,6 +65,9 @@ def get_system_prompt(prompt_id: int):
 @api_v1_bp.patch("/system-prompts/<int:prompt_id>")
 @login_required
 def update_system_prompt(prompt_id: int):
+    denied = _enforce_roles("admin", "instructor")
+    if denied is not None:
+        return denied
     prompt = _require_record("system_prompt", SystemPrompt, prompt_id)
     payload = _read_json_object()
 
@@ -62,6 +76,12 @@ def update_system_prompt(prompt_id: int):
         class_id = _parse_int_field(payload.get("class_id"), field_name="class_id")
         if class_id is not None:
             _require_record("class", CourseClass, class_id)
+
+
+        denied = ensure_instructor_owns_system_prompt_class(class_id=class_id, action="update")
+        if denied is not None:
+            return denied
+            
         payload['class_id'] = class_id
 
     if "instructor_id" in payload:
@@ -92,9 +112,15 @@ def update_system_prompt(prompt_id: int):
 @api_v1_bp.delete("/system-prompts/<int:prompt_id>")
 @login_required
 def delete_system_prompt(prompt_id: int):
+    
+    denied = _enforce_roles("admin", "instructor")
+    if denied is not None:
+        return denied
     prompt = _require_record("system_prompt", SystemPrompt, prompt_id)
 
-    #todo: Restrict writes to instructor/admin roles and class ownership.
+    denied = ensure_instructor_owns_system_prompt_class(class_id=prompt.class_id, action="delete")
+    if denied is not None:
+        return denied
     response_payload = _serialize_record("system_prompt", prompt)
     db.session.delete(prompt)
     db.session.commit()

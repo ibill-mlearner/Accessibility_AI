@@ -12,7 +12,8 @@ from .routes import (
     db,
 )
 from ...models import Accommodation, AccommodationSystemPrompt, SystemPrompt
-
+from ...helpers.auth_helpers import _enforce_roles
+from ...helpers.system_prompt_access_helpers import ensure_instructor_owns_system_prompt_scope
 
 @api_v1_bp.get("/accommodation-system-prompt-links")
 @login_required
@@ -24,6 +25,10 @@ def list_accommodation_system_prompt_links():
 @api_v1_bp.post("/accommodation-system-prompt-links")
 @login_required
 def create_accommodation_system_prompt_link():
+    
+    denied = _enforce_roles("admin", "instructor")
+    if denied is not None:
+        return denied
     payload = _read_json_object()
 
     #todo: Restrict writes to instructor/admin roles and class ownership.
@@ -32,6 +37,10 @@ def create_accommodation_system_prompt_link():
 
     _require_record("accommodation", Accommodation, accommodation_id)
     _require_record("system_prompt", SystemPrompt, system_prompt_id)
+
+    denied = ensure_instructor_owns_system_prompt_scope(system_prompt=system_prompt, action="create")
+    if denied is not None:
+        return denied
 
     link = AccommodationSystemPrompt(accommodation_id=accommodation_id, system_prompt_id=system_prompt_id)
     db.session.add(link)
@@ -49,10 +58,17 @@ def get_accommodation_system_prompt_link(link_id: int):
 @api_v1_bp.patch("/accommodation-system-prompt-links/<int:link_id>")
 @login_required
 def update_accommodation_system_prompt_link(link_id: int):
+    
+    denied = _enforce_roles("admin", "instructor")
+    if denied is not None:
+        return denied
     link = _require_record("accommodation_system_prompt_link", AccommodationSystemPrompt, link_id)
     payload = _read_json_object()
 
-    #todo: Restrict writes to instructor/admin roles and class ownership.
+    denied = ensure_instructor_owns_system_prompt_scope(system_prompt=link.system_prompt, action="update")
+    if denied is not None:
+        return denied
+
     if "accommodation_id" in payload:
         accommodation_id = _parse_int_field(payload.get("accommodation_id"), field_name="accommodation_id", required=True)
         _require_record("accommodation", Accommodation, accommodation_id)
@@ -60,7 +76,10 @@ def update_accommodation_system_prompt_link(link_id: int):
 
     if "system_prompt_id" in payload:
         system_prompt_id = _parse_int_field(payload.get("system_prompt_id"), field_name="system_prompt_id", required=True)
-        _require_record("system_prompt", SystemPrompt, system_prompt_id)
+        denied = ensure_instructor_owns_system_prompt_scope(system_prompt=system_prompt, action="update")
+        if denied is not None:
+            return denied
+
         link.system_prompt_id = system_prompt_id
 
     db.session.commit()
@@ -72,7 +91,10 @@ def update_accommodation_system_prompt_link(link_id: int):
 def delete_accommodation_system_prompt_link(link_id: int):
     link = _require_record("accommodation_system_prompt_link", AccommodationSystemPrompt, link_id)
 
-    #todo: Restrict writes to instructor/admin roles and class ownership.
+    denied = ensure_instructor_owns_system_prompt_scope(system_prompt=link.system_prompt, action="delete")
+    if denied is not None:
+        return denied
+
     response_payload = _serialize_record("accommodation_system_prompt_link", link)
     db.session.delete(link)
     db.session.commit()
