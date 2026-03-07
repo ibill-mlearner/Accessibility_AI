@@ -6,7 +6,6 @@ CREATE TABLE ai_models (
     model_id VARCHAR(255) NOT NULL,
     source VARCHAR(80),
     path VARCHAR(512),
-    last_seen_at DATETIME,
     active BOOLEAN NOT NULL DEFAULT 1,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -19,7 +18,6 @@ INSERT INTO ai_models (
     model_id,
     source,
     path,
-    last_seen_at,
     active
 )
 SELECT
@@ -28,7 +26,6 @@ SELECT
     COALESCE(NULLIF(TRIM(legacy.provider), ''), 'legacy-model-' || legacy.id) AS model_id,
     'legacy_provider_only' AS source,
     NULL AS path,
-    CURRENT_TIMESTAMP AS last_seen_at,
     COALESCE(legacy.active, 1) AS active
 FROM ai_models_legacy AS legacy;
 

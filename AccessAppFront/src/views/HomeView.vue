@@ -26,6 +26,9 @@
       @send="sendPrompt"
       @update:selected-model="handleModelSelection"
     />
+    <p v-if="chatStore.modelCatalogError" class="alert alert-warning py-2 mb-0" role="status">
+      {{ chatStore.modelCatalogError }}
+    </p>
   </section>
 </template>
 

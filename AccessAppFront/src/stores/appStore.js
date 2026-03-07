@@ -50,7 +50,7 @@ export const useAppStore = defineStore('app', {
     authError: '',
     selectedChatId: null,
     selectedClassId: null,
-    selectedModel: '',
+    // selectedModel: '',
     newChatRequestId: 0,
     chats: [],
     classes: [],
@@ -67,13 +67,13 @@ export const useAppStore = defineStore('app', {
     hasActiveChat(state) {
       return state.selectedChatId !== null && state.chats.some((chat) => chat.id === state.selectedChatId)
     },
-    hasHeaderContext() {
-      return Boolean(this.selectedModel && this.hasActiveChat && this.selectedClass)
-    },
-    topHeader() {
-      if (!this.hasHeaderContext) return ''
-      return `${this.selectedModel}     ${this.selectedClass.name}`
-    },
+    // hasHeaderContext() {
+    //   return Boolean(this.selectedModel && this.hasActiveChat && this.selectedClass)
+    // },
+    // topHeader() {
+    //   if (!this.hasHeaderContext) return ''
+    //   return `${this.selectedModel}     ${this.selectedClass.name}`
+    // },
     roleClasses(state) {
       if (state.role === 'guest') return []
       const matchingClasses = state.classes.filter((item) => item.role === state.role)
