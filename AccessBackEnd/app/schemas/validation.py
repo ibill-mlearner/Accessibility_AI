@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, EXCLUDE
 
 
 class ChatPayloadSchema(Schema):
@@ -53,6 +53,10 @@ class PartialMessagePayloadSchema(Schema):
 
 
 class AIInteractionPayloadSchema(Schema):
+
+    class Meta:
+        unknown = EXCLUDE
+
     prompt = fields.Str(required=False, allow_none=True)
     system_prompt = fields.Str(required=False, allow_none=True)
     context = fields.Dict(required=False)

@@ -26,6 +26,7 @@ from .routes import (
     api_v1_bp,
     db,
     _read_json_object,
+    BadRequestError
 )
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...models import AIInteraction, Chat
@@ -37,7 +38,23 @@ from ...services.chat_access_service import ChatAccessService
 @login_required
 def create_ai_interaction():
     """Run a single AI interaction."""
-    payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
+    raw = _read_json_object()
+    current_app.logger.debug(
+        "api.ai.interactions.payload.raw path=%s json_keys=%s",
+        "/api/v1/ai/interactions",
+        sorted(raw.keys())
+    )
+    try:
+        payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
+    except BadRequestError:
+        current_app.logger.debug(
+            "api.ai.interactions.payload.validation_failed path=%s json_keys=%s",
+            "/api/v1/ai/interactions",
+            sorted(raw.keys())
+        )
+        raise
+
+    print(payload + "prompt not reachign this point")
     user_identity = (
         getattr(current_user, "email", None)
         or getattr(current_user, "id", None)

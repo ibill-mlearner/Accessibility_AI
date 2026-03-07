@@ -40,20 +40,30 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
       )
 
       const userMessage = await withSingleRetry(() =>
-        chatStore.createMessage({ id: createId(), chat_id: ensuredChat.id, message_text: cleanPrompt, help_intent: 'summarization' })
+        chatStore.createMessage({ 
+          // id: createId(), 
+          chat_id: ensuredChat.id, 
+          message_text: cleanPrompt, 
+          help_intent: 'summarization' 
+        })
       )
       timelineMessages.value.push({ id: userMessage.id, role: 'user', text: userMessage.message_text })
       await scrollToLatestTurn()
 
       const selectedAccessibilityLinkIds = featureStore.selectedLinkIds
+      const selectedModelValue = String(chatStore.selectedModel || '')
+      const [selectedProvider, selectedModelId] = selectedModelValue.includes('::')
+        ? selectedModelValue.split('::') : ['', '']
 
       let aiResponse
       try {
         aiResponse = await chatStore.requestAiInteraction({
             prompt: cleanPrompt,
             chat_id: ensuredChat.id,
+            provider: selectedProvider || undefined,
+            model_id: selectedModelId || undefined,
             selected_accessibility_link_ids: selectedAccessibilityLinkIds,
-            selected_accomodations_id_system_prompts_ids: selectedAccessibilityLinkIds,
+            selected_accommodations_id_system_prompts_ids: selectedAccessibilityLinkIds,
             context: 
             { 
                 chat_id: ensuredChat.id, 
@@ -63,7 +73,7 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
             }
         })
       } catch (error) {
-        interactionError.value = error?.response?.status === 400 ? 'Prompt was rejected. Please edit and retry.' : 'AI is temporarily unavailable. Please retry.'
+        interactionError.value = error?.response?.status === 400 ? 'Prompt was rejected. Please edit and retry.' + error : 'AI is temporarily unavailable. Please retry.'
         prompt.value = draftPrompt
         return
       }
@@ -80,7 +90,12 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
       await scrollToLatestTurn()
 
       const savedAssistantMessage = await withSingleRetry(() =>
-        chatStore.createMessage({ id: createId(), chat_id: ensuredChat.id, message_text: assistantText, help_intent: 'summarization' })
+        chatStore.createMessage({ 
+          // id: createId(), 
+          chat_id: ensuredChat.id, 
+          message_text: assistantText, 
+          help_intent: 'summarization' 
+        })
       )
 
       timelineMessages.value = timelineMessages.value.map((message) =>

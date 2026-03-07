@@ -67,7 +67,7 @@ def create_message():
         user_identity,
         sorted(payload_raw.keys()),
     )
-    payload = _validate_payload(_deserialize_payload("message", _read_json_object()), MessagePayloadSchema())
+    payload = _validate_payload(_deserialize_payload("message", payload_raw), MessagePayloadSchema())
     chat_id = payload.get("chat_id")
     if chat_id is None:
         raise BadRequestError("chat_id is required")
@@ -80,18 +80,22 @@ def create_message():
     message = Message(
         chat_id=chat_id,
         message_text=payload["message_text"],
-        vote=payload['vote'],
-        note=payload['note'],
-        help_intent=payload['help_intent'],
+        vote=payload.get("vote") or "good",
+        note=payload.get("note") or "no",
+        help_intent=payload.get("help_intent") or "summarization"
     )
-
+    try:
+        print(message)
+    except:
+        pass
     db.session.add(message)
     db.session.commit()
     current_app.logger.debug(
-        "api.messages.create.response path=%s status=%s message_id=%s",
+        "api.messages.create.response path=%s status=%s message_id=%s message=%s",
         request.path,
         201,
         message.id,
+        message.chat
     )
     return jsonify(_serialize_record("message", message)), 201
 
