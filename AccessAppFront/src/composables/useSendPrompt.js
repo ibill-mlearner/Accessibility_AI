@@ -15,6 +15,12 @@ export function useSendPrompt({
   const interactionLoading = ref(false)
   const featureStore = useFeatureStore()
 
+
+  function logSendCheckpoint(label, details = {}) {
+    if (!import.meta.env.DEV) return
+    console.info(`[useSendPrompt] ${label}`, details)
+  }
+
   async function redirectGuest(cleanPrompt) {
     if (auth.role !== 'guest') return false
     interactionError.value = 'Please log in to send a prompt.'
@@ -112,6 +118,44 @@ export function useSendPrompt({
     }
   }
 
+  function parseAiInteractionError(error) {
+    const status = error?.response?.status
+    const responseData = error?.response?.data
+    const responseError = responseData?.error
+
+    const backendMessage = typeof responseData === 'string'
+      ? responseData
+      : responseError?.message || responseData?.message || responseData?.error || ''
+
+    return {
+      status,
+      responseData,
+      errorCode: responseError?.code || responseData?.code || '',
+      errorSource: responseError?.details?.source || responseData?.details?.source || '',
+      backendMessage
+    }
+  }
+
+  function resolveAiInteractionErrorMessage(parsedError) {
+    const { status, backendMessage, errorCode, errorSource } = parsedError
+    const messageLower = String(backendMessage || '').toLowerCase()
+
+    if (status === 400) {
+      const rejectedPromptMessage = 'Prompt was rejected. Please edit and retry.'
+      return `${rejectedPromptMessage} ${backendMessage}`.trim()
+    }
+
+    const isProviderAuthIssue = errorCode === 'upstream_error'
+      && errorSource === 'provider_runtime'
+      && (status === 401 || messageLower.includes('repository not found') || messageLower.includes('invalid username or password'))
+
+    if (isProviderAuthIssue) {
+      return 'The selected Hugging Face model is unavailable or requires authentication. Choose another model or configure valid provider credentials.'
+    }
+
+    return backendMessage || 'AI is temporarily unavailable. Please retry.'
+  }
+
   async function requestAssistantResponse({ 
     cleanPrompt, 
     chatId, 
@@ -132,10 +176,20 @@ export function useSendPrompt({
     try {
       return await chatStore.requestAiInteraction(payload)
     } catch (error) {
-      const rejectedPromptMessage = 'Prompt was rejected. Please edit and retry.'
-      interactionError.value = error?.response?.status === 400
-        ? `${rejectedPromptMessage} ${error?.message || ''}`.trim()
-        : 'AI is temporarily unavailable. Please retry.'
+      const parsedError = parseAiInteractionError(error)
+
+      if (import.meta.env.DEV) {
+        console.error('[useSendPrompt] requestAiInteraction failed', {
+          message: error?.message,
+          status: parsedError.status,
+          responseData: parsedError.responseData,
+          errorCode: parsedError.errorCode,
+          errorSource: parsedError.errorSource,
+          stack: error?.stack
+        })
+      }
+
+      interactionError.value = resolveAiInteractionErrorMessage(parsedError)
       prompt.value = draftPrompt
       return null
     }
@@ -188,10 +242,11 @@ async function saveAssistantMessage({
       })
     }
 
-    const storeMessage = error?.message || ''
-    interactionError.value = storeMessage.includes('start chat')
+    const storeMessage = String(error?.message || '')
+    const normalizedStoreMessage = storeMessage.toLowerCase()
+    interactionError.value = normalizedStoreMessage.includes('start chat')
       ? 'Couldn’t start chat. Please retry.'
-      : storeMessage.includes('save message')
+      : normalizedStoreMessage.includes('save message')
         ? timelineMessages.value.some((message) => message.unsaved)
           ? 'Response generated but couldn’t be saved. Retry save?'
           : 'Message not saved. Retry sending?'
@@ -271,15 +326,38 @@ async function saveAssistantMessage({
     modelSelection, 
     draftPrompt 
   }) {
+    logSendCheckpoint('before ensureActiveChat', {
+      cleanPromptLength: cleanPrompt.length,
+      classIdForChat,
+      selectedModelValue: modelSelection.selectedModelValue
+    })
     const ensuredChat = await ensureChat({
       cleanPrompt,
       classIdForChat,
       selectedModelValue: modelSelection.selectedModelValue
     })
 
+    logSendCheckpoint('after ensureActiveChat', {
+      chatId: ensuredChat?.id
+    })
+
+    logSendCheckpoint('before createMessage (user)', {
+      chatId: ensuredChat?.id
+    })
+
     await saveUserMessage({ 
       chatId: ensuredChat.id, 
       cleanPrompt })
+
+    logSendCheckpoint('after createMessage (user)', {
+      chatId: ensuredChat?.id
+    })
+
+    logSendCheckpoint('before requestAiInteraction', {
+      chatId: ensuredChat?.id,
+      provider: modelSelection.selectedProvider,
+      modelId: modelSelection.selectedModelId
+    })
 
     const aiResponse = await requestAssistantResponse({
       cleanPrompt,
@@ -289,10 +367,26 @@ async function saveAssistantMessage({
       selectedModelId: modelSelection.selectedModelId,
       draftPrompt
     })
+
+    logSendCheckpoint('after requestAiInteraction', {
+      chatId: ensuredChat?.id,
+      responseReceived: Boolean(aiResponse)
+    })
+
     if (!aiResponse) return
 
+    logSendCheckpoint('before createMessage (assistant)', {
+      chatId: ensuredChat?.id
+    })
+
     await processSuccessfulAiResponse({ aiResponse, ensuredChat, draftPrompt })
+
+    logSendCheckpoint('after createMessage (assistant)', {
+      chatId: ensuredChat?.id
+    })
+    
   }
+
 
   async function sendPrompt() {
     if (interactionLoading.value) return

@@ -54,7 +54,10 @@ def create_ai_interaction():
         )
         raise
 
-    print(payload + "prompt not reachign this point")
+    current_app.logger.debug(
+        "api.ai.interactions.payload.validated keys=%s",
+        sorted(payload.keys())
+    )
     user_identity = (
         getattr(current_user, "email", None)
         or getattr(current_user, "id", None)
