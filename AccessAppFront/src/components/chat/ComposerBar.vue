@@ -13,8 +13,11 @@
       <button v-if="showLogin"
         class="btn btn-outline-secondary" 
         @click="$emit('login')">Login</button>
-      <button class="btn btn-primary" 
-        @click="$emit('send')">➤</button>
+      <button
+        class="btn btn-primary"
+        :disabled="sendDisabled"
+        @click="$emit('send')"
+      >➤</button>
       <input
         class="form-control"
         :placeholder="placeholder"
@@ -40,7 +43,9 @@
 </template>
 
 <script setup>
-defineProps({
+import {computed} from 'vue'
+
+const props = defineProps({
   showLogin: { type: Boolean, default: false },
   showModelSelect: { type: Boolean, default: true },
   placeholder: { type: String, default: 'Type here . . .' },
@@ -48,6 +53,10 @@ defineProps({
   selectedModel: { type: String, default: '' },
   modelOptions: { type: Array, default: () => [] },
   modelLoading: { type: Boolean, default: false }
+})
+
+const sendDisabled = computed(() => {
+  props.showModelSelect && (props.modelLoading || !String(props.selectedModel || '').trim())
 })
 
 defineEmits(['login', 'send', 'update:modelValue', 'update:selected-model'])

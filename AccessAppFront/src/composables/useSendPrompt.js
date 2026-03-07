@@ -25,6 +25,15 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
       return
     }
 
+    const selectedModelValue = String(chatStore.selectedModel || '').trim()
+    const [selectedProvider = '', selectedModelId = ''] = selectedModelValue.split('::')
+    const hasValidModelSelection = Boolean(selectedModelValue && selectedProvider.trim() && selectedModelId.trim())
+
+    if (!hasValidModelSelection) {
+      interactionError.value = 'Please select a model before sending your prompt.'
+      return
+    }
+
     interactionLoading.value = true
     interactionError.value = ''
 
@@ -33,7 +42,7 @@ export function useSendPrompt({ auth, router, chatStore, classStore, timelineMes
         chatStore.ensureActiveChat({
           title: buildFirstChatTitle(cleanPrompt, chatStore.chats.length + 1),
           started_at: new Date().toISOString(),
-          model: chatStore.selectedModel || 'General',
+          model: selectedModelValue,
           class_id: classIdForChat,
           user_id: auth.currentUser?.id
         })
