@@ -444,7 +444,8 @@ def create_provider(
     ollama_options: dict[str, Any] | None = None, 
     timeout_seconds: int = 60, 
     huggingface_model_id: str = "", 
-    huggingface_cache_dir: str | None = None, 
+    huggingface_cache_dir: str | None = None,
+    huggingface_allow_download: bool = False,
     max_new_tokens: int = 256, 
     temperature: float = 0.1
 ) -> AIProvider:
@@ -465,5 +466,11 @@ def create_provider(
     if selected == "http":
         return HTTPEndpointProvider(endpoint=live_endpoint, model_name=model_name, timeout_seconds=timeout_seconds)
     if selected == "huggingface":
-        return HuggingFaceLangChainProvider(model_id=huggingface_model_id, cache_dir=huggingface_cache_dir, max_new_tokens=max_new_tokens, temperature=temperature)
+        return HuggingFaceLangChainProvider(
+            model_id=huggingface_model_id,
+            cache_dir=huggingface_cache_dir,
+            allow_download=huggingface_allow_download,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+        )
     raise ValueError(f"Unsupported AI provider: {provider}")

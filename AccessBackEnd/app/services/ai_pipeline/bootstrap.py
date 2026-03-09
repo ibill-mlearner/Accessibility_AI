@@ -47,6 +47,25 @@ class HuggingFaceModelBootstrap:
         return max(snapshots, key=lambda path: path.stat().st_mtime)
 
 
+    def _resolve_cache_alias_path(self) -> Path | None:
+        """Resolve pre-downloaded local alias directories under cache_dir.
+
+        Supports workflows where models are materialized as
+        `<cache_dir>/<alias>` (for example via download_models_once.py)
+        instead of HuggingFace's snapshot cache layout.
+        """
+        if not self.cache_dir:
+            return None
+
+        model_alias = str(self.model_id or "").strip()
+        if not model_alias or "/" in model_alias:
+            return None
+
+        alias_path = Path(self.cache_dir).expanduser() / model_alias
+        if alias_path.exists() and alias_path.is_dir():
+            return alias_path
+        return None
+
     def ensure_model(self) -> Path:
         # Logic intent:
         # 1) Download/sync model snapshots from HuggingFace Hub when needed.
@@ -61,6 +80,10 @@ class HuggingFaceModelBootstrap:
         cached_snapshot = self._resolve_cached_snapshot_path()
         if cached_snapshot:
             return cached_snapshot
+
+        cache_alias_path = self._resolve_cache_alias_path()
+        if cache_alias_path:
+            return cache_alias_path
 
         if not self.allow_download:
             logger.warning(

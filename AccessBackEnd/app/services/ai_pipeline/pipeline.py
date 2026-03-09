@@ -57,6 +57,7 @@ class AIPipelineService:
             timeout_seconds=config.timeout_seconds,
             huggingface_model_id=config.huggingface_model_id,
             huggingface_cache_dir=config.huggingface_cache_dir,
+            huggingface_allow_download=config.huggingface_allow_download,
             max_new_tokens=config.max_new_tokens,
             temperature=config.temperature
         )
@@ -122,6 +123,7 @@ class AIPipelineService:
             timeout_seconds=self.config.timeout_seconds,
             huggingface_model_id=selected_mdoel_id if selected_provider == 'huggingface' else self.config.huggingface_model_id,
             huggingface_cache_dir=self.config.huggingface_cache_dir,
+            huggingface_allow_download=self.config.huggingface_allow_download,
             max_new_tokens=self.config.max_new_tokens,
             temperature=self.config.temperature
         )

@@ -57,7 +57,7 @@ def build_ai_service_from_config(
         timeout_seconds=pipeline_config.timeout_seconds,
         huggingface_model_id=pipeline_config.huggingface_model_id,
         huggingface_cache_dir=pipeline_config.huggingface_cache_dir,
-        # huggingface_allow_download=pipeline_config.huggingface_allow_download,
+        huggingface_allow_download=pipeline_config.huggingface_allow_download,
         max_new_tokens=pipeline_config.max_new_tokens,
         temperature=pipeline_config.temperature,
     )

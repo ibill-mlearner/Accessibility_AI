@@ -65,3 +65,5 @@ test=tests/test_app_db_standalone.py::test_create_standalone_db_creates_missing_
 [2026-03-09T01:59:12.698145+00:00] session_start cwd=E:\Tests\Accessibility_AI\AccessBackEnd\tests
 test=test_huggingface_bootstrap.py::test_ensure_model_raises_in_local_only_mode_without_local_artifacts outcome=failed duration_s=0.0001
 [2026-03-09T01:59:13.205145+00:00] session_finish exitstatus=1
+[2026-03-09T02:26:12.005069+00:00] session_start cwd=E:\Tests\Accessibility_AI\AccessBackEnd\tests
+[2026-03-09T02:26:12.568645+00:00] session_finish exitstatus=4

@@ -35,3 +35,16 @@ def test_ensure_model_raises_in_local_only_mode_without_local_artifacts(tmp_path
 
     with pytest.raises(RuntimeError, match="dynamic download is disabled"):
         bootstrap.ensure_model()
+
+
+def test_ensure_model_uses_cache_alias_directory_when_available(tmp_path: Path):
+    alias_dir = tmp_path / "llama3.2"
+    alias_dir.mkdir(parents=True)
+
+    bootstrap = HuggingFaceModelBootstrap(
+        model_id="llama3.2",
+        cache_dir=str(tmp_path),
+        allow_download=False,
+    )
+
+    assert bootstrap.ensure_model() == alias_dir
