@@ -40,6 +40,8 @@ def build_ai_service_from_config(
         ollama_options=config.get("AI_OLLAMA_OPTIONS"),
         timeout_seconds=config["AI_TIMEOUT_SECONDS"],
         huggingface_model_id=config["AI_MODEL_NAME"],
+        huggingface_cache_dir=config.get("AI_HUGGINGFACE_CACHE_DIR"),
+        huggingface_allow_download=config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False)
     )
 
     effective_provider_factory = provider_factory or create_provider
@@ -55,6 +57,7 @@ def build_ai_service_from_config(
         timeout_seconds=pipeline_config.timeout_seconds,
         huggingface_model_id=pipeline_config.huggingface_model_id,
         huggingface_cache_dir=pipeline_config.huggingface_cache_dir,
+        # huggingface_allow_download=pipeline_config.huggingface_allow_download,
         max_new_tokens=pipeline_config.max_new_tokens,
         temperature=pipeline_config.temperature,
     )

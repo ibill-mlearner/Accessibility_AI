@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
-from app.db import init_flask_database
-from app.extensions import db
-from app.models import User, UserSession
+from ..app.db import init_flask_database
+from ..app.extensions import db
+from ..app.models import User, UserSession
 
 
 def _register(client, *, email: str, password: str = "Password123!", role: str = "student"):

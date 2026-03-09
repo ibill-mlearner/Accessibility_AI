@@ -294,7 +294,8 @@ class HuggingFaceLangChainProvider:
         self, 
         *, 
         model_id: str, 
-        cache_dir: str | None = None, 
+        cache_dir: str | None = None,
+        allow_download: bool = False,
         max_new_tokens: int = 256, 
         temperature: float = 0.1
     ) -> None:
@@ -302,7 +303,11 @@ class HuggingFaceLangChainProvider:
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
-        self._bootstrap = HuggingFaceModelBootstrap(model_id=model_id, cache_dir=cache_dir)
+        self._bootstrap = HuggingFaceModelBootstrap(
+            model_id=model_id,
+            cache_dir=cache_dir,
+            allow_download=allow_download
+        )
 
     def invoke(
         self, 

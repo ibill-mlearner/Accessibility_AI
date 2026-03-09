@@ -32,3 +32,11 @@ The provider path uses the following config keys in `build_ai_service_from_confi
 - `AI_LIVE_ENDPOINT`
 
 For the Hugging Face provider, `AI_MODEL_NAME` is forwarded as `huggingface_model_id`.
+
+## POC local-only model policy (current)
+
+- Dynamic Hugging Face Hub downloads are disabled by default for the POC (`AI_HUGGINGFACE_ALLOW_DOWNLOAD=false`).
+- The pipeline now expects developer-preloaded local models only:
+  - either set `AI_MODEL_NAME` to a local filesystem path
+  - or pre-populate `AI_HUGGINGFACE_CACHE_DIR` with cached snapshots.
+- This keeps runtime deterministic and avoids Hub auth/gated-model failures during local development.

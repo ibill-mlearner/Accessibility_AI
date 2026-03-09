@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
 class HuggingFaceModelBootstrap:
     """Ensure a HuggingFace model is available locally.
@@ -15,13 +17,35 @@ class HuggingFaceModelBootstrap:
         self, 
         *, 
         model_id: str, 
-        cache_dir: str | None = None
+        cache_dir: str | None = None,
+        allow_download: bool = False
     ) -> None:
     
         # Logic intent:
         # - Store model identity and cache target so callers can reuse one bootstrap object.
         self.model_id = model_id
         self.cache_dir = cache_dir
+        self.allow_download = allow_download
+
+    def _resolve_cached_snapshot_path(self) -> Path | None:
+        if not self.cache_dir:
+            return None
+
+        cache_root = Path(self.cache_dir).expanduser()
+        if not cache_root.exists():
+            return None
+
+        org_repo = self.model_id.replace("/", "--")
+        snapshot_root = cache_root / f"models--{org_repo}" / "snapshots"
+        if not snapshot_root.exists() or not snapshot_root.is_dir():
+            return None
+
+        snapshots = [path for path in snapshot_root.iterdir() if path.is_dir()]
+        if not snapshots:
+            return None
+
+        return max(snapshots, key=lambda path: path.stat().st_mtime)
+
 
     def ensure_model(self) -> Path:
         # Logic intent:
@@ -33,6 +57,21 @@ class HuggingFaceModelBootstrap:
         candidate_path = Path(self.model_id).expanduser()
         if candidate_path.exists() and candidate_path.is_dir():
             return candidate_path
+
+        cached_snapshot = self._resolve_cached_snapshot_path()
+        if cached_snapshot:
+            return cached_snapshot
+
+        if not self.allow_download:
+            logger.warning(
+                "ai_pipeline.bootstrap.skip_download model_id=%s reason=local_only_mode",
+                self.model_id,
+            )
+            raise RuntimeError(
+                "HuggingFace dynamic download is disabled in local-only mode for this POC. "
+                "Provide a local model path in AI_MODEL_NAME or pre-download into AI_HUGGINGFACE_CACHE_DIR."
+            )
+
 
         try:
             from huggingface_hub import snapshot_download

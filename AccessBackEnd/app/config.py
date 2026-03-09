@@ -109,6 +109,8 @@ class BaseConfig:
     # - "Qwen/Qwen2.5-1.5B-Instruct"
     # - "NousResearch/Meta-Llama-3-8B-Instruct"
     AI_MODEL_NAME = _env("AI_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct")
+    AI_HUGGINGFACE_CACHE_DIR = _env("AI_HUGGINGFACE_CACHE_DIR")
+    AI_HUGGINGFACE_ALLOW_DOWNLOAD = _env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool)
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
     AI_OLLAMA_ENDPOINT = _env(
         "AI_OLLAMA_ENDPOINT",

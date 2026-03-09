@@ -62,3 +62,6 @@ test=tests/test_app_db_standalone.py::test_json_data_source_can_replace_sql_runt
 test=tests/test_app_db_standalone.py::test_create_app_can_mount_external_data_backend_in_two_lines outcome=passed duration_s=0.0146
 test=tests/test_app_db_standalone.py::test_create_standalone_db_creates_missing_sqlite_file_and_schema outcome=passed duration_s=0.2528
 [2026-02-17T21:22:37.703481+00:00] session_finish exitstatus=0
+[2026-03-09T01:59:12.698145+00:00] session_start cwd=E:\Tests\Accessibility_AI\AccessBackEnd\tests
+test=test_huggingface_bootstrap.py::test_ensure_model_raises_in_local_only_mode_without_local_artifacts outcome=failed duration_s=0.0001
+[2026-03-09T01:59:13.205145+00:00] session_finish exitstatus=1
