@@ -1,4 +1,4 @@
-from flask import jsonify, session
+from flask import jsonify, session, current_app
 from flask_login import current_user, login_user, login_required, logout_user
 
 from .routes import BadRequestError, api_v1_bp, db, _read_json_object
@@ -13,7 +13,7 @@ from ...helpers.auth_helpers import (
     _unauthorized_auth_envelope,
     revoke_flask_session_lifecycle_record,
 )
-
+from ...helpers.ai_model_sync_helper import sync_ai_models_with_local_inventory
 # ROUTES
 @api_v1_bp.post("/auth/login")
 def login_auth_user():
@@ -47,6 +47,12 @@ def login_auth_user():
     session["auth_session_id"] = int(session_record.id)
     # Persists authenticated user id into Flask session, causing session cookie issuance/update.
     db.session.commit()
+
+    # syncs the model to default model on login
+    try:
+        sync_ai_models_with_local_inventory(current_app)
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning("AI model sync failed during login: %s", exc)
 
     return jsonify({"message": "login successful",
                     "user": {

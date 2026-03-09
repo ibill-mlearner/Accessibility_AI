@@ -7,8 +7,7 @@ from flask_login import current_user, logout_user
 from . import config
 from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
-# from .blueprints.auth.routes import auth_bp
-# removing and moving auth routes over to v1 api
+from .helpers.ai_model_sync_helper import sync_ai_models_with_local_inventory
 from .db import ensure_sqlite_compat_schema, init_flask_database
 from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
@@ -114,10 +113,10 @@ def create_app(config_name: str | None = None) -> Flask:
         )
 
     app.extensions["ai_service"] = build_ai_service(app)
+    with app.app_context():
+        sync_ai_models_with_local_inventory(app)
     initialize_logging(app)
     app.register_blueprint(api_v1_bp)
-    # app.register_blueprint(auth_bp)
-    # removing and moving auth routes over to v1 api
     register_api_error_handlers(app)
     _register_cli_commands(app)
 
