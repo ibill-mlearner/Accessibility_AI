@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from ..contracts import AIInteractionRepositoryInterface
+from ..interfaces import AIInteractionRepositoryInterface
 
 class AIInteractionRepository(AIInteractionRepositoryInterface):
     """Persistence helpers for AI interaction records."""

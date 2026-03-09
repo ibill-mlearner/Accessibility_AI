@@ -6,7 +6,7 @@ from flask import Flask
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from interfaces import AIInteractionRepositoryInterface, UserRepositoryInterface
+from .interfaces import AIInteractionRepositoryInterface, UserRepositoryInterface
 from ..models.db_schema import get_schema_bundle
 from .base import DatabaseConfig, StandaloneDatabase
 from .json_backend import create_json_backed_db

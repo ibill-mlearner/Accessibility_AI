@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
-from ..contracts import UserRepositoryInterface
+from ..interfaces import UserRepositoryInterface
 from ...models.identity_defaults import build_transitional_identity_defaults
 
 
