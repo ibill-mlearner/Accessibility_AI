@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from .interfaces import AIInteractionEnvelope, AIInteractionMonolithInterface
-from .validator import AIInteractionValidator
+from .validators import AIInteractionValidator
 
 
 class AIInteractionMonolith(AIInteractionMonolithInterface):

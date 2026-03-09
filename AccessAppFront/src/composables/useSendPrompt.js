@@ -40,31 +40,31 @@ export function useSendPrompt({
 
   function resolveModelSelection() {
     const selectedModelValue = String(chatStore.selectedModel || '').trim()
-    const [selectedProvider = '', selectedModelId = ''] = selectedModelValue.split('::')
-    const hasValidModelSelection = Boolean(selectedModelValue && selectedProvider.trim() && selectedModelId.trim())
+    // const [selectedProvider = '', selectedModelId = ''] = selectedModelValue.split('::')
+    // const hasValidModelSelection = Boolean(selectedModelValue && selectedProvider.trim() && selectedModelId.trim())
 
-    if (!hasValidModelSelection) {
+    if (!selectedModelValue) {
       interactionError.value = 'Please select a model before sending your prompt.'
       return null
     }
-
-    return { 
-      selectedModelValue, 
-      selectedProvider, 
-      selectedModelId 
-    }
+    return { selectedModelValue }
+    // return { 
+    //   selectedModelValue, 
+    //   selectedProvider, 
+    //   selectedModelId 
+    // }
   }
 
   async function ensureChat({ 
     cleanPrompt, 
-    classIdForChat, 
-    selectedModelValue 
+    classIdForChat
+    // selectedModelValue 
   }) {
     return withSingleRetry(() =>
       chatStore.ensureActiveChat({
         title: buildFirstChatTitle(cleanPrompt, chatStore.chats.length + 1),
         started_at: new Date().toISOString(),
-        model: selectedModelValue,
+        // model: selectedModelValue,
         class_id: classIdForChat,
         user_id: auth.currentUser?.id
       })
@@ -96,17 +96,17 @@ export function useSendPrompt({
   function buildAiRequestPayload({ 
     cleanPrompt, 
     chatId, 
-    classIdForChat, 
-    selectedProvider, 
-    selectedModelId 
+    classIdForChat
+    // selectedProvider, 
+    // selectedModelId 
   }) {
     const selectedAccessibilityLinkIds = featureStore.selectedLinkIds
 
     return {
       prompt: cleanPrompt,
       chat_id: chatId,
-      provider: selectedProvider || undefined,
-      model_id: selectedModelId || undefined,
+      // provider: selectedProvider || undefined,
+      // model_id: selectedModelId || undefined,
       selected_accessibility_link_ids: selectedAccessibilityLinkIds,
       selected_accommodations_id_system_prompts_ids: selectedAccessibilityLinkIds,
       context: {
@@ -160,8 +160,8 @@ export function useSendPrompt({
     cleanPrompt, 
     chatId, 
     classIdForChat, 
-    selectedProvider, 
-    selectedModelId, 
+    // selectedProvider, 
+    // selectedModelId, 
     draftPrompt 
   }) {
     
@@ -169,8 +169,8 @@ export function useSendPrompt({
       cleanPrompt, 
       chatId, 
       classIdForChat, 
-      selectedProvider, 
-      selectedModelId 
+      // selectedProvider, 
+      // selectedModelId 
     })
 
     try {
@@ -333,8 +333,8 @@ async function saveAssistantMessage({
     })
     const ensuredChat = await ensureChat({
       cleanPrompt,
-      classIdForChat,
-      selectedModelValue: modelSelection.selectedModelValue
+      classIdForChat
+      // selectedModelValue: modelSelection.selectedModelValue
     })
 
     logSendCheckpoint('after ensureActiveChat', {
@@ -354,17 +354,17 @@ async function saveAssistantMessage({
     })
 
     logSendCheckpoint('before requestAiInteraction', {
-      chatId: ensuredChat?.id,
-      provider: modelSelection.selectedProvider,
-      modelId: modelSelection.selectedModelId
+      chatId: ensuredChat?.id
+      // provider: modelSelection.selectedProvider,
+      // modelId: modelSelection.selectedModelId
     })
 
     const aiResponse = await requestAssistantResponse({
       cleanPrompt,
       chatId: ensuredChat.id,
       classIdForChat,
-      selectedProvider: modelSelection.selectedProvider,
-      selectedModelId: modelSelection.selectedModelId,
+      // selectedProvider: modelSelection.selectedProvider,
+      // selectedModelId: modelSelection.selectedModelId,
       draftPrompt
     })
 

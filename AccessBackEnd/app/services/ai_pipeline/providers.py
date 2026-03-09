@@ -466,6 +466,7 @@ def create_provider(
     if selected == "http":
         return HTTPEndpointProvider(endpoint=live_endpoint, model_name=model_name, timeout_seconds=timeout_seconds)
     if selected == "huggingface":
+
         return HuggingFaceLangChainProvider(
             model_id=huggingface_model_id,
             cache_dir=huggingface_cache_dir,
