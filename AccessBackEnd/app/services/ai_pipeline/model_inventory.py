@@ -167,7 +167,7 @@ class ModelInventoryService:
         if self.config.huggingface_cache_dir:
             roots.append(Path(self.config.huggingface_cache_dir).expanduser())
 
-        app_instance_models = Path(__file__).resolve().parents[2] / "instance" / "models"
+        app_instance_models = Path(__file__).resolve().parents[3] / "instance" / "models"
         roots.append(app_instance_models)
 
         configured_model_path = Path(self.config.huggingface_model_id).expanduser()

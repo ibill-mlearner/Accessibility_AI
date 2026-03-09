@@ -50,9 +50,7 @@ def initialize_logging(app: Flask) -> None:
                 "DB_LOG_DIRECTORY is deprecated; use AI_INTERACTION_LOG_DIR instead."
             )
 
-    interaction_log_dir = interaction_log_dir or (
-        Path(app.root_path) / "instance"
-    ).as_posix()
+    interaction_log_dir = interaction_log_dir or Path(app.instance_path).as_posix()
 
     app.extensions["ai_service"] = InteractionLoggingService(
         wrapped=ai_service,
