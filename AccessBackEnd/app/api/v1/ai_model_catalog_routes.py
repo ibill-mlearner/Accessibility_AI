@@ -115,6 +115,7 @@ def get_ai_catalog():
                         "provider": provider,
                         "model_id": model_id,
                         "available": model_id.lower() in available_models,
+                        "display_name": model_id
                     }
                 )
         families.append(
@@ -137,14 +138,16 @@ def get_ai_catalog():
                 {
                     "provider": provider,
                     'model_id': model_id,
-                    'available': True
+                    'available': True,
+                    "display_name": model_id
+
                 }
             )
 
     if uncataloged_models:
         families.append(
             {
-                'familiy_id': 'other_available',
+                'family_id': 'other_available',
                 'label': 'other available models',
                 'owner': 'discovered',
                 'models': uncataloged_models

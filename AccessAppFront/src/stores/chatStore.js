@@ -46,11 +46,19 @@ export const useChatStore = defineStore('chats', {
             const provider = String(m?.provider || '').trim().toLowerCase()
             const modelId = String(m?.model_id || '').trim()
             if (!provider || !modelId) return
+
+            const familyLabel = String(f?.label || '').trim()
+            const displayName = String(m?.display_name || '').trim() || modelId
+            const prefix = familyLabel && familyLabel.toLowerCase() !== displayName.toLowerCase() ? `${familyLabel} - ` : ''
+
+            const suffix = familyLabel && familyLabel.toLowerCase() !== displayName.toLowerCase() ? ` - ${familyLabel}` : ''
+
             options.push({
               value: `${provider}::${modelId}`,
               provider,
               modelId,
-              label: `${f?.label || modelId} (${provider})`
+              // label: `${prefix}${displayName} (${provider})`
+              label: `${displayName}${suffix} (${provider})`
             })
           })
         })
