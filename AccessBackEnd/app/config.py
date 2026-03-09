@@ -98,6 +98,18 @@ class BaseConfig:
 
     LOG_LEVEL = _env("LOG_LEVEL", "INFO")
     LOG_JSON = _env("LOG_JSON", False, bool)
+    STARTUP_TEST_RUNNER_ENABLED = _env("STARTUP_TEST_RUNNER_ENABLED", False, bool)
+    STARTUP_TEST_RUNNER_COMMAND = _env(
+        "STARTUP_TEST_RUNNER_COMMAND",
+        "python -m pytest AccessBackEnd/tests -q",
+        lambda value: str(value).strip().split(),
+    )
+    STARTUP_TEST_RUNNER_TIMEOUT_SECONDS = _env(
+        "STARTUP_TEST_RUNNER_TIMEOUT_SECONDS",
+        180,
+        int,
+    )
+    STARTUP_TEST_RUNNER_WORKDIR = _env("STARTUP_TEST_RUNNER_WORKDIR")
 
     DATA_BACKEND_FACTORY = None
 

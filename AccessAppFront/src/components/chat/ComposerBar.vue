@@ -23,6 +23,7 @@
         :placeholder="placeholder"
         :value="modelValue"
         @input="$emit('update:modelValue', $event.target.value)"
+        @keydown.enter="handleEnterKey"
       />
       <select
         v-if="showModelSelect"
@@ -44,7 +45,7 @@
 
 <script setup>
 import {computed} from 'vue'
-
+const emit = defineEmits(['login', 'send', 'update:modelValue', 'update:selected-model'])
 const props = defineProps({
   showLogin: { type: Boolean, default: false },
   showModelSelect: { type: Boolean, default: true },
@@ -56,8 +57,14 @@ const props = defineProps({
 })
 
 const sendDisabled = computed(() => {
-  props.showModelSelect && (props.modelLoading || !String(props.selectedModel || '').trim())
+  return props.showModelSelect && (props.modelLoading || !String(props.selectedModel || '').trim())
 })
+const handleEnterKey = (event) => {
+  if (event.shiftKey) return
 
-defineEmits(['login', 'send', 'update:modelValue', 'update:selected-model'])
+  event.preventDefault()
+  if (!sendDisabled.value) {
+    emit('send')
+  }
+}
 </script>

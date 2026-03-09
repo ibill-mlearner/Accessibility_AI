@@ -3,6 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from flask import Flask
+# tests don't have the same threading that Flask ans WSGI are built in with
+import os
+import shlex
+import subprocess
+import threading
 
 from .config import configure_logging
 from .events import EventBus, LoggingObserver
@@ -25,8 +30,56 @@ def _ensure_default_observers(event_bus: EventBus) -> None:
             event_bus.subscribe(observer_type())
 
 
+def _run_startup_tests(app: Flask, command: str, cwd: Path) -> None:
+    app.logger.info("startup_test_runner.start command=%s cwd=%s", command, cwd)
+
+    process = subprocess.Popen(
+        shlex.split(command),
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    assert process.stdout is not None
+    for line in process.stdout:
+        app.logger.info("startup_test_runner.output %s", line.rstrip())
+
+    exit_code = process.wait()
+    level = app.logger.info if exit_code == 0 else app.logger.warning
+    level("startup_test_runner.finish exit_code=%s", exit_code)
+
+
+def _start_startup_test_runner(app: Flask) -> None:
+    if not app.config.get("STARTUP_TEST_RUNNER_ENABLED", False):
+        return
+
+    if app.extensions.get("startup_test_runner_started"):
+        return
+
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        app.logger.debug("startup_test_runner.skip reason=debug_reloader_parent")
+        return
+
+    command = app.config.get("STARTUP_TEST_RUNNER_COMMAND")
+    if not command:
+        app.logger.warning("startup_test_runner.skip reason=missing_command")
+        return
+
+    cwd = Path(app.config.get("STARTUP_TEST_RUNNER_CWD") or Path(__file__).resolve().parents[3])
+
+    def _runner() -> None:
+        try:
+            _run_startup_tests(app, command=command, cwd=cwd)
+        except Exception:
+            app.logger.exception("startup_test_runner.error")
+
+    app.extensions["startup_test_runner_started"] = True
+    threading.Thread(target=_runner, name="startup-test-runner", daemon=True).start()
+
 def initialize_logging(app: Flask) -> None:
     configure_logging(app.config["LOG_LEVEL"])
+    _start_startup_test_runner(app)
 
     event_bus = app.extensions.get("event_bus")
     if not isinstance(event_bus, EventBus):
