@@ -5,6 +5,7 @@ from typing import Any
 from flask import current_app, jsonify
 
 from ..services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from ..services.ai_pipeline.interfaces import AIPipelineServiceInterface
 from ..services.ai_pipeline.model_catelog import family_id_from_model_id
 from ..services.ai_pipeline.types import AIPipelineRequest
 from ..helpers.ai_interaction_helpers import _extract_available_model_ids, _resolve_system_instructions, resolve_model_selection
@@ -23,7 +24,7 @@ def compose_system_prompt(
 
 def validate_runtime_model_selection(
     payload: dict[str, Any],
-    ai_service: Any,
+    ai_service: AIPipelineServiceInterface,
 ) -> tuple[dict[str, str], int] | None:
     """Validate provider/model_id request pair before invoking provider runtime."""
     provider = str(payload.get("provider") or "").strip().lower()
@@ -147,7 +148,7 @@ def build_context_and_system_instructions(
 
 def resolve_model_override(
         payload: dict[str, Any],
-        ai_service: Any,
+        ai_service: AIPipelineServiceInterface,
         context_payload: dict[str, Any],
         request_id: str
     ) -> None:
@@ -215,7 +216,7 @@ def resolve_model_override(
 
 
 def run_pipeline(
-        ai_service: Any,
+        ai_service: AIPipelineServiceInterface,
         dto: AIPipelineRequest,
         request_id: str,
         prompt: str

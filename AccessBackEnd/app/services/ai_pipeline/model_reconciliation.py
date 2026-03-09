@@ -7,7 +7,7 @@ from sqlalchemy import select
 
 from ...extensions import db
 from ...models import AIModel
-from .model_inventory import ModelInventoryService
+from .interfaces import ModelInventoryServiceInterface
 
 
 class AIModelReconciliationService:
@@ -18,7 +18,7 @@ class AIModelReconciliationService:
         "huggingface": "huggingface_local",
     }
 
-    def __init__(self, inventory_service: ModelInventoryService) -> None:
+    def __init__(self, inventory_service: ModelInventoryServiceInterface) -> None:
         self.inventory_service = inventory_service
 
     def reconcile(self) -> dict[str, int]:

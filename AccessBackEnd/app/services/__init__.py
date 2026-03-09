@@ -1,3 +1,3 @@
-from .ai_pipeline import AIPipelineConfig, AIPipelineService
+from .ai_pipeline import AIPipelineConfig, AIPipelineService, AIPipelineServiceInterface
 
-__all__ = ["AIPipelineConfig", "AIPipelineService"]
+__all__ = ["AIPipelineConfig", "AIPipelineService", "AIPipelineServiceInterface"]

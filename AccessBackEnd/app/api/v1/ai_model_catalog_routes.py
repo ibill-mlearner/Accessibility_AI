@@ -11,6 +11,7 @@ from ...helpers.ai_interaction_helpers import (
 from .routes import BadRequestError, _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
+from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 from ...models import AIModel
 from ...extensions import db
 
@@ -19,7 +20,7 @@ from ...extensions import db
 def list_persisted_ai_models():
     include_live = str(request.args.get("include_live") or '').strip().lower() in {'1', 'true', 'yes'}
     reconcile = str(request.args.get('reconcile') or '').strip().lower() in {'1', 'true', 'yes'}
-    ai_service = current_app.extensions['ai_service']
+    ai_service: AIPipelineServiceInterface = current_app.extensions['ai_service']
     if reconcile:
         AIModelReconciliationService(ai_service).reconcile()
 
@@ -67,7 +68,7 @@ def list_persisted_ai_models():
 @login_required
 def list_available_ai_models():
     """Return read-only inventory of currently discoverable AI models."""
-    ai_service = current_app.extensions["ai_service"]
+    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
     payload = ai_service.list_available_models()
     return jsonify(payload), 200
 
@@ -76,7 +77,7 @@ def list_available_ai_models():
 @login_required
 def get_ai_catalog():
     """Return catalog grouped by model family with discoverability and current selection."""
-    ai_service = current_app.extensions["ai_service"]
+    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
     inventory = ai_service.list_available_models()
     available_by_provider = _extract_available_model_ids(inventory)
 
@@ -164,7 +165,7 @@ def get_ai_catalog():
 def set_ai_selection():
     """Persist per-session AI model selection for the authenticated user."""
     payload = _read_json_object()
-    ai_service = current_app.extensions["ai_service"]
+    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
     inventory = ai_service.list_available_models()
     available_by_provider = _extract_available_model_ids(inventory)
 

@@ -33,6 +33,7 @@ from ...schemas.validation import AIInteractionPayloadSchema
 from ...models import AIInteraction, Chat
 from ...services.ai_pipeline.types import AIPipelineRequest
 from ...services.chat_access_service import ChatAccessService
+from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 
 
 @api_v1_bp.post("/ai/interactions")
@@ -107,7 +108,7 @@ def create_ai_interaction():
             return deny
 
     initiated_by = _resolve_initiated_by(payload)
-    ai_service = current_app.extensions["ai_service"]
+    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
     preflight_error = validate_runtime_model_selection(
         payload,
         ai_service

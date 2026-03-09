@@ -3,14 +3,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 import logging
+from .interfaces import AIPipelineServiceInterface, AIProviderFactoryInterface
 from .pipeline import AIPipelineConfig, AIPipelineService
 from .providers import create_provider
 
 logger = logging.getLogger(__name__)
 
 def build_ai_service_from_config(
-        config: Mapping[str, Any]
-) -> AIPipelineService:
+        config: Mapping[str, Any],
+        provider_factory: AIProviderFactoryInterface | None = None,
+) -> AIPipelineServiceInterface:
     provider = config["AI_PROVIDER"]
     ollama_endpoint = config.get("AI_OLLAMA_ENDPOINT")
     live_endpoint = config.get("AI_LIVE_ENDPOINT")
@@ -39,7 +41,10 @@ def build_ai_service_from_config(
         timeout_seconds=config["AI_TIMEOUT_SECONDS"],
         huggingface_model_id=config["AI_MODEL_NAME"],
     )
-    provider_impl = create_provider(
+
+    effective_provider_factory = provider_factory or create_provider
+
+    provider_impl = effective_provider_factory(
         provider=pipeline_config.provider,
         model_name=pipeline_config.model_name,
         mock_resource_path=pipeline_config.mock_resource_path,
@@ -53,7 +58,11 @@ def build_ai_service_from_config(
         max_new_tokens=pipeline_config.max_new_tokens,
         temperature=pipeline_config.temperature,
     )
-    service = AIPipelineService(config=pipeline_config, provider=provider_impl)
+    service = AIPipelineService(
+        config=pipeline_config,
+        provider=provider_impl,
+        provider_factory=effective_provider_factory,
+    )
     logger.debug(
         "ai_pipeline.build_service.ready request_id=%s provider=%s model=%s timeout_seconds=%s",
         "n/a",

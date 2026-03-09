@@ -16,7 +16,7 @@ from .services.logging import initialize_logging
 from .models import User
 from .services import AIPipelineService
 from .services.ai_pipeline.factory import build_ai_service_from_config
-
+from .services import AIPipelineServiceInterface
 
 def _register_cli_commands(app: Flask) -> None:
     @app.cli.command("init-db")
@@ -30,7 +30,7 @@ def _register_cli_commands(app: Flask) -> None:
         print("Database schema initialized.")
 
 
-def build_ai_service(app: Flask) -> AIPipelineService:
+def build_ai_service(app: Flask) -> AIPipelineServiceInterface:
     return build_ai_service_from_config(app.config)
 
 

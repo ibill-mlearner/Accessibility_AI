@@ -4,7 +4,14 @@ from .pipeline import AIPipelineConfig, AIPipelineService
 from .factory import build_ai_service_from_config
 from .providers import create_provider
 from .model_reconciliation import AIModelReconciliationService
-
+from .interfaces import (
+    AIProviderFactoryInterface,
+    AIProviderInterface,
+    AIPipelineServiceInterface,
+    ModelInventoryServiceFactoryInterface,
+    ModelInventoryServiceInterface,
+    ModelReconciliationServiceInterface,
+)
 __all__ = [
     "AIPipelineConfig",
     "AIPipelineService",
@@ -15,5 +22,11 @@ __all__ = [
     "create_provider",
     "ModelInventoryConfig",
     "ModelInventoryService",
-    "AIModelReconciliationService"
+    "AIModelReconciliationService",
+    "AIPipelineServiceInterface",
+    "AIProviderInterface",
+    "AIProviderFactoryInterface",
+    "ModelInventoryServiceInterface",
+    "ModelInventoryServiceFactoryInterface",
+    "ModelReconciliationServiceInterface"
 ]

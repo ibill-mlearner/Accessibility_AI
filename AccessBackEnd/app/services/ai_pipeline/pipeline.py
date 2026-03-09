@@ -3,6 +3,12 @@ import logging, time
 from dataclasses import dataclass
 from typing import Any
 
+from .interfaces import (
+    AIProviderFactoryInterface,
+    AIProviderInterface,
+    ModelInventoryServiceFactoryInterface,
+)
+
 from .exceptions import invoke_provider_or_raise
 from .model_inventory import ModelInventoryConfig, ModelInventoryService
 from .providers import AIProvider, create_provider, normalize_provider_name
@@ -30,12 +36,16 @@ class AIPipelineConfig:
 class AIPipelineService:
     def __init__(
         self, 
-        config: AIPipelineConfig, 
-        provider: AIProvider | None = None
+        config: AIPipelineConfig,
+        provider: AIProviderInterface | None = None,
+        provider_factory: AIProviderFactoryInterface | None = None,
+        inventory_service_factory: ModelInventoryServiceFactoryInterface | None = None,
     ) -> None:
 
         self.config = config
-        self._provider = provider or create_provider(
+        self._provider_factory = provider_factory or create_provider
+        self._inventory_service_factory = inventory_service_factory or ModelInventoryService
+        self._provider = provider or self._provider_factory(
             provider=config.provider,
             model_name=config.model_name,
             mock_resource_path=config.mock_resource_path,
@@ -50,7 +60,7 @@ class AIPipelineService:
             temperature=config.temperature
         )
 
-        self._provider_cache: dict[tuple[str, str], AIProvider] = {}
+        self._provider_cache: dict[tuple[str, str], AIProviderInterface] = {}
         default_key = (
             normalize_provider_name(self.config.provider),
             # self._resolve_prompt(self.config.provider),
@@ -100,7 +110,7 @@ class AIPipelineService:
             return self._provider_cache[key]
 
         selected_provider, selected_mdoel_id = key
-        provider_instance = create_provider(
+        provider_instance = self._provider_factory(
             provider=selected_provider,
             model_name=selected_mdoel_id or self.config.model_name,
             mock_resource_path=self.config.mock_resource_path,
@@ -293,7 +303,7 @@ class AIPipelineService:
         return statuses
 
     def list_available_models(self) -> dict[str, Any]:
-        return ModelInventoryService(
+        return self._inventory_service_factory(
             ModelInventoryConfig(
                 provider=self.config.provider,
                 model_name=self.config.model_name,
