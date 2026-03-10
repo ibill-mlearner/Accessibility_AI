@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
-from ...models import AIInteraction, AIModel, Chat, CourseClass
+from ...models import AIInteraction, AIModel, Chat, CourseClass, UserAccessibilityFeature
 from ...models.ai import AccommodationSystemPrompt
 from ...services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
 from ...api.v1.routes import _raise_bad_request_from_exception, _require_record, db
@@ -219,7 +219,6 @@ class AIInteractionOps:
         )
 
         if model is None:
-            # model = AIModel(provider=provider_name, active=True)
             model = AIModel(
                 provider=provider_name,
                 model_id=model_id,
@@ -229,14 +228,16 @@ class AIInteractionOps:
             )
             db.session.add(model)
             db.session.flush()
-            return int(model.id)
+            resolved_model_pk = int(model.id)
+            return resolved_model_pk
 
         model.active = True
         if source:
             model.source = source
         if path:
             model.path = path
-        return int(model.id)
+        resolved_model_pk = int(model.id)
+        return resolved_model_pk
 
     @staticmethod
     def _first_valid_prompt_link_id(selected_link_ids: Any) -> int | None:
@@ -251,6 +252,22 @@ class AIInteractionOps:
             if prompt_link is not None:
                 return resolved_id
         return None
+
+
+    @staticmethod
+    def _resolve_user_selected_feature_ids(user_id: int | None) -> list[int]:
+        if user_id is None:
+            return []
+        rows = (
+            db.session.query(UserAccessibilityFeature.accommodation_id)
+            .filter(
+                UserAccessibilityFeature.user_id == int(user_id),
+                UserAccessibilityFeature.enabled.is_(True),
+            )
+            .order_by(UserAccessibilityFeature.accommodation_id.asc())
+            .all()
+        )
+        return [int(row[0]) for row in rows]
 
     @staticmethod
     def _mapped_prompt_link_from_features(selected_feature_ids: Any) -> int | None:
@@ -546,6 +563,12 @@ def build_context_and_system_instructions(payload: dict[str, Any], messages: lis
     context_payload = payload.get("context")
     if not isinstance(context_payload, dict):
         context_payload = {}
+
+    if payload.get("use_user_feature_preferences"):
+        selected_ids = AIInteractionOps._resolve_user_selected_feature_ids(getattr(current_user, "id", None))
+        payload["selected_accessibility_link_ids"] = selected_ids
+        context_payload["selected_accessibility_link_ids"] = selected_ids
+
     if messages and "messages" not in context_payload:
         context_payload["messages"] = messages
     return context_payload, system_instructions

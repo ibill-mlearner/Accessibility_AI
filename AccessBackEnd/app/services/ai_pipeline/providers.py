@@ -49,6 +49,16 @@ def _contract() -> str:
     return 'Return only JSON: {"assistant_text": string, "confidence": number|null, "notes": [string]}.'
 
 
+def _safe_prompt_package(prompt: str, context: dict[str, Any] | None) -> dict[str, str]:
+    sanitized_context = _sanitize_context(context)
+    return {
+        "system_instructions": _clip((context or {}).get("system_instructions"), 400),
+        "user_prompt": _clip(prompt, 400),
+        "context_summary": _clip(json.dumps(sanitized_context, ensure_ascii=False), 400),
+        "contract": _clip(_contract(), 400),
+    }
+
+
 def _request_id_from_context(context: dict[str, Any] | None) -> str:
     if isinstance(context, dict) and context.get("request_id") is not None:
         return str(context.get("request_id"))
@@ -347,20 +357,24 @@ class HuggingFaceLangChainProvider:
         )
         
         chain = PromptTemplate.from_template(
-            "You are a concise assistant for accessibility learning support.\n{contract}\nSystem instructions:\n{system_instructions}\nUser prompt:\n{prompt}\nContext summary:\n{context}"
+            "You are a concise assistant for accessibility learning support.\n"
+            "{contract}\n\n"
+            "System instructions section:\n{system_instructions}\n\n"
+            "User prompt:\n{prompt}\n\n"
+            "Context summary:\n{context}"
         ) | HuggingFacePipeline(pipeline=generator) | StrOutputParser()
 
         prompt_payload = {
-            "prompt": _clip(prompt),
-            "context": json.dumps(_sanitize_context(context), ensure_ascii=False),
-            "contract": _contract(),
-            "system_instructions": _clip(context.get("system_instructions")),
+            "prompt": _clip(prompt, 500),
+            "context": _clip(json.dumps(_sanitize_context(context), ensure_ascii=False), 500),
+            "contract": _clip(_contract(), 500),
+            "system_instructions": _clip((context or {}).get("system_instructions"), 500),
         }
         logger.debug(
-            "ai_provider.invoke.prompt.debug request_id=%s provider=huggingface_langchain model=%s prompt_payload=%r",
+            "ai_provider.invoke.prompt.debug request_id=%s provider=huggingface_langchain model=%s final_prompt_package=%r",
             request_id,
             self.model_id,
-            prompt_payload,
+            _safe_prompt_package(prompt, context),
         )
         raw = chain.invoke(prompt_payload)
         parsed = self._parse_json(raw)
