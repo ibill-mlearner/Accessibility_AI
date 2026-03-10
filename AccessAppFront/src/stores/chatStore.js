@@ -100,6 +100,12 @@ export const useChatStore = defineStore('chats', {
         this.modelCatalogError = 'Unable to update model selection. Please try again.'
       }
     },
+    async ensureModelSelectionForSession() {
+      await this.fetchModelCatalog()
+      const selectedValue = String(this.selectedModel || '').trim()
+      if (!selectedValue || !selectedValue.includes('::')) return
+      await this.updateModelSelection(selectedValue)
+    },
     async fetchChats() {
       const key = 'fetchChats'
       setActionStatus(this.actionStatus, key, { loading: true, error: '' })
@@ -142,6 +148,7 @@ export const useChatStore = defineStore('chats', {
         const response = await api.post('/api/v1/chats', payload)
         this.chats = this.chats.map((c) => (c.id === tempId ? response.data : c))
         this.selectedChatId = response.data.id
+        await this.ensureModelSelectionForSession()
         setActionStatus(this.actionStatus, key, { loading: false, error: '', rollbackToken: null })
       } catch {
         this.chats = this.chats.filter((c) => c.id !== tempId)
@@ -204,6 +211,7 @@ export const useChatStore = defineStore('chats', {
         const response = await api.post('/api/v1/chats', payload)
         this.chats = [...this.chats, response.data]
         this.selectedChatId = response.data.id
+        await this.ensureModelSelectionForSession()
         setActionStatus(this.actionStatus, key, { loading: false, error: ''})
         return response.data
       } catch {
