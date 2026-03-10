@@ -1,11 +1,5 @@
-from __future__ import annotations
+"""Compatibility exports for identity role enums."""
 
-from enum import StrEnum
+from .identity import Role
 
-
-class Role(StrEnum):
-    """Canonical user roles for authorization and model defaults."""
-
-    STUDENT = "student"
-    INSTRUCTOR = "instructor"
-    ADMIN = "admin"
+__all__ = ["Role"]
