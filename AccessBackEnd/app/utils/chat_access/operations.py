@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from flask_login import current_user
 
-from ..models import Chat, CourseClass, UserClassEnrollment
+from ...models import Chat, CourseClass, UserClassEnrollment
 
 
-class ChatAccessService:
+class ChatAccessHelper:
     """Authorization checks for chat read/create operations."""
-
 
     @staticmethod
     def get_authenticated_user_id() -> int:
@@ -22,22 +21,21 @@ class ChatAccessService:
 
     @classmethod
     def assert_chat_owner(
-            cls,
-            *,
-            chat: Chat,
-            user_id: int
+        cls,
+        *,
+        chat: Chat,
+        user_id: int,
     ) -> None:
-
         """Ensure the given user is the owner of ``chat``."""
         if chat is None or int(chat.user_id) != int(user_id):
             raise PermissionError("user is not chat owner")
 
     @classmethod
     def assert_class_instructor(
-            cls,
-            *,
-            class_record: CourseClass,
-            user_id: int
+        cls,
+        *,
+        class_record: CourseClass,
+        user_id: int,
     ) -> None:
         """Ensure the given user is the instructor for ``class_record``."""
         if class_record is None or int(class_record.instructor_id) != int(user_id):
@@ -45,10 +43,9 @@ class ChatAccessService:
 
     @staticmethod
     def _is_admin_user(
-            *,
-            user_id: int
+        *,
+        user_id: int,
     ) -> bool:
-
         role = (getattr(current_user, "role", "") or "").strip().lower()
         try:
             current_id = int(current_user.get_id())
@@ -75,15 +72,12 @@ class ChatAccessService:
 
     @classmethod
     def assert_can_access_chat(
-            cls,
-            *,
-            chat: Chat,
-            user_id: int
+        cls,
+        *,
+        chat: Chat,
+        user_id: int,
     ) -> None:
         """Authorize chat read access via owner, instructor, or enrollment checks."""
-
-
-
         if cls._is_admin_user(user_id=user_id):
             return
 
@@ -130,4 +124,4 @@ class ChatAccessService:
             return owner_user_id
 
 
-__all__ = ["ChatAccessService"]
+__all__ = ["ChatAccessHelper"]

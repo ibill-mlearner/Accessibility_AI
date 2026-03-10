@@ -32,7 +32,7 @@ from .routes import (
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...models import AIInteraction, Chat
 from ...services.ai_pipeline.types import AIPipelineRequest
-from ...services.chat_access_service import ChatAccessService
+from ...utils.chat_access import ChatAccessHelper
 from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 
 
@@ -200,7 +200,7 @@ def list_chat_ai_interactions(chat_id: int):
         "api.ai_interactions.list.request method=%s path=%s user_id=%s",
         "GET",
         f"/api/v1/chats/{chat_id}/ai/interactions",
-        ChatAccessService.get_authenticated_user_id(),
+        ChatAccessHelper.get_authenticated_user_id(),
     )
     chat = _require_record("chat", Chat, chat_id)
     deny = _assert_chat_permissions(chat)

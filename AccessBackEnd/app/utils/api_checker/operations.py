@@ -12,7 +12,7 @@ from ...api.errors import BadRequestError, NotFoundError
 from ...extensions import db
 from ...models import Accommodation, Chat, CourseClass, Message, Note, SystemPrompt, User, UserClassEnrollment, UserSession
 from ...models.role import Role
-from ...services.chat_access_service import ChatAccessService
+from ...utils.chat_access import ChatAccessHelper
 from ...services.logging import DomainEvent
 from .validator import api_monolith_helper
 
@@ -236,7 +236,7 @@ def _parse_int_field(value: Any, *, field_name: str, required: bool = False) -> 
 
 
 def _assert_chat_permissions(chat: Any) -> tuple[dict[str, Any], int] | None:
-    user_id = ChatAccessService.get_authenticated_user_id()
+    user_id = ChatAccessHelper.get_authenticated_user_id()
     if chat.user_id != user_id:
         return _forbidden_response()
     return None
