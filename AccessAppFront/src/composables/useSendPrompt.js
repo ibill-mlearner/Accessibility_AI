@@ -109,6 +109,7 @@ export function useSendPrompt({
       // model_id: selectedModelId || undefined,
       selected_accessibility_link_ids: selectedAccessibilityLinkIds,
       selected_accommodations_id_system_prompts_ids: selectedAccessibilityLinkIds,
+      use_user_feature_preferences: true,
       context: {
         chat_id: chatId,
         class_id: classIdForChat,

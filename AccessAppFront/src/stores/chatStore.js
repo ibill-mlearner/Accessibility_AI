@@ -11,6 +11,8 @@ export const useChatStore = defineStore('chats', {
     modelCatalog: [],
     modelCatalogLoading: false,
     modelCatalogError: '',
+    modelCatalogFetchedAt: 0,
+    lastPersistedSelection: '',
     newChatRequestId: 0,
     chats: [],
     actionStatus: {}
@@ -27,15 +29,19 @@ export const useChatStore = defineStore('chats', {
       this.modelCatalog = []
       this.modelCatalogLoading = false
       this.modelCatalogError = ''
+      this.modelCatalogFetchedAt = 0
+      this.lastPersistedSelection = ''
       this.newChatRequestId = 0
       this.chats = []
       this.actionStatus = {}
     },
-    async fetchModelCatalog() {
+    async fetchModelCatalog({ includeHealth = false } = {}) {
       this.modelCatalogLoading = true
       this.modelCatalogError = ''
       try {
-        const response = await api.get('/api/v1/ai/catalog')
+        const response = await api.get('/api/v1/ai/catalog', {
+          params: includeHealth ? { include_health: 1 } : {}
+        })
         const families = Array.isArray(response?.data?.families) ? response.data.families : []
         const options = []
 
@@ -69,13 +75,16 @@ export const useChatStore = defineStore('chats', {
         const selectedValue = selectedProvider && selectedModelId ? `${selectedProvider}::${selectedModelId}` : ''
 
         this.selectedModel = selectedValue && options.some(
-          (o) => o.value === selectedValue) 
+          (o) => o.value === selectedValue)
           ? selectedValue : options[0]?.value || ''
+        this.modelCatalogFetchedAt = Date.now()
+        this.lastPersistedSelection = selectedValue
 
       } catch (error) {
         this.modelCatalogError = 'Unable to load model catalog. error: ' + (error?.message || 'unknown error')
         this.modelCatalog = []
         this.selectedModel = ''
+        this.modelCatalogFetchedAt = 0
       } finally {
         this.modelCatalogLoading = false
       }
@@ -96,15 +105,27 @@ export const useChatStore = defineStore('chats', {
         const persistedProvider = String(response?.data?.provider || provider).trim().toLowerCase()
         const persistedModelId = String(response?.data?.model_id || modelId).trim()
         this.selectedModel = `${persistedProvider}::${persistedModelId}`
+        this.lastPersistedSelection = this.selectedModel
       } catch {
         this.modelCatalogError = 'Unable to update model selection. Please try again.'
       }
     },
-    async ensureModelSelectionForSession() {
+    async ensureModelCatalogFreshForSession({ staleAfterMs = 300000 } = {}) {
+      if (this.modelCatalogLoading) return
+      const hasCatalog = this.modelCatalog.length > 0
+      const isStale = !this.modelCatalogFetchedAt || (Date.now() - this.modelCatalogFetchedAt) > staleAfterMs
+      if (hasCatalog && !isStale) return
       await this.fetchModelCatalog()
+    },
+    async persistCurrentSelectionIfChanged() {
       const selectedValue = String(this.selectedModel || '').trim()
       if (!selectedValue || !selectedValue.includes('::')) return
+      if (selectedValue === this.lastPersistedSelection) return
       await this.updateModelSelection(selectedValue)
+    },
+    async ensureModelSelectionForSession() {
+      await this.ensureModelCatalogFreshForSession()
+      await this.persistCurrentSelectionIfChanged()
     },
     async fetchChats() {
       const key = 'fetchChats'

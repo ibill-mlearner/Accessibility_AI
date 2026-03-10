@@ -33,7 +33,7 @@ const featureDescription = computed( () =>
 )
 
 const isActive = computed( () =>
-  Boolean(props.item?.active ?? props.item?.enabled )
+  Boolean(props.item?.enabled ?? props.item?.active )
 )
 
 function onToggle(event) {

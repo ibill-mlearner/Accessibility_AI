@@ -242,3 +242,73 @@ def test_run_does_not_fallback_on_non_local_only_errors():
 
     with pytest.raises(AIPipelineUpstreamError, match="upstream auth failed"):
         service.run(AIPipelineRequest(prompt="hello"))
+
+
+def test_huggingface_prompt_assembly_includes_system_instructions(monkeypatch):
+    import sys
+    import types
+
+    from app.services.ai_pipeline.providers import HuggingFaceLangChainProvider
+
+    captured = {}
+
+    class FakePromptTemplate:
+        @classmethod
+        def from_template(cls, template):
+            captured["template"] = template
+            return cls()
+
+        def __or__(self, other):
+            class FakeChain:
+                def __or__(self, parser):
+                    class FinalChain:
+                        def invoke(self, payload):
+                            captured["payload"] = payload
+                            return '{"assistant_text":"ok"}'
+
+                    return FinalChain()
+
+            return FakeChain()
+
+    class FakeHFPipeline:
+        def __init__(self, pipeline):
+            self.pipeline = pipeline
+
+    class FakeParser:
+        pass
+
+    transformers_mod = types.ModuleType("transformers")
+    transformers_mod.AutoModelForCausalLM = types.SimpleNamespace(from_pretrained=lambda *args, **kwargs: object())
+    transformers_mod.AutoTokenizer = types.SimpleNamespace(from_pretrained=lambda *args, **kwargs: object())
+    transformers_mod.pipeline = lambda *args, **kwargs: object()
+
+    langchain_llms_mod = types.ModuleType("langchain_community.llms")
+    langchain_llms_mod.HuggingFacePipeline = FakeHFPipeline
+
+    langchain_parsers_mod = types.ModuleType("langchain_core.output_parsers")
+    langchain_parsers_mod.StrOutputParser = FakeParser
+
+    langchain_prompts_mod = types.ModuleType("langchain_core.prompts")
+    langchain_prompts_mod.PromptTemplate = FakePromptTemplate
+
+    monkeypatch.setitem(sys.modules, "transformers", transformers_mod)
+    monkeypatch.setitem(sys.modules, "langchain_community.llms", langchain_llms_mod)
+    monkeypatch.setitem(sys.modules, "langchain_core.output_parsers", langchain_parsers_mod)
+    monkeypatch.setitem(sys.modules, "langchain_core.prompts", langchain_prompts_mod)
+
+    provider = HuggingFaceLangChainProvider(model_id="hf-test-model")
+    monkeypatch.setattr(provider._bootstrap, "ensure_model", lambda: "fake-model-path")
+
+    result = provider.invoke(
+        "Explain ADA accommodations",
+        {
+            "system_instructions": "Prioritize accessibility-safe responses",
+            "messages": [{"role": "user", "content": "hello"}],
+            "chat_id": 9,
+        },
+    )
+
+    assert result["assistant_text"] == "ok"
+    assert "System instructions section:" in captured["template"]
+    assert captured["payload"]["system_instructions"] == "Prioritize accessibility-safe responses"
+    assert captured["payload"]["prompt"] == "Explain ADA accommodations"

@@ -107,11 +107,6 @@ watch(() => chatStore.selectedChatId, async (chatId) => {
 )
 
 onMounted(async () => {
-  
-  if (auth.isAuthenticated) {
-    await chatStore.fetchModelCatalog()
-  }
-  
   const promptFromQuery = route.query?.prompt
   
   if (typeof promptFromQuery === 'string' && promptFromQuery.trim()) {
@@ -121,14 +116,5 @@ onMounted(async () => {
     }
   }
 })
-
-watch(() => auth.isAuthenticated,
-  async (isAuthenticated) => {
-    if (!isAuthenticated) return
-    if (!chatStore.modelCatalog.length) {
-      await chatStore.fetchModelCatalog()
-    }
-  }
-)
 
 </script>

@@ -15,6 +15,7 @@ _INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
 _SEED_SQL_FILES = [
     _INSTANCE_DIR / "seed_users.sql",
     _INSTANCE_DIR / "seed_accommodations.sql",
+    _INSTANCE_DIR / "seed_user_accessibility_features.sql",
     _INSTANCE_DIR / "seed_ai_models.sql",
     _INSTANCE_DIR / "seed_classes.sql",
     _INSTANCE_DIR / "seed_user_class_enrollments.sql",
