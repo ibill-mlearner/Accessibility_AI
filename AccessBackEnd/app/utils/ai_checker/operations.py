@@ -591,11 +591,7 @@ def build_context_and_system_instructions(payload: dict[str, Any], messages: lis
     return context_payload, system_instructions
 
 
-def resolve_model_override(payload: dict[str, Any], ai_service: AIPipelineServiceInterface, context_payload: dict[str, Any], request_id: str) -> None:
-    override_provider = str(payload.get("provider") or "").strip().lower()
-    override_model_id = str(payload.get("model_id") or "").strip()
-    override_family_id = str(payload.get("family_id") or "").strip()
-    override_provider_preference = str(payload.get("provider_preference") or "").strip().lower() or "any"
+def _validate_model_override_inputs(override_provider: str, override_model_id: str, override_family_id: str) -> tuple[bool, bool]:
     has_direct_override = bool(override_provider or override_model_id)
     has_family_override = bool(override_family_id)
     if has_direct_override or has_family_override:
@@ -603,38 +599,132 @@ def resolve_model_override(payload: dict[str, Any], ai_service: AIPipelineServic
             raise BadRequestError("provider and model_id must be supplied together")
         if has_direct_override and has_family_override:
             raise BadRequestError("Provide either provider/model_id overrides or family_id override")
-    available_by_provider = AIInteractionOps._extract_available_model_ids(ai_service.list_available_models())
-    if not (has_direct_override or has_family_override):
-        session_selection = _resolve_session_model_selection()
-        if not isinstance(session_selection, dict):
-            return
-        selected_provider = str(session_selection.get("provider") or "").strip().lower()
-        selected_model_id = str(session_selection.get("model_id") or "").strip()
-        if not selected_provider or not selected_model_id:
-            return
-        try:
-            resolved_model_selection = resolve_model_selection(provider=selected_provider, model_id=selected_model_id, available_model_ids=available_by_provider)
-        except ValueError:
-            current_app.logger.warning("api.ai_interactions.create.override_session_invalid request_id=%s provider=%s model_id=%s", request_id, selected_provider, selected_model_id)
-            return
-        runtime_selection_meta = context_payload.get("runtime_model_selection")
-        if not isinstance(runtime_selection_meta, dict):
-            runtime_selection_meta = {}
-            context_payload["runtime_model_selection"] = runtime_selection_meta
-        runtime_selection_meta.update({"provider": resolved_model_selection.get("provider"), "model_id": resolved_model_selection.get("model_id"), "family_id": resolved_model_selection.get("family_id") or session_selection.get("family_id") or family_id_from_model_id(resolved_model_selection.get("model_id") or ""), "source": "session_selection"})
-        return
-    try:
-        if has_direct_override:
-            resolved_model_selection = resolve_model_selection(provider=override_provider, model_id=override_model_id, available_model_ids=available_by_provider)
-        else:
-            resolved_model_selection = resolve_model_selection(family_id=override_family_id, provider_preference=override_provider_preference, available_model_ids=available_by_provider)
-    except ValueError as exc:
-        raise BadRequestError(str(exc)) from exc
+    return has_direct_override, has_family_override
+
+
+def _set_runtime_selection(context_payload: dict[str, Any], resolved_model_selection: dict[str, Any], source: str, fallback_family_id: str = "") -> None:
     runtime_selection_meta = context_payload.get("runtime_model_selection")
     if not isinstance(runtime_selection_meta, dict):
         runtime_selection_meta = {}
         context_payload["runtime_model_selection"] = runtime_selection_meta
-    runtime_selection_meta.update({"provider": resolved_model_selection.get("provider"), "model_id": resolved_model_selection.get("model_id"), "family_id": resolved_model_selection.get("family_id") or family_id_from_model_id(resolved_model_selection.get("model_id") or ""), "source": "request_override"})
+    runtime_selection_meta.update({
+        "provider": resolved_model_selection.get("provider"),
+        "model_id": resolved_model_selection.get("model_id"),
+        "family_id": resolved_model_selection.get("family_id")
+        or fallback_family_id
+        or family_id_from_model_id(resolved_model_selection.get("model_id") or ""),
+        "source": source,
+    })
+
+
+def _apply_session_model_selection(
+    available_by_provider: dict[str, set[str]],
+    context_payload: dict[str, Any],
+    request_id: str,
+) -> None:
+    session_selection = _resolve_session_model_selection()
+    if not isinstance(session_selection, dict):
+        return
+    selected_provider = str(session_selection.get("provider") or "").strip().lower()
+    selected_model_id = str(session_selection.get("model_id") or "").strip()
+    if not selected_provider or not selected_model_id:
+        return
+    try:
+        resolved_model_selection = resolve_model_selection(
+            provider=selected_provider,
+            model_id=selected_model_id,
+            available_model_ids=available_by_provider,
+        )
+    except ValueError:
+        current_app.logger.warning(
+            "api.ai_interactions.create.override_session_invalid request_id=%s provider=%s model_id=%s",
+            request_id,
+            selected_provider,
+            selected_model_id,
+        )
+        return
+    _set_runtime_selection(
+        context_payload,
+        resolved_model_selection,
+        "session_selection",
+        fallback_family_id=str(session_selection.get("family_id") or ""),
+    )
+
+
+def resolve_model_override(payload: dict[str, Any], ai_service: AIPipelineServiceInterface, context_payload: dict[str, Any], request_id: str) -> None:
+    override_provider = str(payload.get("provider") or "").strip().lower()
+    override_model_id = str(payload.get("model_id") or "").strip()
+    override_family_id = str(payload.get("family_id") or "").strip()
+    override_provider_preference = str(payload.get("provider_preference") or "").strip().lower() or "any"
+    has_direct_override, has_family_override = _validate_model_override_inputs(
+        override_provider,
+        override_model_id,
+        override_family_id,
+    )
+    available_by_provider = AIInteractionOps._extract_available_model_ids(ai_service.list_available_models())
+    if not (has_direct_override or has_family_override):
+        _apply_session_model_selection(available_by_provider, context_payload, request_id)
+        return
+    try:
+        resolved_model_selection = resolve_model_selection(
+            provider=override_provider,
+            model_id=override_model_id,
+            family_id=None if has_direct_override else override_family_id,
+            provider_preference=override_provider_preference,
+            available_model_ids=available_by_provider,
+        )
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
+    _set_runtime_selection(context_payload, resolved_model_selection, "request_override")
+
+
+def ensure_runtime_model_selection(
+    payload: dict[str, Any],
+    ai_service: AIPipelineServiceInterface,
+    context_payload: dict[str, Any],
+    request_id: str,
+) -> tuple[dict[str, Any], int] | None:
+    preflight_error = validate_runtime_model_selection(payload, ai_service)
+    if preflight_error is not None:
+        return preflight_error
+    resolve_model_override(payload, ai_service, context_payload, request_id)
+    return None
+
+
+def prepare_interaction_inputs(payload: dict[str, Any]) -> dict[str, Any]:
+    prompt, messages = build_prompt_and_messages(payload)
+    context_payload, system_instructions = build_context_and_system_instructions(payload, messages)
+    return {
+        "prompt": prompt,
+        "messages": messages,
+        "context_payload": context_payload,
+        "system_prompt": compose_system_prompt(system_instructions, payload),
+        "request_id": str(payload.get("request_id") or "n/a"),
+    }
+
+
+def create_pipeline_request(
+    payload: dict[str, Any],
+    *,
+    prompt: str,
+    messages: list[dict[str, Any]],
+    system_prompt: str | None,
+    context_payload: dict[str, Any],
+    chat_id: int | None,
+    initiated_by: str,
+) -> AIPipelineRequest:
+    return AIPipelineRequest(
+        prompt=prompt,
+        messages=messages,
+        system_prompt=system_prompt,
+        context=context_payload,
+        chat_id=chat_id,
+        initiated_by=initiated_by,
+        class_id=payload.get("class_id"),
+        user_id=payload.get("user_id"),
+        rag=payload.get("rag") if isinstance(payload.get("rag"), dict) else None,
+        request_id=payload.get("request_id"),
+    )
 
 
 def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest, request_id: str, prompt: str) -> Any:
