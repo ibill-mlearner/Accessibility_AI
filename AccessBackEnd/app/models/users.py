@@ -14,7 +14,7 @@ from ..extensions import db
 class User(db.Model, UserMixin):
     __tablename__ = "users"
     #todo: auth provider and tenant, oid, last remote auth  and token refresh
-    # for adding 0365 auth
+    # for adding 0365 auth 0-- no time to do this so ignore it
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     normalized_email = db.Column(db.String(120), unique=True, nullable=False, index=True)
