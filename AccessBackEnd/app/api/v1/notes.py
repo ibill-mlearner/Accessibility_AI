@@ -12,7 +12,7 @@ from .routes import (
     CourseClass,
     _parse_required_date
 )
-from ...services.chat_access_service import ChatAccessService
+from ...utils.chat_access import ChatAccessHelper
 from ...models import Note, Chat
 from ...utils.api_checker import _apply_note_mutations
 
@@ -21,7 +21,7 @@ from ...utils.api_checker import _apply_note_mutations
 @api_v1_bp.get("/notes")
 @login_required
 def list_notes():
-    user_id = ChatAccessService.get_authenticated_user_id()
+    user_id = ChatAccessHelper.get_authenticated_user_id()
     notes = (
         db.session.query(Note)
         .join(Chat, Chat.id == Note.chat_id)
@@ -64,7 +64,7 @@ def create_note():
 @api_v1_bp.get("/notes/<int:note_id>")
 @login_required
 def get_note(note_id: int):
-    user_id = ChatAccessService.get_authenticated_user_id()
+    user_id = ChatAccessHelper.get_authenticated_user_id()
     note = _require_record("note", Note, note_id)
     chat = _require_record("chat", Chat, note.chat_id)
     deny = _assert_chat_permissions(chat)
@@ -95,7 +95,7 @@ def update_note(note_id: int):
 @api_v1_bp.delete("/notes/<int:note_id>")
 @login_required
 def delete_note(note_id: int):
-    user_id = ChatAccessService.get_authenticated_user_id()
+    user_id = ChatAccessHelper.get_authenticated_user_id()
     note = _require_record("note", Note, note_id)
     chat = _require_record("chat", Chat, note.chat_id)
     deny = _assert_chat_permissions(chat)

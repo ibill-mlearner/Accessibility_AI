@@ -17,7 +17,7 @@ from .routes import (
 )
 from ...schemas.validation import ChatPayloadSchema
 from ...models import Chat, CourseClass
-from ...services.chat_access_service import ChatAccessService
+from ...utils.chat_access import ChatAccessHelper
 from ...utils.api_checker import _apply_chat_mutations
 
 @api_v1_bp.get("/chats")
@@ -42,7 +42,7 @@ def create_chat():
     """Create a chat for the authenticated user in a class context."""
     payload = _validate_payload( 
         _deserialize_payload("chat", _read_json_object()), ChatPayloadSchema())
-    authenticated_user_id = ChatAccessService.get_authenticated_user_id()
+    authenticated_user_id = ChatAccessHelper.get_authenticated_user_id()
 
     class_id = payload.get("class_id")
     if class_id is None:
@@ -54,7 +54,7 @@ def create_chat():
 
     requested_user_id = payload.get("user_id")
     try:
-        owner_user_id = ChatAccessService.assert_can_create_chat(
+        owner_user_id = ChatAccessHelper.assert_can_create_chat(
             class_record=class_record,
             actor_user_id=authenticated_user_id,
             requested_user_id=requested_user_id,

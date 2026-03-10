@@ -14,7 +14,7 @@ from .routes import (
 )
 from ...schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
 from ...models import Chat, Message
-from ...services.chat_access_service import ChatAccessService
+from ...utils.chat_access import ChatAccessHelper
 from ...utils.api_checker import _apply_message_mutations
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
@@ -44,7 +44,7 @@ def create_chat_message(chat_id: int):
 @api_v1_bp.get("/messages")
 @login_required
 def list_messages():
-    user_id = ChatAccessService.get_authenticated_user_id()
+    user_id = ChatAccessHelper.get_authenticated_user_id()
     messages = (
         db.session.query(Message)
         .join(Chat, Chat.id == Message.chat_id)
@@ -156,7 +156,7 @@ def list_chat_messages(chat_id: int):
         "api.chat_messages.list.request method=%s path=%s user_id=%s",
         request.method,
         request.path,
-        ChatAccessService.get_authenticated_user_id(),
+        ChatAccessHelper.get_authenticated_user_id(),
     )
     chat = _require_record("chat", Chat, chat_id)
     deny = _assert_chat_permissions(chat)

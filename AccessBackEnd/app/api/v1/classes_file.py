@@ -14,7 +14,7 @@ from .routes import (
 from ...schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
 from ...models import CourseClass, User
 from ...models.chats import UserClassEnrollment
-from ...services.chat_access_service import ChatAccessService
+from ...utils.chat_access import ChatAccessHelper
 from ...utils.api_checker import _apply_class_mutations
 from ...utils.api_checker import _enforce_roles
 
@@ -22,7 +22,7 @@ from ...utils.api_checker import _enforce_roles
 @api_v1_bp.get("/classes")
 @login_required
 def list_classes():
-    user_id = ChatAccessService.get_authenticated_user_id()
+    user_id = ChatAccessHelper.get_authenticated_user_id()
     role = (getattr(current_user, "role", "") or "").strip().lower()
 
     base_query = db.session.query(CourseClass)
@@ -71,7 +71,7 @@ def create_class():
         return denied
     payload = _read_json_object()
     if payload.get("instructor_id") is None:
-        payload["instructor_id"] = ChatAccessService.get_authenticated_user_id()
+        payload["instructor_id"] = ChatAccessHelper.get_authenticated_user_id()
 
     payload = _validate_payload(payload, ClassPayloadSchema())
 
