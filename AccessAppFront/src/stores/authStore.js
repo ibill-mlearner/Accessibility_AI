@@ -53,6 +53,7 @@ export const useAuthStore = defineStore('auth', {
             this.applyAuthenticatedUser(response?.data?.user || {})
             chatStore.resetChatState()
             await this.me()
+            await chatStore.ensureModelSelectionForSession()
             return true
         } catch (error) {
             this.clearAuthState()
@@ -76,6 +77,7 @@ export const useAuthStore = defineStore('auth', {
             this.applyAuthenticatedUser(response?.data?.user || {})
             chatStore.resetChatState()
             await this.me()
+            await chatStore.ensureModelSelectionForSession()
             return true
         } catch (error) {
             this.clearAuthState()

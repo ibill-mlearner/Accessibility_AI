@@ -5,6 +5,7 @@ from pathlib import Path
 
 _BASE_DIR = Path(__file__).resolve().parent # expect AccessBackEnd\app
 _INSTANCE_DIR = _BASE_DIR.parent / "instance"
+_DEFAULT_LOCAL_MODEL_DIR = _INSTANCE_DIR / "models" / "Qwen2.5-0.5B-Instruct"
 
 def _env(key: str, default=None, cast=None):
     val = os.getenv(key, default)
@@ -47,6 +48,16 @@ def _env_json(key: str, default: dict | None = None):
     if not isinstance(parsed, dict):
         raise ValueError(f"Invalid JSON object for {key}: {raw}")
     return parsed
+
+
+def _default_ai_model_name() -> str:
+    """Prefer a local path by default when HF dynamic downloads are disabled."""
+    allow_download = _env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool)
+    if allow_download:
+        return "Qwen/Qwen2.5-0.5B-Instruct"
+    return str(_DEFAULT_LOCAL_MODEL_DIR)
+
+
 class BaseConfig:
     ENV = _env("FLASK_ENV", "development")
     DEBUG = _env("FLASK_DEBUG", False, bool)
@@ -115,14 +126,16 @@ class BaseConfig:
 
     # static control on model's used right now since model runtime is not sent through cuda or numa
     #todo: need to switch entirely over to model names from DB ai_models.py ai_models should reflect app/instance saved models
-    AI_PROVIDER = _env("AI_PROVIDER", "huggingface")
-    # Common local model options (toggle by setting AI_MODEL_NAME in env):
-    # - "Qwen/Qwen2.5-0.5B-Instruct" (default, very small CPU-friendly baseline)
+    AI_PROVIDER = _env("AI_PROVIDER", "ollama")
+    # Common model options (toggle by setting AI_MODEL_NAME in env):
+    # - local path under instance/models for local-only Hugging Face policy (default)
+    # - "Qwen/Qwen2.5-0.5B-Instruct" when AI_HUGGINGFACE_ALLOW_DOWNLOAD=true
     # - "Qwen/Qwen2.5-1.5B-Instruct"
     # - "NousResearch/Meta-Llama-3-8B-Instruct"
-    AI_MODEL_NAME = _env("AI_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct")
+    AI_MODEL_NAME = _env("AI_MODEL_NAME", _default_ai_model_name())
     AI_HUGGINGFACE_CACHE_DIR = _env("AI_HUGGINGFACE_CACHE_DIR")
     AI_HUGGINGFACE_ALLOW_DOWNLOAD = _env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool)
+    AI_ENABLE_OLLAMA_FALLBACK = _env("AI_ENABLE_OLLAMA_FALLBACK", True, bool)
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
     AI_OLLAMA_ENDPOINT = _env(
         "AI_OLLAMA_ENDPOINT",

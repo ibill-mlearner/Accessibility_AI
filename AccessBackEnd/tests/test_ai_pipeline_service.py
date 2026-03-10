@@ -1,8 +1,10 @@
-from ..app.services.ai_pipeline.pipeline import (
+from app.services.ai_pipeline.pipeline import (
     AIPipelineConfig,
     AIPipelineService,
 )
-from ..app.services.ai_pipeline.types import AIPipelineRequest
+import pytest
+from app.services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from app.services.ai_pipeline.types import AIPipelineRequest
 
 
 class DummyProvider:
@@ -158,3 +160,85 @@ def test_run_interaction_builds_request_from_prompt_and_metadata():
     assert result["assistant_text"] == "done"
     assert provider.calls[0]["prompt"] == "Need help"
     assert provider.calls[0]["context"]["system_instructions"] == "be brief"
+
+
+def test_run_falls_back_to_ollama_on_hf_local_only_bootstrap_error():
+    class FailingHFProvider:
+        model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+
+        def invoke(self, prompt, context):
+            raise RuntimeError(
+                "HuggingFace dynamic download is disabled in local-only mode for this POC. "
+                "Provide a local model path in AI_MODEL_NAME or pre-download into AI_HUGGINGFACE_CACHE_DIR."
+            )
+
+        def health(self):
+            return {"ok": False}
+
+    class OllamaProvider:
+        model_id = "qwen2.5:0.5b"
+
+        def __init__(self):
+            self.calls = []
+
+        def invoke(self, prompt, context):
+            self.calls.append({"prompt": prompt, "context": context})
+            return {"assistant_text": "fallback answer"}
+
+        def health(self):
+            return {"ok": True}
+
+    ollama = OllamaProvider()
+
+    def provider_factory(**kwargs):
+        if kwargs["provider"] == "ollama":
+            return ollama
+        return FailingHFProvider()
+
+    service = AIPipelineService(
+        AIPipelineConfig(
+            provider="huggingface",
+            model_name="Qwen/Qwen2.5-0.5B-Instruct",
+            huggingface_model_id="Qwen/Qwen2.5-0.5B-Instruct",
+            huggingface_allow_download=False,
+            ollama_model_id="qwen2.5:0.5b",
+            ollama_endpoint="http://localhost:11434/api/chat",
+            enable_ollama_fallback_on_hf_local_only_error=True,
+        ),
+        provider=FailingHFProvider(),
+        provider_factory=provider_factory,
+    )
+
+    result = service.run(AIPipelineRequest(prompt="hello"))
+
+    assert result["assistant_text"] == "fallback answer"
+    assert result["meta"]["selected_provider"] == "ollama"
+    assert result["meta"]["selected_model_id"] == "qwen2.5:0.5b"
+    assert result["meta"]["fallback_from"] == "huggingface"
+    assert result["meta"]["fallback_to"] == "ollama"
+    assert result["meta"]["fallback_reason"] == "huggingface_local_only_bootstrap_error"
+    assert ollama.calls[0]["prompt"] == "hello"
+
+
+def test_run_does_not_fallback_on_non_local_only_errors():
+    class FailingHFProvider:
+        def invoke(self, prompt, context):
+            raise RuntimeError("upstream auth failed")
+
+        def health(self):
+            return {"ok": False}
+
+    service = AIPipelineService(
+        AIPipelineConfig(
+            provider="huggingface",
+            model_name="Qwen/Qwen2.5-0.5B-Instruct",
+            huggingface_model_id="Qwen/Qwen2.5-0.5B-Instruct",
+            huggingface_allow_download=False,
+            ollama_model_id="qwen2.5:0.5b",
+            ollama_endpoint="http://localhost:11434/api/chat",
+        ),
+        provider=FailingHFProvider(),
+    )
+
+    with pytest.raises(AIPipelineUpstreamError, match="upstream auth failed"):
+        service.run(AIPipelineRequest(prompt="hello"))
