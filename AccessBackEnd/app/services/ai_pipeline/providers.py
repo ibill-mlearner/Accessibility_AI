@@ -224,6 +224,12 @@ class OllamaProvider:
                 *([{"role": "system", "content": f"Context summary: {json.dumps(_sanitize_context(context), ensure_ascii=False)}"}] if _sanitize_context(context) else []),
             ],
         }
+        logger.debug(
+            "ai_provider.invoke.prompt.debug request_id=%s provider=ollama model=%s prompt_messages=%r",
+            request_id,
+            self.model_id,
+            body.get("messages"),
+        )
 
         req = Request(endpoint, data=json.dumps(body).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
         try:
@@ -341,17 +347,22 @@ class HuggingFaceLangChainProvider:
         )
         
         chain = PromptTemplate.from_template(
-            "You are a concise assistant for accessibility learning support.\n{contract}\nUser prompt:\n{prompt}\nContext summary:\n{context}"
+            "You are a concise assistant for accessibility learning support.\n{contract}\nSystem instructions:\n{system_instructions}\nUser prompt:\n{prompt}\nContext summary:\n{context}"
         ) | HuggingFacePipeline(pipeline=generator) | StrOutputParser()
 
-        raw = chain.invoke(
-            {
-                "prompt": _clip(prompt), 
-                "context": json.dumps(_sanitize_context(context), 
-                ensure_ascii=False), 
-                "contract": _contract()
-            }
+        prompt_payload = {
+            "prompt": _clip(prompt),
+            "context": json.dumps(_sanitize_context(context), ensure_ascii=False),
+            "contract": _contract(),
+            "system_instructions": _clip(context.get("system_instructions")),
+        }
+        logger.debug(
+            "ai_provider.invoke.prompt.debug request_id=%s provider=huggingface_langchain model=%s prompt_payload=%r",
+            request_id,
+            self.model_id,
+            prompt_payload,
         )
+        raw = chain.invoke(prompt_payload)
         parsed = self._parse_json(raw)
         parsed.setdefault("meta", {}).update(
             {

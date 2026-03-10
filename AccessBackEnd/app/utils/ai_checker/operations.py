@@ -229,14 +229,14 @@ class AIInteractionOps:
             )
             db.session.add(model)
             db.session.flush()
-            return int(model_id)
+            return int(model.id)
 
         model.active = True
         if source:
             model.source = source
         if path:
             model.path = path
-        return int(model_id)
+        return int(model.id)
 
     @staticmethod
     def _first_valid_prompt_link_id(selected_link_ids: Any) -> int | None:

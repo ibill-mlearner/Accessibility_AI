@@ -72,6 +72,9 @@ class AIPipelineService:
         )
         if all(default_key):
             self._provider_cache[default_key] = self._provider
+        self._inventory_cache_payload: dict[str, Any] | None = None
+        self._inventory_cache_generated_at: float = 0.0
+        self._inventory_cache_ttl_seconds: int = 10
 
     def _resolve_model_id_for_provider(self, provider: str) -> str:
         selected = normalize_provider_name(provider)
@@ -389,7 +392,14 @@ class AIPipelineService:
         return statuses
 
     def list_available_models(self) -> dict[str, Any]:
-        return self._inventory_service_factory(
+        now = time.time()
+        if (
+            self._inventory_cache_payload is not None
+            and (now - self._inventory_cache_generated_at) < self._inventory_cache_ttl_seconds
+        ):
+            return self._inventory_cache_payload
+
+        payload = self._inventory_service_factory(
             ModelInventoryConfig(
                 provider=self.config.provider,
                 model_name=self.config.model_name,
@@ -401,3 +411,6 @@ class AIPipelineService:
                 timeout_seconds=self.config.timeout_seconds,
             )
         ).list_available_models()
+        self._inventory_cache_payload = payload
+        self._inventory_cache_generated_at = now
+        return payload
