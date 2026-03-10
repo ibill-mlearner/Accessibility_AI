@@ -1,10 +1,8 @@
-from .accommodations import Accommodation
-from .ai_interaction import AIInteraction, AccommodationSystemPrompt, SystemPrompt
-from .ai_models import AIModel
+from .ai import AIInteraction, AIModel, AccommodationSystemPrompt, SystemPrompt
 from .audit_log import AuditLog
-from .chats import Chat, CourseClass, Message, Note, UserClassEnrollment
+from .learning import Accommodation, Chat, CourseClass, Message, Note, UserClassEnrollment
 from .db_schema import DBUser, get_schema_bundle
-from .session import UserSession
+from .identity import UserSession
 from .users import User
 
 __all__ = [
