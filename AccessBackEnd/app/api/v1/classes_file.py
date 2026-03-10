@@ -13,7 +13,7 @@ from .routes import (
 )
 from ...schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
 from ...models import CourseClass, User
-from ...models.chats import UserClassEnrollment
+from ...models.learning import UserClassEnrollment
 from ...utils.chat_access import ChatAccessHelper
 from ...utils.api_checker import _apply_class_mutations
 from ...utils.api_checker import _enforce_roles
@@ -141,4 +141,3 @@ def delete_class(class_id: int):
     db.session.delete(class_record)
     db.session.commit()
     return jsonify(response_payload), 200
-
