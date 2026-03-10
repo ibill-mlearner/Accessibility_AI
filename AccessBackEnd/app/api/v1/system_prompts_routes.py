@@ -12,8 +12,8 @@ from .routes import (
     BadRequestError,
 )
 from ...models import CourseClass, SystemPrompt, User
-from ...helpers.auth_helpers import _enforce_roles
-from ...helpers.system_prompt_access_helpers import ensure_instructor_owns_system_prompt_class
+from ...utils.api_checker import _enforce_roles
+from ...utils.api_checker import ensure_instructor_owns_system_prompt_class
 
 
 @api_v1_bp.get("/system-prompts")

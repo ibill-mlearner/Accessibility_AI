@@ -1,4 +1,4 @@
-from AccessBackEnd.app.helpers.ai_checker import AIInteractionEnvelope, AIInteractionMonolith
+from AccessBackEnd.app.utils.ai_checker import AIInteractionEnvelope, AIInteractionMonolith
 
 
 def test_monolith_normalize_and_check_compact_payload():

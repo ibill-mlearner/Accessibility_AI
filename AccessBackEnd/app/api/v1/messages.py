@@ -15,7 +15,7 @@ from .routes import (
 from ...schemas.validation import MessagePayloadSchema, PartialMessagePayloadSchema
 from ...models import Chat, Message
 from ...services.chat_access_service import ChatAccessService
-from ...helpers.mutations import _apply_message_mutations
+from ...utils.api_checker import _apply_message_mutations
 
 @api_v1_bp.post("/chats/<int:chat_id>/messages")
 @login_required

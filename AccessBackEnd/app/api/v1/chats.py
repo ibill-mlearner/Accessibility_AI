@@ -18,7 +18,7 @@ from .routes import (
 from ...schemas.validation import ChatPayloadSchema
 from ...models import Chat, CourseClass
 from ...services.chat_access_service import ChatAccessService
-from ...helpers.mutations import _apply_chat_mutations
+from ...utils.api_checker import _apply_chat_mutations
 
 @api_v1_bp.get("/chats")
 @login_required

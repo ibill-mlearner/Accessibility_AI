@@ -1,4 +1,5 @@
-from app.helpers import ai_interactions_flow as flow
+from app.utils import ai_checker as flow
+from app.utils.ai_checker import operations as ai_ops
 from flask import Flask
 
 
@@ -12,7 +13,7 @@ class _FakeService:
 
 def test_resolve_model_override_uses_session_selection_when_payload_has_no_override(monkeypatch):
     monkeypatch.setattr(
-        flow,
+        ai_ops,
         "_resolve_session_model_selection",
         lambda: {"provider": "ollama", "model_id": "llama3.2:3b", "family_id": "llama"},
     )
@@ -34,7 +35,7 @@ def test_resolve_model_override_uses_session_selection_when_payload_has_no_overr
 
 def test_resolve_model_override_prioritizes_request_override_over_session(monkeypatch):
     monkeypatch.setattr(
-        flow,
+        ai_ops,
         "_resolve_session_model_selection",
         lambda: {"provider": "ollama", "model_id": "llama3.2:3b", "family_id": "llama"},
     )

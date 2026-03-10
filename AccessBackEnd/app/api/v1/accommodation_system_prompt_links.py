@@ -12,8 +12,8 @@ from .routes import (
     db,
 )
 from ...models import Accommodation, AccommodationSystemPrompt, SystemPrompt
-from ...helpers.auth_helpers import _enforce_roles
-from ...helpers.system_prompt_access_helpers import ensure_instructor_owns_system_prompt_scope
+from ...utils.api_checker import _enforce_roles
+from ...utils.api_checker import ensure_instructor_owns_system_prompt_scope
 
 @api_v1_bp.get("/accommodation-system-prompt-links")
 @login_required

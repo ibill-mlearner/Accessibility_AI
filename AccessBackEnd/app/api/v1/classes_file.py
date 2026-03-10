@@ -15,8 +15,8 @@ from ...schemas.validation import ClassPayloadSchema, PartialClassPayloadSchema
 from ...models import CourseClass, User
 from ...models.chats import UserClassEnrollment
 from ...services.chat_access_service import ChatAccessService
-from ...helpers.mutations import _apply_class_mutations
-from ...helpers.auth_helpers import _enforce_roles
+from ...utils.api_checker import _apply_class_mutations
+from ...utils.api_checker import _enforce_roles
 
 
 @api_v1_bp.get("/classes")
