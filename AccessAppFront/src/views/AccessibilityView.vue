@@ -13,12 +13,10 @@
 </template>
 
 <script setup>
-// import { useAppStore } from '../stores/appStore'
 import { useAuthStore } from '../stores/authStore'
 import { useFeatureStore } from '../stores/featureStore'
 import FeatureOptionCard from '../components/classes/FeatureOptionCard.vue'
 
-// const store = useAppStore()
 // Development-only API trigger logging for integration debugging.
 // TODO(v1.0): Remove console logging before release.
 

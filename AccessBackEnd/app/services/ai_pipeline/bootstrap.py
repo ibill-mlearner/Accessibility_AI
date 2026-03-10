@@ -3,7 +3,15 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+
+_DEFAULT_MARKER_FILES = (
+    "tokenizer.json",
+    "tokenizer_config.json",
+    "model.safetensors",
+    "pytorch_model.bin",
+)
 logger = logging.getLogger(__name__)
+
 
 class HuggingFaceModelBootstrap:
     """Ensure a HuggingFace model is available locally.
@@ -46,6 +54,18 @@ class HuggingFaceModelBootstrap:
 
         return max(snapshots, key=lambda path: path.stat().st_mtime)
 
+    @staticmethod
+    def _looks_like_materialized_model_dir(path: Path) -> bool:
+        if not path.exists() or not path.is_dir():
+            return False
+        required = path / "config.json"
+        if not required.exists():
+            return False
+        return any((path / marker).exists() for marker in _DEFAULT_MARKER_FILES)
+
+    @staticmethod
+    def _resolve_default_instance_models_root() -> Path:
+        return Path(__file__).resolve().parents[3] / "instance" / "models"
 
     def _resolve_cache_alias_path(self) -> Path | None:
         """Resolve pre-downloaded local alias directories under cache_dir.
@@ -62,7 +82,18 @@ class HuggingFaceModelBootstrap:
             return None
 
         alias_path = Path(self.cache_dir).expanduser() / model_alias
-        if alias_path.exists() and alias_path.is_dir():
+        if self._looks_like_materialized_model_dir(alias_path):
+            return alias_path
+        return None
+
+    def _resolve_instance_models_alias_path(self) -> Path | None:
+        """Resolve alias directories from default app instance/models root."""
+        model_alias = str(self.model_id or "").strip()
+        if not model_alias or "/" in model_alias:
+            return None
+
+        alias_path = self._resolve_default_instance_models_root() / model_alias
+        if self._looks_like_materialized_model_dir(alias_path):
             return alias_path
         return None
 
@@ -84,6 +115,10 @@ class HuggingFaceModelBootstrap:
         cache_alias_path = self._resolve_cache_alias_path()
         if cache_alias_path:
             return cache_alias_path
+
+        instance_alias_path = self._resolve_instance_models_alias_path()
+        if instance_alias_path:
+            return instance_alias_path
 
         if not self.allow_download:
             logger.warning(

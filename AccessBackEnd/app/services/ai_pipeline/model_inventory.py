@@ -142,6 +142,9 @@ class ModelInventoryService:
             for child in root.iterdir():
                 if not child.is_dir():
                     continue
+
+                if not self._is_huggingface_model_directory(child):
+                    continue
                 resolved = child.resolve().as_posix()
                 if resolved in seen_paths:
                     continue
@@ -162,13 +165,46 @@ class ModelInventoryService:
 
         return sorted(normalized, key=lambda item: item["id"])
 
+    @staticmethod
+    def _is_huggingface_model_directory(path: Path) -> bool:
+        """Accept only local directories that look like real HF model artifacts."""
+        name = path.name.lower()
+        if name.startswith("models--"):
+            return True
+
+        # Support pre-materialized local directories when they contain core model files.
+        required = path / "config.json"
+        if not required.exists():
+            return False
+
+        marker_files = (
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "model.safetensors",
+            "pytorch_model.bin",
+        )
+        return any((path / marker).exists() for marker in marker_files)
+
+        # Support pre-materialized local directories when they contain core model files.
+        required = path / "config.json"
+        if not required.exists():
+            return False
+
+        marker_files = (
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "model.safetensors",
+            "pytorch_model.bin",
+        )
+        return any((path / marker).exists() for marker in marker_files)
+
     def resolve_huggingface_model_roots(self) -> list[Path]:
         roots: list[Path] = []
         if self.config.huggingface_cache_dir:
             roots.append(Path(self.config.huggingface_cache_dir).expanduser())
-
-        app_instance_models = Path(__file__).resolve().parents[3] / "instance" / "models"
-        roots.append(app_instance_models)
+        else:
+            app_instance_models = Path(__file__).resolve().parents[3] / "instance" / "models"
+            roots.append(app_instance_models)
 
         configured_model_path = Path(self.config.huggingface_model_id).expanduser()
         if configured_model_path.exists() and configured_model_path.is_dir():

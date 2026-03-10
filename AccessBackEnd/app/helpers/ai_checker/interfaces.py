@@ -17,6 +17,45 @@ class AIInteractionEnvelope:
     meta: dict[str, Any] = field(default_factory=dict)
 
 
+class AIInteractionValidatorInterface(Protocol):
+    """Stateless sanitizer/normalizer contract shared across AI helpers."""
+
+    @staticmethod
+    def to_clean_text(value: Any, *, lower: bool = False) -> str: ...
+
+    @staticmethod
+    def to_optional_float(value: Any) -> float | None: ...
+
+    @staticmethod
+    def to_clean_notes(value: Any) -> list[str]: ...
+
+    @staticmethod
+    def resolve_help_intent(value: Any, *, default: str = "summarization") -> str: ...
+
+
+    @staticmethod
+    def validate_envelope(envelope: AIInteractionEnvelope) -> None: ...
+
+    @staticmethod
+    def check_envelope(envelope: AIInteractionEnvelope) -> dict[str, Any]: ...
+
+
+class AIInteractionMutationsInterface(Protocol):
+    """Stateless transformation contract for envelope/response mutation flows."""
+
+    @staticmethod
+    def normalize_payload(payload: Any) -> AIInteractionEnvelope: ...
+
+    @staticmethod
+    def mutate_envelope(envelope: AIInteractionEnvelope, updates: dict[str, Any] | None = None) -> AIInteractionEnvelope: ...
+
+    @staticmethod
+    def strip_prompt_template_echo(text: str) -> str: ...
+
+    @staticmethod
+    def truncate_debug_payload(value: Any, *, limit: int = 1200) -> str: ...
+
+
 class AIInteractionMonolithInterface(Protocol):
     """Monolithic contract for normalize/validate/mutate/check AI payloads."""
 

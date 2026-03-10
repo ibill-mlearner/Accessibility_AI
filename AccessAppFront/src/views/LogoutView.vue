@@ -9,13 +9,13 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAppStore } from '../stores/appStore'
+import { useAuthStore } from '../stores/authStore'
 
 const router = useRouter()
-const store = useAppStore()
+const authStore = useAuthStore()
 
 onMounted(() => {
-  store.logout()
+  authStore.logout()
   router.push('/')
 })
 </script>

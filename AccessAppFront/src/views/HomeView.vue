@@ -48,7 +48,6 @@ import ComposerBar from '../components/chat/ComposerBar.vue'
 
 const router = useRouter()
 const route = useRoute()
-// const store = useAppStore()
 const auth = useAuthStore()
 const chatStore = useChatStore()
 const classStore = useClassStore()
