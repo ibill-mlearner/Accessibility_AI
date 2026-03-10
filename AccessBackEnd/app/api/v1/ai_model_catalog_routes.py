@@ -3,13 +3,12 @@ from typing import Any
 from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
 from difflib import get_close_matches
-from ...helpers.ai_interaction_helpers import (
+from ...utils.ai_checker import (
     _extract_available_model_ids,
     _resolve_selected_model,
-    resolve_model_selection,
 )
 from .routes import BadRequestError, _read_json_object, api_v1_bp
-from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id
+from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id, resolve_model_selection
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
 from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 from ...models import AIModel

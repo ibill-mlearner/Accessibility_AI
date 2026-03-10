@@ -3,8 +3,8 @@ from .routes import (
 api_v1_bp,
 )
 # bad practice to use underscore leading for external logic in python
-from ...helpers.auth_helpers import _enforce_roles
-from ...helpers.context_helpers import _user_context_payload
+from ...utils.api_checker import _enforce_roles
+from ...utils.api_checker import _user_context_payload
 # Dummy data overview examples -
 @api_v1_bp.get("/student/overview")
 def student_overview_v1():

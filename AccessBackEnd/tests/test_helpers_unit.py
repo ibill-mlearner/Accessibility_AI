@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..app.api.errors import BadRequestError
-from ..app.helpers.auth_helpers import AuthHelpers
-from ..app.helpers.route_helpers import (
+from app.api.errors import BadRequestError
+from app.utils.api_checker.operations import AuthOps
+from app.utils.api_checker import (
     _deserialize_payload,
     _parse_int_field,
     _parse_optional_datetime,
@@ -15,56 +15,56 @@ from ..app.helpers.route_helpers import (
 
 
 def test_normalize_auth_email_trims_and_lowercases():
-    assert AuthHelpers._normalize_auth_email("  STUDENT@Example.com  ") == "student@example.com"
-    assert AuthHelpers._normalize_auth_email(None) == ""
+    assert AuthOps._normalize_auth_email("  STUDENT@Example.com  ") == "student@example.com"
+    assert AuthOps._normalize_auth_email(None) == ""
 
 
 def test_resolve_session_timetolive_honors_timedelta(app):
     with app.app_context():
         app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(minutes=5)
-        assert AuthHelpers._resolve_session_timetolive() == timedelta(minutes=5)
+        assert AuthOps._resolve_session_timetolive() == timedelta(minutes=5)
 
 
 def test_resolve_session_timetolive_converts_numeric_minutes(app):
     with app.app_context():
         app.config["JWT_ACCESS_TOKEN_EXPIRES"] = 7
-        assert AuthHelpers._resolve_session_timetolive() == timedelta(minutes=7)
+        assert AuthOps._resolve_session_timetolive() == timedelta(minutes=7)
 
 
 def test_resolve_session_timetolive_uses_default_when_not_configured(app):
     with app.app_context():
         app.config["JWT_ACCESS_TOKEN_EXPIRES"] = "unexpected"
-        assert AuthHelpers._resolve_session_timetolive() == timedelta(minutes=30)
+        assert AuthOps._resolve_session_timetolive() == timedelta(minutes=30)
 
 
 def test_resolved_allowed_actions_for_known_and_unknown_roles():
-    assert AuthHelpers._resolved_allowed_actions("admin") == [
+    assert AuthOps._resolved_allowed_actions("admin") == [
         "users:read",
         "users:write",
         "classes:read",
         "classes:write",
         "classes:delete",
     ]
-    assert AuthHelpers._resolved_allowed_actions("instructor") == [
+    assert AuthOps._resolved_allowed_actions("instructor") == [
         "classes:read",
         "classes:write",
         "students:read",
     ]
-    assert AuthHelpers._resolved_allowed_actions("student") == [
+    assert AuthOps._resolved_allowed_actions("student") == [
         "classes:read",
         "profile:read",
         "profile:write",
     ]
-    assert AuthHelpers._resolved_allowed_actions("unknown") == ["profile:read"]
+    assert AuthOps._resolved_allowed_actions("unknown") == ["profile:read"]
 
 
 def test_as_utc_normalizes_naive_and_aware_values():
     naive = datetime(2026, 1, 1, 12, 30, 0)
     aware = datetime(2026, 1, 1, 12, 30, 0, tzinfo=UTC)
 
-    assert AuthHelpers._as_utc(None) is None
-    assert AuthHelpers._as_utc(naive).tzinfo == UTC
-    assert AuthHelpers._as_utc(aware) == aware
+    assert AuthOps._as_utc(None) is None
+    assert AuthOps._as_utc(naive).tzinfo == UTC
+    assert AuthOps._as_utc(aware) == aware
 
 
 def test_deserialize_payload_maps_api_fields_to_model_fields():

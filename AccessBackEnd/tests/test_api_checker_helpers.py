@@ -5,7 +5,7 @@ import pytest
 from marshmallow import Schema, fields
 
 from AccessBackEnd.app.api.errors import BadRequestError
-from AccessBackEnd.app.helpers.api_checker import ApiMonolithHelper
+from AccessBackEnd.app.utils.api_checker import ApiMonolithHelper
 
 
 class _ChatSchema(Schema):

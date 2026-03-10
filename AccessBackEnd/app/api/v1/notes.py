@@ -14,7 +14,7 @@ from .routes import (
 )
 from ...services.chat_access_service import ChatAccessService
 from ...models import Note, Chat
-from ...helpers.mutations import _apply_note_mutations
+from ...utils.api_checker import _apply_note_mutations
 
 
 #ROUTES

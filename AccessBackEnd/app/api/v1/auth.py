@@ -4,7 +4,7 @@ from flask_login import current_user, login_user, login_required, logout_user
 from .routes import BadRequestError, api_v1_bp, db, _read_json_object
 from ...models import User
 from ...models.identity_defaults import build_transitional_identity_defaults
-from ...helpers.auth_helpers import (
+from ...utils.api_checker import (
     _create_user_session,
     _enforce_roles,
     _normalize_auth_email,
@@ -13,7 +13,7 @@ from ...helpers.auth_helpers import (
     _unauthorized_auth_envelope,
     revoke_flask_session_lifecycle_record,
 )
-from ...helpers.ai_model_sync_helper import sync_ai_models_with_local_inventory
+from ...utils.ai_checker import sync_ai_models_with_local_inventory
 # ROUTES
 @api_v1_bp.post("/auth/login")
 def login_auth_user():

@@ -7,7 +7,7 @@ from flask_login import current_user, logout_user
 from . import config
 from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
-from .helpers.ai_model_sync_helper import sync_ai_models_with_local_inventory
+from .utils.ai_checker import sync_ai_models_with_local_inventory
 from .db import ensure_sqlite_compat_schema, init_flask_database
 from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, login_manager, migrate
@@ -114,7 +114,10 @@ def create_app(config_name: str | None = None) -> Flask:
 
     app.extensions["ai_service"] = build_ai_service(app)
     with app.app_context():
-        sync_ai_models_with_local_inventory(app)
+        try:
+            sync_ai_models_with_local_inventory(app)
+        except Exception as exc:  # noqa: BLE001
+            app.logger.warning("AI model sync skipped during app init: %s", exc)
     initialize_logging(app)
     app.register_blueprint(api_v1_bp)
     register_api_error_handlers(app)

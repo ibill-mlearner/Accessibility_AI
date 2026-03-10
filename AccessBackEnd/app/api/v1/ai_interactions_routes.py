@@ -3,14 +3,14 @@ import time
 from flask import current_app, jsonify
 from flask_login import current_user, login_required
 
-from ...helpers.ai_interaction_helpers import (
+from ...utils.ai_checker import (
     _normalize_interaction_response,
     _persist_ai_interaction,
     _resolve_chat_id,
     _resolve_initiated_by,
     _resolve_provider,
 )
-from ...helpers.ai_interactions_flow import (
+from ...utils.ai_checker import (
     build_context_and_system_instructions,
     build_prompt_and_messages,
     resolve_model_override,

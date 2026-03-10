@@ -12,7 +12,7 @@ from .routes import (
 )
 from ...schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSchema
 from ...models import Accommodation
-from ...helpers.mutations import _apply_feature_mutations
+from ...utils.api_checker import _apply_feature_mutations
 
 
 @api_v1_bp.get("/features")
