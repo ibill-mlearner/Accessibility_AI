@@ -396,20 +396,50 @@ class HuggingFaceLangChainProvider:
 
     def _parse_json(self, raw: str) -> dict[str, Any]:
         text = (raw or "").strip()
+        response_keys = {"assistant_text", "result", "answer", "response_text", "response", "output", "text"}
+
+        def _extract_assistant_from_messages(candidate: dict[str, Any]) -> str:
+            messages = candidate.get("messages")
+            if not isinstance(messages, list):
+                return ""
+            for message in reversed(messages):
+                if not isinstance(message, dict):
+                    continue
+                role = str(message.get("role") or "").strip().lower()
+                content = message.get("content")
+                if role == "assistant" and isinstance(content, str) and content.strip():
+                    return content.strip()
+            return ""
+
+        def _candidate_score(candidate: dict[str, Any]) -> int:
+            score = 0
+            if any(candidate.get(key) not in (None, "") for key in response_keys):
+                score += 10
+            if isinstance(candidate.get("confidence"), (int, float)):
+                score += 2
+            if isinstance(candidate.get("notes"), (list, str)):
+                score += 1
+            if _extract_assistant_from_messages(candidate):
+                score += 3
+            return score
+
+        parsed_candidates: list[dict[str, Any]] = []
+
         for candidate in [text, *re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, flags=re.IGNORECASE)]:
             try:
                 obj = json.loads(candidate)
-                if isinstance(obj, dict):
-                    return obj
             except Exception:  # noqa: BLE001
                 continue
+            if isinstance(obj, dict):
+                parsed_candidates.append(obj)
+
         decoder = json.JSONDecoder()
         i = 0
         while i < len(text):
             try:
                 obj, end = decoder.raw_decode(text, i)
                 if isinstance(obj, dict):
-                    return obj
+                    parsed_candidates.append(obj)
                 i = max(end, i + 1)
             except json.JSONDecodeError:
                 i += 1
@@ -417,9 +447,24 @@ class HuggingFaceLangChainProvider:
             try:
                 obj = json.loads(text[text.find("{"): text.rfind("}") + 1])
                 if isinstance(obj, dict):
-                    return obj
+                    parsed_candidates.append(obj)
             except Exception:  # noqa: BLE001
                 pass
+
+        if parsed_candidates:
+            best_candidate = max(parsed_candidates, key=_candidate_score)
+            if any(best_candidate.get(key) not in (None, "") for key in response_keys):
+                return best_candidate
+            assistant_text = _extract_assistant_from_messages(best_candidate)
+            if assistant_text:
+                return {
+                    "assistant_text": assistant_text,
+                    "notes": ["assistant_text_extracted_from_messages"],
+                    "meta": {"provider": "huggingface_langchain:messages_fallback"},
+                }
+            if _candidate_score(best_candidate) > 0:
+                return best_candidate
+
         return {"assistant_text": "", "notes": ["non_json_fallback"], "meta": {"provider": "huggingface_langchain:non_json_fallback", "debug": {"raw_payload_preview": _clip(text)}}}
 
     def health(self) -> dict[str, Any]:

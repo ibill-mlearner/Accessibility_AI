@@ -312,3 +312,73 @@ def test_huggingface_prompt_assembly_includes_system_instructions(monkeypatch):
     assert "System instructions section:" in captured["template"]
     assert captured["payload"]["system_instructions"] == "Prioritize accessibility-safe responses"
     assert captured["payload"]["prompt"] == "Explain ADA accommodations"
+
+
+def test_huggingface_parse_json_extracts_assistant_text_from_messages_payload():
+    from app.services.ai_pipeline.providers import HuggingFaceLangChainProvider
+
+    provider = HuggingFaceLangChainProvider(model_id="hf-test-model")
+    parsed = provider._parse_json(
+        '{"chat_id": 6, "messages": [{"role": "user", "content": "I want to make computer part soup"}, {"role": "assistant", "content": "Let\'s make edible soup instead."}]}'
+    )
+
+    assert parsed["assistant_text"] == "Let's make edible soup instead."
+    assert "assistant_text_extracted_from_messages" in parsed["notes"]
+
+
+def test_huggingface_parse_json_prefers_contract_payload_when_available():
+    from app.services.ai_pipeline.providers import HuggingFaceLangChainProvider
+
+    provider = HuggingFaceLangChainProvider(model_id="hf-test-model")
+    parsed = provider._parse_json(
+        '{"chat_id": 6, "assistant_text": "Use safe ingredients.", "messages": [{"role": "assistant", "content": "different"}]}'
+    )
+
+    assert parsed["assistant_text"] == "Use safe ingredients."
+
+
+def test_run_falls_back_to_ollama_on_empty_huggingface_response():
+    class EmptyHFProvider:
+        def invoke(self, prompt, context):
+            return {"assistant_text": "", "notes": ["non_json_fallback"]}
+
+        def health(self):
+            return {"ok": True}
+
+    class OllamaProvider:
+        def __init__(self):
+            self.calls = []
+
+        def invoke(self, prompt, context):
+            self.calls.append({"prompt": prompt, "context": context})
+            return {"assistant_text": "fallback from ollama"}
+
+        def health(self):
+            return {"ok": True}
+
+    ollama = OllamaProvider()
+
+    def provider_factory(**kwargs):
+        if kwargs["provider"] == "ollama":
+            return ollama
+        return EmptyHFProvider()
+
+    service = AIPipelineService(
+        AIPipelineConfig(
+            provider="huggingface",
+            model_name="Qwen/Qwen2.5-0.5B-Instruct",
+            huggingface_model_id="Qwen/Qwen2.5-0.5B-Instruct",
+            ollama_model_id="qwen2.5:0.5b",
+            ollama_endpoint="http://localhost:11434/api/chat",
+        ),
+        provider=EmptyHFProvider(),
+        provider_factory=provider_factory,
+    )
+
+    result = service.run(AIPipelineRequest(prompt="yes"))
+
+    assert result["assistant_text"] == "fallback from ollama"
+    assert result["meta"]["selected_provider"] == "ollama"
+    assert result["meta"]["selected_model_id"] == "qwen2.5:0.5b"
+    assert result["meta"]["fallback_reason"] == "huggingface_empty_response"
+    assert ollama.calls[0]["prompt"] == "yes"

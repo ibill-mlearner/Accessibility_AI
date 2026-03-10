@@ -163,6 +163,48 @@ class AIPipelineService:
 
         return self._get_or_create_provider("ollama", model_id), model_id
 
+
+    @staticmethod
+    def _extract_assistant_text(payload: dict[str, Any]) -> str:
+        return next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
+
+    def _fallback_on_empty_response_if_eligible(
+        self,
+        *,
+        selected_provider: str,
+        request_id: str,
+        prompt: str,
+        context: dict[str, Any],
+    ) -> tuple[dict[str, Any], str, dict[str, str]] | None:
+        if normalize_provider_name(selected_provider) != "huggingface":
+            return None
+
+        fallback_target = self._resolve_ollama_fallback_target()
+        if fallback_target is None:
+            logger.warning(
+                "ai_pipeline.run.fallback.unavailable request_id=%s reason=%s",
+                request_id,
+                "ollama_not_configured_for_empty_hf_response",
+            )
+            return None
+
+        provider_instance, fallback_model = fallback_target
+        logger.info(
+            "ai_pipeline.run.fallback.apply request_id=%s from=%s to=%s model=%s reason=%s",
+            request_id,
+            "huggingface",
+            "ollama",
+            fallback_model,
+            "huggingface_empty_response",
+        )
+        payload = invoke_provider_or_raise(provider_instance, prompt, context)
+        fallback_meta = {
+            "fallback_from": "huggingface",
+            "fallback_to": "ollama",
+            "fallback_reason": "huggingface_empty_response",
+        }
+        return payload, fallback_model, fallback_meta
+
     def _fallback_provider_if_eligible(
         self,
         exc: AIPipelineUpstreamError,
@@ -279,7 +321,20 @@ class AIPipelineService:
             round((time.time() - invoke_start_time) * 1000, 2)
         )
 
-        assistant_text = next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
+        assistant_text = self._extract_assistant_text(payload)
+        if not assistant_text:
+            empty_response_fallback = self._fallback_on_empty_response_if_eligible(
+                selected_provider=selected_provider,
+                request_id=request_id,
+                prompt=prompt,
+                context=context,
+            )
+            if empty_response_fallback is not None:
+                payload, selected_model, empty_fallback_meta = empty_response_fallback
+                selected_provider = "ollama"
+                fallback_meta = {**fallback_meta, **empty_fallback_meta}
+                assistant_text = self._extract_assistant_text(payload)
+
         confidence = float(payload["confidence"]) if isinstance(payload.get("confidence"), (int, float)) else None
         notes_raw = payload.get("notes")
         notes = [str(n) for n in notes_raw] if isinstance(notes_raw, list) else ([notes_raw.strip()] if isinstance(notes_raw, str) and notes_raw.strip() else [])
