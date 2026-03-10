@@ -335,3 +335,50 @@ def test_huggingface_parse_json_prefers_contract_payload_when_available():
     )
 
     assert parsed["assistant_text"] == "Use safe ingredients."
+
+
+def test_run_falls_back_to_ollama_on_empty_huggingface_response():
+    class EmptyHFProvider:
+        def invoke(self, prompt, context):
+            return {"assistant_text": "", "notes": ["non_json_fallback"]}
+
+        def health(self):
+            return {"ok": True}
+
+    class OllamaProvider:
+        def __init__(self):
+            self.calls = []
+
+        def invoke(self, prompt, context):
+            self.calls.append({"prompt": prompt, "context": context})
+            return {"assistant_text": "fallback from ollama"}
+
+        def health(self):
+            return {"ok": True}
+
+    ollama = OllamaProvider()
+
+    def provider_factory(**kwargs):
+        if kwargs["provider"] == "ollama":
+            return ollama
+        return EmptyHFProvider()
+
+    service = AIPipelineService(
+        AIPipelineConfig(
+            provider="huggingface",
+            model_name="Qwen/Qwen2.5-0.5B-Instruct",
+            huggingface_model_id="Qwen/Qwen2.5-0.5B-Instruct",
+            ollama_model_id="qwen2.5:0.5b",
+            ollama_endpoint="http://localhost:11434/api/chat",
+        ),
+        provider=EmptyHFProvider(),
+        provider_factory=provider_factory,
+    )
+
+    result = service.run(AIPipelineRequest(prompt="yes"))
+
+    assert result["assistant_text"] == "fallback from ollama"
+    assert result["meta"]["selected_provider"] == "ollama"
+    assert result["meta"]["selected_model_id"] == "qwen2.5:0.5b"
+    assert result["meta"]["fallback_reason"] == "huggingface_empty_response"
+    assert ollama.calls[0]["prompt"] == "yes"
