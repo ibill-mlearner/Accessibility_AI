@@ -1,37 +1,22 @@
 import time
 
 from flask import current_app, jsonify
-from flask_login import current_user, login_required
+from flask_login import login_required
 
-from ...utils.ai_checker import (
-    _normalize_interaction_response,
-    _persist_ai_interaction,
-    _resolve_chat_id,
-    _resolve_initiated_by,
-    _resolve_provider,
-)
-from ...utils.ai_checker import (
-    build_context_and_system_instructions,
-    build_prompt_and_messages,
-    resolve_model_override,
-    run_pipeline,
-    compose_system_prompt,
-    validate_runtime_model_selection
+from ...utils.ai_checker import run_pipeline
+from ...services.ai_interactions import (
+    AIInteractionComponents,
+    default_ai_interaction_components,
 )
 from .routes import (
     _assert_chat_permissions,
     _publish,
     _require_record,
     _serialize_record,
-    _validate_payload,
     api_v1_bp,
     db,
-    _read_json_object,
-    BadRequestError
 )
-from ...schemas.validation import AIInteractionPayloadSchema
 from ...models import AIInteraction, Chat
-from ...services.ai_pipeline.types import AIPipelineRequest
 from ...utils.chat_access import ChatAccessHelper
 from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 
@@ -40,40 +25,15 @@ from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 @login_required
 def create_ai_interaction():
     """Run a single AI interaction."""
-    raw = _read_json_object()
-    current_app.logger.debug(
-        "api.ai.interactions.payload.raw path=%s json_keys=%s",
-        "/api/v1/ai/interactions",
-        sorted(raw.keys())
-    )
-    try:
-        payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
-    except BadRequestError:
-        current_app.logger.debug(
-            "api.ai.interactions.payload.validation_failed path=%s json_keys=%s",
-            "/api/v1/ai/interactions",
-            sorted(raw.keys())
-        )
-        raise
+    components: AIInteractionComponents | None = current_app.extensions.get("ai_interactions_components")
+    if components is None:
+        components = default_ai_interaction_components()
 
-    current_app.logger.debug(
-        "api.ai.interactions.payload.validated keys=%s",
-        sorted(payload.keys())
-    )
-    user_identity = (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "id", None)
-        or "anonymous"
-    )
-    current_app.logger.debug(
-        "api.ai_interactions.request method=%s path=%s user=%s json_keys=%s",
-        "POST",
-        "/api/v1/ai/interactions",
-        user_identity,
-        sorted(payload.keys()),
-    )
-    prompt, messages = build_prompt_and_messages(payload)
-    request_id = str(payload.get("request_id") or "n/a")
+    payload = components.request_parser.parse_payload()
+    built_request = components.request_parser.build_request_dto(payload)
+    prompt = built_request.prompt
+    messages = built_request.messages
+    request_id = built_request.request_id
     current_app.logger.debug(
         "api.ai_interactions.create.start request_id=%s provider=%s model=%s timeout_seconds=%s prompt_len=%s messages_count=%s prompt_preview=%r",
         request_id,
@@ -85,9 +45,6 @@ def create_ai_interaction():
         prompt[:200],
     )
 
-    context_payload, system_instructions = build_context_and_system_instructions(payload, messages)
-    composed_system_prompt = compose_system_prompt(system_instructions, payload)
-
     _publish(
         "api.ai_interaction_requested",
         {
@@ -95,40 +52,29 @@ def create_ai_interaction():
             "has_messages": bool(messages),
             "has_system_prompt": bool(payload.get("system_prompt")),
             "has_guardrail_system_prompt": bool(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT")),
-            "has_db_system_instructions": bool(system_instructions),
+            "has_db_system_instructions": bool(built_request.system_instructions),
             "has_rag": bool(payload.get("rag")),
         },
     )
 
-    chat_id = _resolve_chat_id(payload)
+    chat_id = built_request.chat_id
     if chat_id is not None:
         chat = _require_record("chat", Chat, chat_id)
         deny = _assert_chat_permissions(chat)
         if deny is not None:
             return deny
 
-    initiated_by = _resolve_initiated_by(payload)
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
-    preflight_error = validate_runtime_model_selection(
+    preflight_error = components.model_resolver.resolve_runtime_model_selection(
         payload,
-        ai_service
+        ai_service,
+        built_request.context_payload,
+        request_id,
     )
     if preflight_error is not None:
-        return jsonify(preflight_error[0]), preflight_error[1]
-    resolve_model_override(payload, ai_service, context_payload, request_id)
+        return preflight_error
 
-    dto = AIPipelineRequest(
-        prompt=prompt,
-        messages=messages,
-        system_prompt=composed_system_prompt,
-        context=context_payload,
-        chat_id=chat_id,
-        initiated_by=initiated_by,
-        class_id=payload.get("class_id"),
-        user_id=payload.get("user_id"),
-        rag=payload.get("rag") if isinstance(payload.get("rag"), dict) else None,
-        request_id=payload.get("request_id"),
-    )
+    dto = built_request.dto
 
     current_app.logger.debug(
         "api.ai_interactions.dto.created request_id=%s provider=%s model=%s prompt_len=%s messages_count=%s has_system_prompt=%s",
@@ -153,8 +99,7 @@ def create_ai_interaction():
         len((result or {}).get("notes")) if isinstance(result, dict) and isinstance((result or {}).get("notes"), list) else 0,
         str(result)[:200],
     )
-    normalized_result = _normalize_interaction_response(result)
-    normalized_result["meta"]["provider"] = _resolve_provider(result)
+    normalized_result = components.response_normalizer.normalize(result)
     current_app.logger.debug(
         "api.ai_interactions.ai_service.run.elapsed request_id=%s duration_ms=%s",
         request_id,
@@ -173,7 +118,7 @@ def create_ai_interaction():
             len(normalized_result.get("notes") or []),
         )
 
-    persistence_error = _persist_ai_interaction(payload, prompt, normalized_result)
+    persistence_error = components.persistence.persist(payload, prompt, normalized_result)
     if persistence_error is not None:
         current_app.logger.debug(
             "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
