@@ -16,9 +16,9 @@ class _FakeService:
 
 def test_resolve_model_override_uses_session_selection_when_payload_has_no_override(monkeypatch):
     monkeypatch.setattr(
-        ai_ops,
+        ai_ops.AIInteractionOps,
         "_resolve_session_model_selection",
-        lambda: {"provider": "ollama", "model_id": "llama3.2:3b", "family_id": "llama"},
+        staticmethod(lambda: {"provider": "ollama", "model_id": "llama3.2:3b", "family_id": "llama"}),
     )
 
     payload = {"prompt": "hello"}
@@ -38,9 +38,9 @@ def test_resolve_model_override_uses_session_selection_when_payload_has_no_overr
 
 def test_resolve_model_override_prioritizes_request_override_over_session(monkeypatch):
     monkeypatch.setattr(
-        ai_ops,
+        ai_ops.AIInteractionOps,
         "_resolve_session_model_selection",
-        lambda: {"provider": "ollama", "model_id": "llama3.2:3b", "family_id": "llama"},
+        staticmethod(lambda: {"provider": "ollama", "model_id": "llama3.2:3b", "family_id": "llama"}),
     )
 
     payload = {"provider": "ollama", "model_id": "llama3.2:3b"}

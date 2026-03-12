@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from app.services.ai_pipeline.model_inventory import ModelInventoryConfig, ModelInventoryService
+from ..app.services.ai_pipeline.model_inventory import ModelInventoryConfig, ModelInventoryService
 
 
 def _service(tmp_path: Path) -> ModelInventoryService:

@@ -1,10 +1,10 @@
-from app.services.ai_pipeline.pipeline import (
+from ..app.services.ai_pipeline.pipeline import (
     AIPipelineConfig,
     AIPipelineService,
 )
 import pytest
-from app.services.ai_pipeline.exceptions import AIPipelineUpstreamError
-from app.services.ai_pipeline.types import AIPipelineRequest
+from ..app.services.ai_pipeline.exceptions import AIPipelineUpstreamError
+from ..app.services.ai_pipeline.types import AIPipelineRequest
 
 
 class DummyProvider:

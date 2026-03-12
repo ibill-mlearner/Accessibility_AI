@@ -4,8 +4,8 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str((Path(__file__).resolve().parents[1] / "app" / "services")))
-from ai_pipeline_v2.service import AIPipelineService
-from ai_pipeline_v2.types import AIPipelineConfig, AIPipelineRequest, AIPipelineUpstreamError
+from ..app.services.ai_pipeline_v2.service import AIPipelineService
+from ..app.services.ai_pipeline_v2.types import AIPipelineConfig, AIPipelineRequest, AIPipelineUpstreamError
 
 
 class DummyProvider:

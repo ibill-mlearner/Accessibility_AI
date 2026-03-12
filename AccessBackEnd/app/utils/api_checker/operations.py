@@ -183,7 +183,10 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
     return {}
 
 
-def _publish(event_name: str, payload: dict[str, Any] | None = None) -> None:
+def _publish(
+        event_name: str,
+        payload: dict[str, Any] | None = None
+) -> None:
     current_app.extensions["event_bus"].publish(DomainEvent(event_name, payload or {}))
 
 
@@ -200,7 +203,12 @@ def _forbidden_response(message: str = "access denied"):
     return jsonify({"error": {"code": "forbidden", "message": message, "details": {}}}), 403
 
 
-def _raise_bad_request_from_exception(exc: Exception, *, source: str | None = None, message: str | None = None) -> None:
+def _raise_bad_request_from_exception(
+        exc: Exception,
+        *,
+        source: str | None = None,
+        message: str | None = None
+) -> None:
     details = {"exception": exc.__class__.__name__}
     if source:
         details["source"] = source

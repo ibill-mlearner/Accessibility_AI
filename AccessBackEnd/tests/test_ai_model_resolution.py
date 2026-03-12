@@ -1,6 +1,6 @@
 from flask import Flask
 
-from app.services.ai_interactions.model_resolution import AIInteractionModelResolver
+from ..app.services.ai_interactions.model_resolution import AIInteractionModelResolver
 
 
 class _FakeService:

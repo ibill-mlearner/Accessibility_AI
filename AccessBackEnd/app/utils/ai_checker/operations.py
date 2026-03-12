@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ...api.errors import BadRequestError
 from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
-from ...models import AIInteraction, AIModel, Chat, CourseClass
+from ...models import AIInteraction, AIModel, Chat, CourseClass, UserAccessibilityFeature
 from ...models.ai import AccommodationSystemPrompt
 from ...services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
 from ...api.v1.routes import _raise_bad_request_from_exception, _require_record, db
@@ -615,7 +615,7 @@ def _apply_session_model_selection(
     context_payload: dict[str, Any],
     request_id: str,
 ) -> None:
-    session_selection = _resolve_session_model_selection()
+    session_selection = AIInteractionOps._resolve_session_model_selection()
     if not isinstance(session_selection, dict):
         return
     selected_provider = str(session_selection.get("provider") or "").strip().lower()
