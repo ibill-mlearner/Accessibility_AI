@@ -4,7 +4,7 @@ from pathlib import Path
 
 from flask import Flask
 
-from ..app.services.logging import bootstrap
+from app.services.logging import bootstrap
 
 
 class _FakeThread:

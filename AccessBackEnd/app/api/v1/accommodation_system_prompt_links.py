@@ -36,7 +36,7 @@ def create_accommodation_system_prompt_link():
     system_prompt_id = _parse_int_field(payload.get("system_prompt_id"), field_name="system_prompt_id", required=True)
 
     _require_record("accommodation", Accommodation, accommodation_id)
-    _require_record("system_prompt", SystemPrompt, system_prompt_id)
+    system_prompt = _require_record("system_prompt", SystemPrompt, system_prompt_id)
 
     denied = ensure_instructor_owns_system_prompt_scope(system_prompt=system_prompt, action="create")
     if denied is not None:
@@ -76,6 +76,7 @@ def update_accommodation_system_prompt_link(link_id: int):
 
     if "system_prompt_id" in payload:
         system_prompt_id = _parse_int_field(payload.get("system_prompt_id"), field_name="system_prompt_id", required=True)
+        system_prompt = _require_record("system_prompt", SystemPrompt, system_prompt_id)
         denied = ensure_instructor_owns_system_prompt_scope(system_prompt=system_prompt, action="update")
         if denied is not None:
             return denied

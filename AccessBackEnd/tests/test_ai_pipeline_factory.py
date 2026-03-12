@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from ..app.services.ai_pipeline_v2.factory import build_ai_service_from_config
+from app.services.ai_pipeline_v2.factory import build_ai_service_from_config
 
 
 class _DummyProvider:

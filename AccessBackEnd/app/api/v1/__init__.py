@@ -9,6 +9,7 @@ def _register_route_modules() -> None:
 
     # Need to change to explicit imports if I want anonymous functions
     from . import accessiblity_features
+    from . import accommodation_system_prompt_links
     from . import ai_interactions_routes
     from . import ai_model_catalog_routes
     from . import auth

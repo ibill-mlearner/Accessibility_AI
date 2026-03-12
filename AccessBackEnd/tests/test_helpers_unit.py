@@ -3,9 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from ..app.api.errors import BadRequestError
-from ..app.utils.api_checker.operations import AuthOps
-from ..app.utils.api_checker import (
+from app.api.errors import BadRequestError
+from app.utils.api_checker.operations import AuthOps
+from app.utils.api_checker import (
     _deserialize_payload,
     _parse_int_field,
     _parse_optional_datetime,
