@@ -4,7 +4,7 @@ from typing import Any
 
 from flask import current_app, jsonify
 
-from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
 from ...utils.ai_checker import (
     _extract_available_model_ids,
     resolve_model_override,

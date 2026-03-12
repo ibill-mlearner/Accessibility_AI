@@ -162,6 +162,7 @@ class TestingConfig(BaseConfig):
     TESTING = True
     DEBUG = False
     AI_PROVIDER = _env("TEST_AI_PROVIDER", "huggingface")
+    AI_HUGGINGFACE_ALLOW_DOWNLOAD = _env("TEST_AI_HUGGINGFACE_ALLOW_DOWNLOAD", True, bool)
     SQLALCHEMY_DATABASE_URI = _env("TEST_DATABASE_URL", "sqlite:///:memory:")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(minutes=10)

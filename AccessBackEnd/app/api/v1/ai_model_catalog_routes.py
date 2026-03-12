@@ -11,7 +11,7 @@ from ...utils.ai_checker import (
 from .routes import BadRequestError, _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id, resolve_model_selection
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
-from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
 from ...models import AIModel
 from ...extensions import db
 

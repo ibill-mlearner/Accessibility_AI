@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline.types import AIPipelineRequest
+from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.types import AIPipelineRequest
 
 
 @dataclass(frozen=True)
