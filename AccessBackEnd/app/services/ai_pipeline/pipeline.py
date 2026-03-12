@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 class AIPipelineConfig:
     provider: str = "ollama"
     model_name: str = ""
-    mock_resource_path: str = ""
     live_endpoint: str = ""
     ollama_endpoint: str = ""
     ollama_model_id: str = ""
@@ -50,7 +49,6 @@ class AIPipelineService:
         self._provider = provider or self._provider_factory(
             provider=config.provider,
             model_name=config.model_name,
-            mock_resource_path=config.mock_resource_path,
             live_endpoint=config.live_endpoint,
             ollama_endpoint=config.ollama_endpoint,
             ollama_model_id=config.ollama_model_id,
@@ -120,7 +118,6 @@ class AIPipelineService:
         provider_instance = self._provider_factory(
             provider=selected_provider,
             model_name=selected_mdoel_id or self.config.model_name,
-            mock_resource_path=self.config.mock_resource_path,
             live_endpoint=self.config.live_endpoint,
             ollama_endpoint=self.config.ollama_endpoint,
             ollama_model_id=selected_mdoel_id if selected_provider == 'ollama' else self.config.ollama_model_id,

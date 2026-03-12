@@ -23,7 +23,6 @@ class AIProviderFactoryInterface(Protocol):
         *,
         provider: str,
         model_name: str = "",
-        mock_resource_path: str = "",
         live_endpoint: str = "",
         ollama_endpoint: str = "",
         ollama_model_id: str = "",

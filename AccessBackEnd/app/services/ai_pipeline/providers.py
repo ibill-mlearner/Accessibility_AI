@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json, logging, re, requests
-from pathlib import Path
 from typing import Any, Protocol
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -11,7 +10,6 @@ from .bootstrap import HuggingFaceModelBootstrap
 _MAX_CONTEXT_MESSAGES = 4
 logger = logging.getLogger(__name__)
 _PROVIDER_ALIASES: dict[str, set[str]] = {
-    "mock_json": {"mock", "mock_json", "json"},
     "ollama": {"ollama", "ollama_local"},
     "http": {"live", "live_agent", "http"},
     "huggingface": {"hf", "huggingface", "langchain_hf"},
@@ -80,44 +78,6 @@ class AIProvider(Protocol):
     def name(self) -> str: ...
     def capabilities(self) -> dict[str, Any]: ...
 
-
-class MockJSONProvider:
-    def __init__(
-        self, *, 
-        mock_resource_path: str
-    ) -> None:
-        self.mock_resource_path = mock_resource_path
-
-    def invoke(self, prompt: str, context: dict[str, Any]) -> dict[str, Any]:
-        request_id = _request_id_from_context(context)
-        logger.debug(
-            "ai_provider.invoke.start request_id=%s provider=mock_json prompt_len=%s context_messages_count=%s prompt_preview=%r",
-            request_id,
-            len(prompt or ""),
-            _context_messages_count(context),
-            _clip(prompt, 200),
-        )
-        resource = Path(self.mock_resource_path)
-        if not resource.exists():
-            raise FileNotFoundError(f"Mock AI resource not found: {resource}")
-        payload = json.loads(resource.read_text(encoding="utf-8"))
-        payload.setdefault("meta", {}).update({"provider": "mock_json", "prompt_echo": prompt})
-        logger.debug(
-            "ai_provider.invoke.end request_id=%s provider=mock_json response_keys_count=%s response_preview=%r",
-            request_id,
-            len(payload.keys()) if isinstance(payload, dict) else 0,
-            _clip(payload, 200),
-        )
-        return payload
-
-    def health(self) -> dict[str, Any]: 
-        return {"ok": Path(self.mock_resource_path).exists()}
-
-    def name(self) -> str: 
-        return "mock_json"
-
-    def capabilities(self) -> dict[str, Any]: 
-        return {"mode": "static_json"}
 
 class HTTPEndpointProvider:
     def __init__(
@@ -507,7 +467,6 @@ def create_provider(
     *, 
     provider: str, 
     model_name: str = "", 
-    mock_resource_path: str = "", 
     live_endpoint: str = "", 
     ollama_endpoint: str = "", 
     ollama_model_id: str = "", 
@@ -530,8 +489,6 @@ def create_provider(
         ollama_model_id,
         timeout_seconds
     )
-    if selected == "mock_json":
-        return MockJSONProvider(mock_resource_path=mock_resource_path)
     if selected == "ollama":
         return OllamaProvider(endpoint=ollama_endpoint or live_endpoint, model_id=ollama_model_id or model_name or huggingface_model_id, options=ollama_options, timeout_seconds=timeout_seconds)
     if selected == "http":

@@ -73,7 +73,6 @@ def build_ai_service_from_config(
     provider_impl = effective_provider_factory(
         provider=pipeline_config.provider,
         model_name=pipeline_config.model_name,
-        mock_resource_path=pipeline_config.mock_resource_path,
         live_endpoint=pipeline_config.live_endpoint,
         ollama_endpoint=pipeline_config.ollama_endpoint,
         ollama_model_id=pipeline_config.ollama_model_id,
