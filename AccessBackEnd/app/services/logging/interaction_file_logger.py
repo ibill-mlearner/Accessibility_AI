@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
 from typing import Any, Protocol
-from ..ai_pipeline.types import AIPipelineRequest
+from ..ai_pipeline_v2.types import AIPipelineRequest
 
 MAX_LOG_LINES = 2000
 DEFAULT_LOG_BASENAME = "ai_interactions"

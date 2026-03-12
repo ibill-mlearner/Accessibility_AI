@@ -14,7 +14,7 @@ from .extensions import cors, db as db_ext, jwt, login_manager, migrate
 from .services.logging import initialize_logging
 from .models import User
 from .services import AIPipelineService
-from .services.ai_pipeline.factory import build_ai_service_from_config
+from .services.ai_pipeline_v2.factory import build_ai_service_from_config
 from .services import AIPipelineServiceInterface
 
 def _register_cli_commands(app: Flask) -> None:

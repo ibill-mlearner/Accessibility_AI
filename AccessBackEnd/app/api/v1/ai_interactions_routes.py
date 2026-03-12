@@ -1,6 +1,8 @@
 import time
 
 from flask import current_app, jsonify
+
+from ..errors import BadRequestError
 from flask_login import current_user, login_required
 
 from ...utils.ai_checker import (
@@ -17,14 +19,18 @@ from ...utils.ai_checker import (
 from .routes import (
     _assert_chat_permissions,
     _publish,
+    _read_json_object,
     _require_record,
     _serialize_record,
+    _validate_payload,
     api_v1_bp,
     db,
 )
 from ...models import AIInteraction, Chat
+from ...schemas.validation import AIInteractionPayloadSchema
 from ...utils.chat_access import ChatAccessHelper
-from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.types import AIPipelineRequest
 
 
 
@@ -121,7 +127,7 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
         len((result or {}).get("notes")) if isinstance(result, dict) and isinstance((result or {}).get("notes"), list) else 0,
         str(result)[:200],
     )
-    normalized_result = components.response_normalizer.normalize(result)
+    normalized_result = _normalize_interaction_response(result)
     meta = normalized_result.get("meta") if isinstance(normalized_result.get("meta"), dict) else {}
     selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
     selected_provider = str((selected_runtime or {}).get("provider") or current_app.config.get("AI_PROVIDER") or "").strip().lower()
