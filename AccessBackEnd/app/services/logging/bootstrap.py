@@ -12,6 +12,7 @@ import threading
 from .config import configure_logging
 from .events import EventBus, LoggingObserver
 from .interaction_file_logger import InteractionLoggingService, RotatingTextLogWriter
+from .interfaces import EventBusInterface
 
 
 DEFAULT_OBSERVER_TYPES = (LoggingObserver,)
@@ -23,7 +24,7 @@ Smaller footprint and easier to implement, not going to spend time on this unles
 """
 
 
-def _ensure_default_observers(event_bus: EventBus) -> None:
+def _ensure_default_observers(event_bus: EventBusInterface) -> None:
     observers = getattr(event_bus, "_observers", [])
     for observer_type in DEFAULT_OBSERVER_TYPES:
         if not any(isinstance(observer, observer_type) for observer in observers):
@@ -89,7 +90,7 @@ def initialize_logging(app: Flask) -> None:
     _ensure_default_observers(event_bus)
 
     ai_service = app.extensions.get("ai_service")
-    if ai_service is None or isinstance(ai_service, InteractionLoggingService):
+    if ai_service is None or getattr(ai_service, "is_interaction_logging_wrapper", False):
         return
 
     interaction_log_dir = (

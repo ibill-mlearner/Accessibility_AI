@@ -5,22 +5,13 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Any, Protocol
+from typing import Any
+
 from ..ai_pipeline_v2.types import AIPipelineRequest
+from .interfaces import InteractionLogWriterInterface, InteractionRunnerInterface
 
 MAX_LOG_LINES = 2000
 DEFAULT_LOG_BASENAME = "ai_interactions"
-
-
-class InteractionRunner(Protocol):
-    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
-        ...
-    def run_interaction(
-        self,
-        prompt: str,
-        context: dict[str, Any] | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]: ...
 
 
 @dataclass(slots=True)
@@ -63,8 +54,10 @@ class RotatingTextLogWriter:
 class InteractionLoggingService:
     """Observer-style wrapper that logs interaction metadata to rotating text files."""
 
+    is_interaction_logging_wrapper = True
+
     def __init__(
-        self, wrapped: InteractionRunner, writer: RotatingTextLogWriter
+        self, wrapped: InteractionRunnerInterface, writer: InteractionLogWriterInterface
     ) -> None:
         self._wrapped = wrapped
         self._writer = writer
