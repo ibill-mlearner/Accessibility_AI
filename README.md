@@ -131,6 +131,13 @@ That is the complete local startup path for Bash-based environments.
 
 ---
 
+## AI model operations
+
+- Backend hardware/runtime guide: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
+- Backend docs index: `AccessBackEnd/docs/README.md`
+
+---
+
 ## Useful paths
 
 - Backend entrypoint: `AccessBackEnd/manage.py`

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy.sql import func
 
 from .ai import AIInteraction, AIModel, AccommodationSystemPrompt, SystemPrompt
-from .learning import Accommodation
+from .learning import Accommodation, UserAccessibilityFeature
 from .audit_log import AuditLog
 from .base import Base
 from .learning import Chat, CourseClass, Message, Note, UserClassEnrollment
@@ -55,6 +55,9 @@ class DBUser(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     sessions: Mapped[list[UserSession]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    accessibility_features: Mapped[list[UserAccessibilityFeature]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @staticmethod
     def _normalize_email(email: str) -> str:
@@ -83,6 +86,7 @@ DB_MODELS = {
     "accommodation_system_prompt": AccommodationSystemPrompt,
     "ai_interaction": AIInteraction,
     "accommodation": Accommodation,
+    "user_accessibility_feature": UserAccessibilityFeature,
     "user_session": UserSession,
     "audit_log": AuditLog,
 }

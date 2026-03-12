@@ -21,6 +21,24 @@ class Accommodation(Base):
     prompt_links: Mapped[list["AccommodationSystemPrompt"]] = relationship(
         back_populates="accommodation", cascade="all, delete-orphan"
     )
+    user_preferences: Mapped[list["UserAccessibilityFeature"]] = relationship(
+        back_populates="accommodation", cascade="all, delete-orphan"
+    )
+
+
+class UserAccessibilityFeature(Base):
+    """Per-user accessibility feature preference flags."""
+
+    __tablename__ = "user_accessibility_features"
+    __table_args__ = (UniqueConstraint("user_id", "accommodation_id", name="uq_user_accessibility_feature"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    accommodation_id: Mapped[int] = mapped_column(ForeignKey("accommodations.id"), nullable=False, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    user: Mapped["DBUser"] = relationship(back_populates="accessibility_features")
+    accommodation: Mapped[Accommodation] = relationship(back_populates="user_preferences")
 
 
 class CourseClass(Base):

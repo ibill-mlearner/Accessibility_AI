@@ -9,7 +9,7 @@ from .interfaces import (
     ModelInventoryServiceFactoryInterface,
 )
 
-from .exceptions import invoke_provider_or_raise
+from .exceptions import AIPipelineUpstreamError, invoke_provider_or_raise
 from .model_inventory import ModelInventoryConfig, ModelInventoryService
 from .providers import AIProvider, create_provider, normalize_provider_name
 from .types import AIPipelineRequest
@@ -30,6 +30,7 @@ class AIPipelineConfig:
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
     huggingface_allow_download: bool = False
+    enable_ollama_fallback_on_hf_local_only_error: bool = True
     max_new_tokens: int = 256
     temperature: float = 0.1
 
@@ -58,6 +59,7 @@ class AIPipelineService:
             huggingface_model_id=config.huggingface_model_id,
             huggingface_cache_dir=config.huggingface_cache_dir,
             huggingface_allow_download=config.huggingface_allow_download,
+            enable_ollama_fallback_on_hf_local_only_error=config.enable_ollama_fallback_on_hf_local_only_error,
             max_new_tokens=config.max_new_tokens,
             temperature=config.temperature
         )
@@ -70,6 +72,9 @@ class AIPipelineService:
         )
         if all(default_key):
             self._provider_cache[default_key] = self._provider
+        self._inventory_cache_payload: dict[str, Any] | None = None
+        self._inventory_cache_generated_at: float = 0.0
+        self._inventory_cache_ttl_seconds: int = 10
 
     def _resolve_model_id_for_provider(self, provider: str) -> str:
         selected = normalize_provider_name(provider)
@@ -124,11 +129,120 @@ class AIPipelineService:
             huggingface_model_id=selected_mdoel_id if selected_provider == 'huggingface' else self.config.huggingface_model_id,
             huggingface_cache_dir=self.config.huggingface_cache_dir,
             huggingface_allow_download=self.config.huggingface_allow_download,
+            enable_ollama_fallback_on_hf_local_only_error=self.config.enable_ollama_fallback_on_hf_local_only_error,
             max_new_tokens=self.config.max_new_tokens,
             temperature=self.config.temperature
         )
         self._provider_cache[key] = provider_instance
         return provider_instance
+
+    @staticmethod
+    def _is_hf_local_only_bootstrap_error(exc: AIPipelineUpstreamError) -> bool:
+        message = str(exc).lower()
+        if "dynamic download is disabled in local-only mode" in message:
+            return True
+
+        details = exc.details if isinstance(exc.details, dict) else {}
+        exc_name = str(details.get("exception") or "").lower()
+        source = str(details.get("source") or "").lower()
+        return (
+            exc_name == "runtimeerror"
+            and source == "provider_runtime"
+            and "local-only mode" in message
+            and "ai_huggingface_cache_dir" in message
+        )
+
+    def _resolve_ollama_fallback_target(self) -> tuple[AIProviderInterface, str] | None:
+        model_id = self._resolve_model_id_for_provider("ollama")
+        if not model_id:
+            return None
+
+        endpoint = str(self.config.ollama_endpoint or self.config.live_endpoint or "").strip()
+        if not endpoint:
+            return None
+
+        return self._get_or_create_provider("ollama", model_id), model_id
+
+
+    @staticmethod
+    def _extract_assistant_text(payload: dict[str, Any]) -> str:
+        return next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
+
+    def _fallback_on_empty_response_if_eligible(
+        self,
+        *,
+        selected_provider: str,
+        request_id: str,
+        prompt: str,
+        context: dict[str, Any],
+    ) -> tuple[dict[str, Any], str, dict[str, str]] | None:
+        if normalize_provider_name(selected_provider) != "huggingface":
+            return None
+
+        fallback_target = self._resolve_ollama_fallback_target()
+        if fallback_target is None:
+            logger.warning(
+                "ai_pipeline.run.fallback.unavailable request_id=%s reason=%s",
+                request_id,
+                "ollama_not_configured_for_empty_hf_response",
+            )
+            return None
+
+        provider_instance, fallback_model = fallback_target
+        logger.info(
+            "ai_pipeline.run.fallback.apply request_id=%s from=%s to=%s model=%s reason=%s",
+            request_id,
+            "huggingface",
+            "ollama",
+            fallback_model,
+            "huggingface_empty_response",
+        )
+        payload = invoke_provider_or_raise(provider_instance, prompt, context)
+        fallback_meta = {
+            "fallback_from": "huggingface",
+            "fallback_to": "ollama",
+            "fallback_reason": "huggingface_empty_response",
+        }
+        return payload, fallback_model, fallback_meta
+
+    def _fallback_provider_if_eligible(
+        self,
+        exc: AIPipelineUpstreamError,
+        *,
+        selected_provider: str,
+        request_id: str,
+    ) -> tuple[AIProviderInterface, str, dict[str, str]] | None:
+        if not self.config.enable_ollama_fallback_on_hf_local_only_error:
+            return None
+        if normalize_provider_name(selected_provider) != "huggingface":
+            return None
+        if not self._is_hf_local_only_bootstrap_error(exc):
+            return None
+
+        fallback_target = self._resolve_ollama_fallback_target()
+        if fallback_target is None:
+            logger.warning(
+                "ai_pipeline.run.fallback.unavailable request_id=%s reason=%s",
+                request_id,
+                "ollama_not_configured",
+            )
+            return None
+
+        provider_instance, fallback_model = fallback_target
+        fallback_meta = {
+            "fallback_from": "huggingface",
+            "fallback_to": "ollama",
+            "fallback_reason": "huggingface_local_only_bootstrap_error",
+        }
+        logger.info(
+            "ai_pipeline.run.fallback.apply request_id=%s from=%s to=%s model=%s reason=%s",
+            request_id,
+            "huggingface",
+            "ollama",
+            fallback_model,
+            fallback_meta["fallback_reason"],
+        )
+        return provider_instance, fallback_model, fallback_meta
 
     def run(
         self, 
@@ -185,7 +299,20 @@ class AIPipelineService:
             True,
             invoke_start_time
         )
-        payload = invoke_provider_or_raise(provider_instance, prompt, context)
+        fallback_meta: dict[str, str] = {}
+        try:
+            payload = invoke_provider_or_raise(provider_instance, prompt, context)
+        except AIPipelineUpstreamError as exc:
+            fallback = self._fallback_provider_if_eligible(
+                exc,
+                selected_provider=selected_provider,
+                request_id=request_id,
+            )
+            if fallback is None:
+                raise
+            provider_instance, selected_model, fallback_meta = fallback
+            selected_provider = "ollama"
+            payload = invoke_provider_or_raise(provider_instance, prompt, context)
 
         logger.debug(
             "ai_pipeline.run.invoke.completed provider=%s return_value=%s duration_ms=%s",
@@ -194,7 +321,20 @@ class AIPipelineService:
             round((time.time() - invoke_start_time) * 1000, 2)
         )
 
-        assistant_text = next((str(payload[k]) for k in _ASSISTANT_TEXT_KEYS if payload.get(k) is not None), "")
+        assistant_text = self._extract_assistant_text(payload)
+        if not assistant_text:
+            empty_response_fallback = self._fallback_on_empty_response_if_eligible(
+                selected_provider=selected_provider,
+                request_id=request_id,
+                prompt=prompt,
+                context=context,
+            )
+            if empty_response_fallback is not None:
+                payload, selected_model, empty_fallback_meta = empty_response_fallback
+                selected_provider = "ollama"
+                fallback_meta = {**fallback_meta, **empty_fallback_meta}
+                assistant_text = self._extract_assistant_text(payload)
+
         confidence = float(payload["confidence"]) if isinstance(payload.get("confidence"), (int, float)) else None
         notes_raw = payload.get("notes")
         notes = [str(n) for n in notes_raw] if isinstance(notes_raw, list) else ([notes_raw.strip()] if isinstance(notes_raw, str) and notes_raw.strip() else [])
@@ -210,7 +350,8 @@ class AIPipelineService:
                 "model": meta.get("model") or meta.get("model_id") or selected_model,
                 "pipeline": "app.services.ai_pipeline",
                 "selected_provider": selected_provider,
-                "selected_model_id": selected_model
+                "selected_model_id": selected_model,
+                **fallback_meta,
             },
         }
 
@@ -306,7 +447,14 @@ class AIPipelineService:
         return statuses
 
     def list_available_models(self) -> dict[str, Any]:
-        return self._inventory_service_factory(
+        now = time.time()
+        if (
+            self._inventory_cache_payload is not None
+            and (now - self._inventory_cache_generated_at) < self._inventory_cache_ttl_seconds
+        ):
+            return self._inventory_cache_payload
+
+        payload = self._inventory_service_factory(
             ModelInventoryConfig(
                 provider=self.config.provider,
                 model_name=self.config.model_name,
@@ -318,3 +466,6 @@ class AIPipelineService:
                 timeout_seconds=self.config.timeout_seconds,
             )
         ).list_available_models()
+        self._inventory_cache_payload = payload
+        self._inventory_cache_generated_at = now
+        return payload

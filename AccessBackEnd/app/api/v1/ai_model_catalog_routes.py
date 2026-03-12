@@ -1,4 +1,5 @@
 from typing import Any
+import time
 
 from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
@@ -13,6 +14,19 @@ from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationSe
 from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 from ...models import AIModel
 from ...extensions import db
+
+AI_CATALOG_TTL_SECONDS = 30
+_ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
+
+
+def _catalog_cache_key() -> tuple[int | None, Any]:
+    user_id = int(current_user.id) if getattr(current_user, 'is_authenticated', False) else None
+    return user_id, session.get('auth_session_id')
+
+
+def _invalidate_ai_catalog_cache() -> None:
+    _ai_catalog_cache.pop(_catalog_cache_key(), None)
+
 
 @api_v1_bp.get("/ai/models")
 @login_required
@@ -59,9 +73,10 @@ def list_persisted_ai_models():
     return jsonify(
         {
             "models": response,
-            "count" : len(response)
+            "count": len(response)
         }
     ), 200
+
 
 @api_v1_bp.get("/ai/models/available")
 @login_required
@@ -76,89 +91,104 @@ def list_available_ai_models():
 @login_required
 def get_ai_catalog():
     """Return catalog grouped by model family with discoverability and current selection."""
+    include_health = str(request.args.get('include_health') or '').strip().lower() in {'1', 'true', 'yes'}
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
-    inventory = ai_service.list_available_models()
-    available_by_provider = _extract_available_model_ids(inventory)
 
-    known_candidats_by_provider: dict[str, set[str]] = {
-        "ollama": set(),
-        "huggingface": set()
-    }
-    for family in MODEL_FAMILIES:
-        for provider, candidates in family.provider_candidates.items():
-            if provider not in known_candidats_by_provider:
-                continue
+    cache_key = _catalog_cache_key()
+    now = time.time()
+    cached = _ai_catalog_cache.get(cache_key)
 
-            known_candidats_by_provider[provider].update(
-                c.lower() for c in candidates
-            )
+    if cached and (now - cached['timestamp']) < AI_CATALOG_TTL_SECONDS:
+        response_payload = {
+            'families': cached['families'],
+            'selected': cached['selected']
+        }
+    else:
+        inventory = ai_service.list_available_models()
+        available_by_provider = _extract_available_model_ids(inventory)
 
-    families: list[dict[str, Any]] = []
-    for family in MODEL_FAMILIES:
-        models: list[dict[str, Any]] = []
-        seen_pairs: set[tuple[str, str]] = set()
-        # seen_pairs = { EXAMPLE
-        #     ("user", "gpt"),
-        #     ("system", "gpt"),
-        #     ("user", "llama")
-        # }
-
-        for provider, candidates in family.provider_candidates.items():
-            available_models = available_by_provider.get(provider, set())
-            for model_id in candidates:
-                pair = (provider, model_id)
-                if pair in seen_pairs:
+        known_candidats_by_provider: dict[str, set[str]] = {
+            "ollama": set(),
+            "huggingface": set()
+        }
+        for family in MODEL_FAMILIES:
+            for provider, candidates in family.provider_candidates.items():
+                if provider not in known_candidats_by_provider:
                     continue
-                models.append(
-                    {
-                        "provider": provider,
-                        "model_id": model_id,
-                        "available": model_id.lower() in available_models,
-                        "display_name": model_id
-                    }
+
+                known_candidats_by_provider[provider].update(
+                    c.lower() for c in candidates
                 )
-        families.append(
-            {
-                "family_id": family.family_id,
-                "label": family.label,
-                "owner": family.owner,
-                "models": models,
-            }
-        )
 
-    uncataloged_models: list[dict[str, Any]] = []
-    for provider in ('ollama', 'huggingface'):
-        available_models = sorted(available_by_provider.get(provider, set()))
-        known_models = known_candidats_by_provider[provider]
-        for model_id in available_models:
-            if model_id in known_models:
-                continue
-            uncataloged_models.append(
+        families: list[dict[str, Any]] = []
+        for family in MODEL_FAMILIES:
+            models: list[dict[str, Any]] = []
+            seen_pairs: set[tuple[str, str]] = set()
+
+            for provider, candidates in family.provider_candidates.items():
+                available_models = available_by_provider.get(provider, set())
+                for model_id in candidates:
+                    pair = (provider, model_id)
+                    if pair in seen_pairs:
+                        continue
+                    models.append(
+                        {
+                            "provider": provider,
+                            "model_id": model_id,
+                            "available": model_id.lower() in available_models,
+                            "display_name": model_id
+                        }
+                    )
+            families.append(
                 {
-                    "provider": provider,
-                    'model_id': model_id,
-                    'available': True,
-                    "display_name": model_id
-
+                    "family_id": family.family_id,
+                    "label": family.label,
+                    "owner": family.owner,
+                    "models": models,
                 }
             )
 
-    if uncataloged_models:
-        families.append(
-            {
-                'family_id': 'other_available',
-                'label': 'other available models',
-                'owner': 'discovered',
-                'models': uncataloged_models
-            }
-        )
+        uncataloged_models: list[dict[str, Any]] = []
+        for provider in ('ollama', 'huggingface'):
+            available_models = sorted(available_by_provider.get(provider, set()))
+            known_models = known_candidats_by_provider[provider]
+            for model_id in available_models:
+                if model_id in known_models:
+                    continue
+                uncataloged_models.append(
+                    {
+                        "provider": provider,
+                        'model_id': model_id,
+                        'available': True,
+                        "display_name": model_id
 
-    provider_health = ai_service.provider_health() if hasattr(ai_service, 'provider_health') else {}
-    response_payload = {
-        "families": families,
-        "selected": _resolve_selected_model(inventory),
-        "provider_health": provider_health
-    }
+                    }
+                )
+
+        if uncataloged_models:
+            families.append(
+                {
+                    'family_id': 'other_available',
+                    'label': 'other available models',
+                    'owner': 'discovered',
+                    'models': uncataloged_models
+                }
+            )
+
+        response_payload = {
+            "families": families,
+            "selected": _resolve_selected_model(inventory)
+        }
+        _ai_catalog_cache[cache_key] = {
+            'families': families,
+            'selected': response_payload['selected'],
+            'timestamp': now
+        }
+
+    if include_health:
+        provider_health = ai_service.provider_health() if hasattr(ai_service, 'provider_health') else {}
+        response_payload['provider_health'] = provider_health
+
     return jsonify(response_payload), 200
 
 
@@ -202,7 +232,7 @@ def set_ai_selection():
                 jsonify(
                     {
                         "error": {
-                            "code" : "invalid_model_selection",
+                            "code": "invalid_model_selection",
                             "message": err_msg,
                             "details": {
                                 "provider": provider,
@@ -224,6 +254,7 @@ def set_ai_selection():
         "provider": selected["provider"],
         "model_id": selected["model_id"],
     }
+    _invalidate_ai_catalog_cache()
 
     return jsonify(
         {

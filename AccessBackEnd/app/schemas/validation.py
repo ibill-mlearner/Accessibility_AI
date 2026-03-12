@@ -76,3 +76,4 @@ class AIInteractionPayloadSchema(Schema):
         fields.Int(), required=False
     )
     selected_accessibility_link_ids = fields.List(fields.Int(), required=False)
+    use_user_feature_preferences = fields.Bool(required=False, load_default=False)

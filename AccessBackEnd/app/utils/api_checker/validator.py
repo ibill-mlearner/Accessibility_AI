@@ -78,43 +78,55 @@ class ApiMonolithHelper:
             raise BadRequestError(f"{field_name} must be an integer") from exc
 
     @staticmethod
+    def _serialize_chat(record: Any) -> Payload:
+        started_at = getattr(record, "started_at", None)
+        started = started_at.isoformat() if started_at else None
+        return {
+            "id": record.id,
+            "class": record.class_id,
+            "class_id": record.class_id,
+            "user": record.user_id,
+            "user_id": record.user_id,
+            "title": record.title,
+            "model": record.model,
+            "start": started,
+            "started_at": started,
+        }
+
+    @staticmethod
+    def _serialize_message(record: Any) -> Payload:
+        return {
+            "id": record.id,
+            "chat_id": record.chat_id,
+            "message_text": record.message_text,
+            "vote": record.vote,
+            "note": record.note,
+            "help_intent": record.help_intent,
+        }
+
+    @staticmethod
+    def _serialize_note(record: Any) -> Payload:
+        noted_on = getattr(record, "noted_on", None)
+        noted = noted_on.isoformat() if noted_on else None
+        return {
+            "id": record.id,
+            "class": record.class_id,
+            "class_id": record.class_id,
+            "chat": record.chat_id,
+            "chat_id": record.chat_id,
+            "date": noted,
+            "noted_on": noted,
+            "content": record.content,
+        }
+
+    @staticmethod
     def serialize(resource: str, record: Any) -> Payload:
         if resource == "chat":
-            started_at = getattr(record, "started_at", None)
-            started = started_at.isoformat() if started_at else None
-            return {
-                "id": record.id,
-                "class": record.class_id,
-                "class_id": record.class_id,
-                "user": record.user_id,
-                "user_id": record.user_id,
-                "title": record.title,
-                "model": record.model,
-                "start": started,
-                "started_at": started,
-            }
+            return ApiMonolithHelper._serialize_chat(record)
         if resource == "message":
-            return {
-                "id": record.id,
-                "chat_id": record.chat_id,
-                "message_text": record.message_text,
-                "vote": record.vote,
-                "note": record.note,
-                "help_intent": record.help_intent,
-            }
+            return ApiMonolithHelper._serialize_message(record)
         if resource == "note":
-            noted_on = getattr(record, "noted_on", None)
-            noted = noted_on.isoformat() if noted_on else None
-            return {
-                "id": record.id,
-                "class": record.class_id,
-                "class_id": record.class_id,
-                "chat": record.chat_id,
-                "chat_id": record.chat_id,
-                "date": noted,
-                "noted_on": noted,
-                "content": record.content,
-            }
+            return ApiMonolithHelper._serialize_note(record)
         return {}
 
     @staticmethod
