@@ -141,4 +141,3 @@ def delete_class(class_id: int):
     db.session.delete(class_record)
     db.session.commit()
     return jsonify(response_payload), 200
-
