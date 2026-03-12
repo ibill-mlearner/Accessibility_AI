@@ -7,8 +7,15 @@ from .interaction_file_logger import (
     DEFAULT_LOG_BASENAME,
     MAX_LOG_LINES,
     InteractionLoggingService,
-    InteractionRunner,
     RotatingTextLogWriter,
+)
+from .interfaces import (
+    DomainEventInterface,
+    EventBusInterface,
+    EventObserverInterface,
+    InteractionLoggingServiceInterface,
+    InteractionLogWriterInterface,
+    InteractionRunnerInterface,
 )
 
 __all__ = [
@@ -18,9 +25,14 @@ __all__ = [
     "EventBus",
     "EventObserver",
     "LoggingObserver",
+    "DomainEventInterface",
+    "EventBusInterface",
+    "EventObserverInterface",
+    "InteractionRunnerInterface",
+    "InteractionLogWriterInterface",
+    "InteractionLoggingServiceInterface",
     "DEFAULT_LOG_BASENAME",
     "MAX_LOG_LINES",
     "InteractionLoggingService",
-    "InteractionRunner",
     "RotatingTextLogWriter",
 ]

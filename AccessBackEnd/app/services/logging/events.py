@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from .interfaces import DomainEventInterface, EventBusInterface, EventObserverInterface
+
 
 @dataclass(slots=True)
 class DomainEvent:
@@ -14,14 +16,14 @@ class DomainEvent:
     payload: dict[str, Any] = field(default_factory=dict)
     occurred_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
-class EventObserver:
+class EventObserver(EventObserverInterface):
     def on_event(
         self, event: DomainEvent
     ) -> None:  # pragma: no cover - protocol method
         raise NotImplementedError
 
 
-class EventBus:
+class EventBus(EventBusInterface):
     def __init__(self) -> None:
         self._observers: list[EventObserver] = []
 
