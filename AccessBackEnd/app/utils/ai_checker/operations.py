@@ -3,10 +3,11 @@ from flask import current_app, jsonify, session
 from flask_login import current_user
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...api.errors import BadRequestError
 from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...models import AIInteraction, AIModel, Chat, CourseClass
-from ...models.ai_interaction import AccommodationSystemPrompt
+from ...models.ai import AccommodationSystemPrompt
 from ...services.ai_pipeline.model_catelog import family_id_from_model_id, resolve_model_selection
 from ...api.v1.routes import _raise_bad_request_from_exception, _require_record, db
 from .mutations import AIInteractionMutations
@@ -85,43 +86,36 @@ class AIInteractionOps:
         }
 
     @staticmethod
-    def _resolve_selected_model(payload: dict[str, Any]) -> dict[str, str | None]:
-        """Resolve currently active provider/model/family from discovered defaults."""
-        selected = AIInteractionOps._resolve_session_model_selection()
-        if selected is not None:
-            return selected
-        provider_defaults = payload.get("provider_defaults")
-        if not isinstance(provider_defaults, dict):
-            provider_defaults = {}
-
-        provider = AIInteractionOps._validator.to_clean_text(
-            provider_defaults.get("provider")
-            or current_app.config.get("AI_PROVIDER")
-            or "",
-            lower=True,
-        )
-        selected_model_id = ""
-
+    def _resolve_default_model_id(provider: str, provider_defaults: dict[str, Any]) -> str:
         if provider == "ollama":
-            selected_model_id = AIInteractionOps._validator.to_clean_text(
+            value = (
                 provider_defaults.get("ollama_model_id")
                 or current_app.config.get("AI_OLLAMA_MODEL")
                 or current_app.config.get("AI_MODEL_NAME")
                 or ""
             )
         elif provider == "huggingface":
-            selected_model_id = AIInteractionOps._validator.to_clean_text(
-                provider_defaults.get("huggingface_model_id")
-                or current_app.config.get("AI_MODEL_NAME")
-                or ""
-            )
+            value = provider_defaults.get("huggingface_model_id") or current_app.config.get("AI_MODEL_NAME") or ""
         else:
-            selected_model_id = AIInteractionOps._validator.to_clean_text(
-                provider_defaults.get("model_name")
-                or current_app.config.get("AI_MODEL_NAME")
-                or ""
-            )
+            value = provider_defaults.get("model_name") or current_app.config.get("AI_MODEL_NAME") or ""
+        return AIInteractionOps._validator.to_clean_text(value)
 
+    @staticmethod
+    def _resolve_selected_model(payload: dict[str, Any]) -> dict[str, str | None]:
+        """Resolve currently active provider/model/family from discovered defaults."""
+        selected = AIInteractionOps._resolve_session_model_selection()
+        if selected is not None:
+            return selected
+
+        provider_defaults = payload.get("provider_defaults")
+        if not isinstance(provider_defaults, dict):
+            provider_defaults = {}
+
+        provider = AIInteractionOps._validator.to_clean_text(
+            provider_defaults.get("provider") or current_app.config.get("AI_PROVIDER") or "",
+            lower=True,
+        )
+        selected_model_id = AIInteractionOps._resolve_default_model_id(provider, provider_defaults)
         return {
             "provider": provider or None,
             "model_id": selected_model_id or None,
@@ -163,38 +157,29 @@ class AIInteractionOps:
         return provider_models
 
     @staticmethod
-    def _resolve_provider_model_metadata(
-            result: Any
-    ) -> tuple[str, str, str | None, str | None]:
+    def _default_model_name() -> str:
+        return current_app.config.get("AI_OLLAMA_MODEL") or current_app.config.get("AI_MODEL_NAME") or ""
 
-        provider_name = AIInteractionOps._validator.to_clean_text(AIInteractionOps._resolve_provider(result),
-                                                                  lower=True) or "unknown"
+    @staticmethod
+    def _model_metadata_from_result(result: Any, model_name: str) -> tuple[str, str | None, str | None]:
         source: str | None = None
         path: str | None = None
+        if not isinstance(result, dict):
+            return model_name, source, path
 
-        model_name = (
-                current_app.config.get("AI_OLLAMA_MODEL")
-                or current_app.config.get("AI_MODEL_NAME")
-                or ""
-        )
-        if isinstance(result, dict):
-            meta_payload = result.get("meta")
-            if isinstance(meta_payload, dict):
-                model_name = (
-                        meta_payload.get("model_id")
-                        or meta_payload.get("model")
-                        or meta_payload.get("name")
-                        or model_name
-                )
-                source = AIInteractionOps._validator.to_clean_text(meta_payload.get("source")) or None
-                path = AIInteractionOps._validator.to_clean_text(meta_payload.get("path")) or None
-            model_name = (
-                    result.get("model_id")
-                    or result.get("model")
-                    or result.get("name")
-                    or model_name
-            )
+        meta_payload = result.get("meta")
+        if isinstance(meta_payload, dict):
+            model_name = meta_payload.get("model_id") or meta_payload.get("model") or meta_payload.get("name") or model_name
+            source = AIInteractionOps._validator.to_clean_text(meta_payload.get("source")) or None
+            path = AIInteractionOps._validator.to_clean_text(meta_payload.get("path")) or None
 
+        model_name = result.get("model_id") or result.get("model") or result.get("name") or model_name
+        return model_name, source, path
+
+    @staticmethod
+    def _resolve_provider_model_metadata(result: Any) -> tuple[str, str, str | None, str | None]:
+        provider_name = AIInteractionOps._validator.to_clean_text(AIInteractionOps._resolve_provider(result), lower=True) or "unknown"
+        model_name, source, path = AIInteractionOps._model_metadata_from_result(result, AIInteractionOps._default_model_name())
         normalized_model_id = AIInteractionOps._validator.to_clean_text(model_name) or f"{provider_name}-default"
         return provider_name, normalized_model_id, source, path
 
@@ -235,7 +220,6 @@ class AIInteractionOps:
         )
 
         if model is None:
-            # model = AIModel(provider=provider_name, active=True)
             model = AIModel(
                 provider=provider_name,
                 model_id=model_id,
@@ -245,52 +229,76 @@ class AIInteractionOps:
             )
             db.session.add(model)
             db.session.flush()
-            return int(model_id)
+            resolved_model_pk = int(model.id)
+            return resolved_model_pk
 
         model.active = True
         if source:
             model.source = source
         if path:
             model.path = path
-        return int(model_id)
+        resolved_model_pk = int(model.id)
+        return resolved_model_pk
+
+    @staticmethod
+    def _first_valid_prompt_link_id(selected_link_ids: Any) -> int | None:
+        if not isinstance(selected_link_ids, list):
+            return None
+        for candidate in selected_link_ids:
+            try:
+                resolved_id = int(candidate)
+            except (TypeError, ValueError):
+                continue
+            prompt_link = db.session.query(AccommodationSystemPrompt.id).filter(AccommodationSystemPrompt.id == resolved_id).first()
+            if prompt_link is not None:
+                return resolved_id
+        return None
+
+
+    @staticmethod
+    def _resolve_user_selected_feature_ids(user_id: int | None) -> list[int]:
+        if user_id is None:
+            return []
+        rows = (
+            db.session.query(UserAccessibilityFeature.accommodation_id)
+            .filter(
+                UserAccessibilityFeature.user_id == int(user_id),
+                UserAccessibilityFeature.enabled.is_(True),
+            )
+            .order_by(UserAccessibilityFeature.accommodation_id.asc())
+            .all()
+        )
+        return [int(row[0]) for row in rows]
+
+    @staticmethod
+    def _mapped_prompt_link_from_features(selected_feature_ids: Any) -> int | None:
+        if not isinstance(selected_feature_ids, list):
+            return None
+        normalized_feature_ids: list[int] = []
+        for feature_id in selected_feature_ids:
+            try:
+                normalized_feature_ids.append(int(feature_id))
+            except (TypeError, ValueError):
+                continue
+        if not normalized_feature_ids:
+            return None
+        mapped_link = (
+            db.session.query(AccommodationSystemPrompt.id)
+            .filter(AccommodationSystemPrompt.accommodation_id.in_(normalized_feature_ids))
+            .order_by(AccommodationSystemPrompt.id.asc())
+            .first()
+        )
+        return int(mapped_link[0]) if mapped_link is not None else None
 
     @staticmethod
     def _resolve_prompt_link_id(payload: dict[str, Any]) -> int | None:
-        selected_link_ids = payload.get("selected_accommodations_id_system_prompts_ids")
-        if isinstance(selected_link_ids, list):
-            for candidate in selected_link_ids:
-                try:
-                    resolved_id = int(candidate)
-                except (TypeError, ValueError):
-                    continue
-                prompt_link = (
-                    db.session.query(AccommodationSystemPrompt.id)
-                    .filter(AccommodationSystemPrompt.id == resolved_id)
-                    .first()
-                )
-                if prompt_link is not None:
-                    return resolved_id
+        selected_link = AIInteractionOps._first_valid_prompt_link_id(payload.get("selected_accommodations_id_system_prompts_ids"))
+        if selected_link is not None:
+            return selected_link
 
-        selected_feature_ids = payload.get("selected_accessibility_link_ids")
-        if isinstance(selected_feature_ids, list):
-            normalized_feature_ids: list[int] = []
-            for f_id in selected_feature_ids:
-                try:
-                    normalized_feature_ids.append(int(f_id))
-                except (TypeError, ValueError):
-                    continue
-                    # I should find some error catching for this here in a future patch
-
-            # this could cause too much DB lookup, need to watchout for how many query actions happen when using the app
-            if normalized_feature_ids:
-                mapped_link = (
-                    db.session.query(AccommodationSystemPrompt.id)
-                    .filter(AccommodationSystemPrompt.accommodation_id.in_(normalized_feature_ids))
-                    .order_by(AccommodationSystemPrompt.id.asc())
-                    .first()
-                )
-                if mapped_link is not None:
-                    return int(mapped_link[0])
+        mapped_link = AIInteractionOps._mapped_prompt_link_from_features(payload.get("selected_accessibility_link_ids"))
+        if mapped_link is not None:
+            return mapped_link
 
         link_id = payload.get("accommodations_id_system_prompts_id")
         if link_id is None:
@@ -355,89 +363,59 @@ class AIInteractionOps:
         chat.ai_interaction_id = interaction_id
 
     @staticmethod
-    def _persist_ai_interaction(
-            payload: dict[str, Any], prompt: str, result: Any
-    ) -> tuple[Any, int] | None:
-        """Persist an AI interaction; return error response tuple when persistence fails."""
+    def _create_interaction_record(payload: dict[str, Any], prompt: str, result: Any) -> None:
         interaction_repo = AIInteractionOps.interaction_repository_factory(AIInteraction)
+        normalized = AIInteractionOps._normalize_interaction_response(result)
+        persistence_ids = AIInteractionOps._build_interaction_persistence_payload(payload, result)
+        interaction = interaction_repo.create(
+            db.session,
+            prompt=prompt,
+            response_text=normalized["assistant_text"],
+            chat_id=persistence_ids["chat_id"],
+            ai_model_id=persistence_ids["model_id"],
+            accommodations_id_system_prompts_id=persistence_ids["prompt_link_id"],
+        )
+        AIInteractionOps._sync_chat_latest_interaction(persistence_ids["chat_id"], interaction.id)
 
+    @staticmethod
+    def _persist_ai_interaction(payload: dict[str, Any], prompt: str, result: Any) -> tuple[Any, int] | None:
+        """Persist an AI interaction; return error response tuple when persistence fails."""
         try:
-            normalized = AIInteractionOps._normalize_interaction_response(result)
-            persistence_ids = AIInteractionOps._build_interaction_persistence_payload(payload, result)
-
-            interaction = interaction_repo.create(
-                db.session,
-                prompt=prompt,
-                response_text=normalized["assistant_text"],
-                chat_id=persistence_ids["chat_id"],
-                ai_model_id=persistence_ids["model_id"],
-                accommodations_id_system_prompts_id=persistence_ids["prompt_link_id"],
-            )
-            AIInteractionOps._sync_chat_latest_interaction(persistence_ids["chat_id"], interaction.id)
-
+            AIInteractionOps._create_interaction_record(payload, prompt, result)
             db.session.commit()
         except SQLAlchemyError as exc:
             db.session.rollback()
-            return (
-                jsonify(
-                    {
-                        "error": {
-                            "code": "persistence_error",
-                            "message": "Failed to persist AI interaction",
-                            "details": {"exception": exc.__class__.__name__},
-                        }
-                    }
-                ),
-                500,
-            )
-
+            return jsonify({"error": {"code": "persistence_error", "message": "Failed to persist AI interaction", "details": {"exception": exc.__class__.__name__}}}), 500
         return None
+
+    @staticmethod
+    def _resolve_class_id(payload: dict[str, Any]) -> int | None:
+        raw_class_id = payload.get("class_id")
+        if raw_class_id is not None:
+            try:
+                return int(raw_class_id)
+            except (TypeError, ValueError) as exc:
+                _raise_bad_request_from_exception(exc, message="class id must be an integer/number")
+
+        chat_id = AIInteractionOps._resolve_chat_id(payload)
+        if chat_id is None:
+            return None
+        chat = _require_record("chat", Chat, chat_id)
+        return int(chat.class_id)
 
     @staticmethod
     def _resolve_system_instructions(payload: dict[str, Any]) -> str:
         """Resolve DB backed system instructions for AI providers"""
         prompt_link_id = AIInteractionOps._resolve_prompt_link_id(payload)
-        prompt_link = None
-
-        if prompt_link_id is not None:
-            prompt_link = _require_record(
-                "accommodation_system_prompt",
-                AccommodationSystemPrompt,
-                prompt_link_id
-            )
-        class_id: int | None = None
-
-        raw_class_id = payload.get("class_id")
-
-        if raw_class_id is not None:
-            try:
-                class_id = int(raw_class_id)
-            except (TypeError, ValueError) as e:
-                _raise_bad_request_from_exception(
-                    e,
-                    message="class id must be an integer/number"
-                )
-        else:
-            chat_id = AIInteractionOps._resolve_chat_id(payload)
-            if chat_id is not None:
-                chat = _require_record("chat", Chat, chat_id)
-                class_id = int(chat.class_id)
-
-        class_record = _require_record(
-            "class",
-            CourseClass,
-            class_id
-        ) if class_id is not None else None
-
+        prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id) if prompt_link_id is not None else None
+        class_id = AIInteractionOps._resolve_class_id(payload)
+        class_record = _require_record("class", CourseClass, class_id) if class_id is not None else None
         parts = [
-            AIInteractionOps._validator.to_clean_text(
-                prompt_link.system_prompt.text) if prompt_link and prompt_link.system_prompt else "",
-            AIInteractionOps._validator.to_clean_text(
-                prompt_link.accommodation.details) if prompt_link and prompt_link.accommodation else "",
-            AIInteractionOps._validator.to_clean_text(class_record.description) if class_record else ""
+            AIInteractionOps._validator.to_clean_text(prompt_link.system_prompt.text) if prompt_link and prompt_link.system_prompt else "",
+            AIInteractionOps._validator.to_clean_text(prompt_link.accommodation.details) if prompt_link and prompt_link.accommodation else "",
+            AIInteractionOps._validator.to_clean_text(class_record.description) if class_record else "",
         ]
-
-        return "\n\n".join(p for p in parts if p)
+        return "\n\n".join(part for part in parts if part)
 
 
 __all__ = [
@@ -586,6 +564,21 @@ def build_context_and_system_instructions(payload: dict[str, Any], messages: lis
     context_payload = payload.get("context")
     if not isinstance(context_payload, dict):
         context_payload = {}
+
+    explicit_selected_ids = payload.get("selected_accessibility_link_ids")
+    if isinstance(explicit_selected_ids, list):
+        selected_ids = [
+            int(feature_id)
+            for feature_id in explicit_selected_ids
+            if isinstance(feature_id, int) and feature_id > 0
+        ]
+        payload["selected_accessibility_link_ids"] = selected_ids
+        context_payload["selected_accessibility_link_ids"] = selected_ids
+    elif payload.get("use_user_feature_preferences"):
+        selected_ids = AIInteractionOps._resolve_user_selected_feature_ids(getattr(current_user, "id", None))
+        payload["selected_accessibility_link_ids"] = selected_ids
+        context_payload["selected_accessibility_link_ids"] = selected_ids
+
     if messages and "messages" not in context_payload:
         context_payload["messages"] = messages
     return context_payload, system_instructions

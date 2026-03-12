@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 
 from flask_login import UserMixin
 from sqlalchemy.orm import validates
@@ -8,13 +9,12 @@ from sqlalchemy.sql import func
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
-from .identity_defaults import build_transitional_security_stamp
 
 
 class User(db.Model, UserMixin):
     __tablename__ = "users"
     #todo: auth provider and tenant, oid, last remote auth  and token refresh
-    # for adding 0365 auth
+    # for adding 0365 auth 0-- no time to do this so ignore it
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     normalized_email = db.Column(db.String(120), unique=True, nullable=False, index=True)
@@ -36,7 +36,7 @@ class User(db.Model, UserMixin):
     lockout_enabled = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
     # Transitional placeholder until full identity policy enforcement is implemented.
     security_stamp = db.Column(
-        db.String(64), nullable=False, default=lambda: build_transitional_security_stamp(None)
+        db.String(64), nullable=False, default=lambda: f"transitional-{hashlib.sha256('identity-placeholder'.encode('utf-8')).hexdigest()[:32]}"
     )
 
     @staticmethod

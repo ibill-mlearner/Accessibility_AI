@@ -9,7 +9,7 @@ from pathlib import Path
 from .interfaces import AIInteractionRepositoryInterface, DatabaseRuntime, UserRepositoryInterface
 
 from ..models.entity_metadata import EntityMetadata
-from ..models.identity_defaults import build_transitional_identity_defaults
+import hashlib
 
 
 MetadataProvider = Callable[[], dict[str, EntityMetadata]]
@@ -93,7 +93,12 @@ class JsonUserRepository(UserRepositoryInterface):
             "created_at": now_iso,
             "updated_at": now_iso,
             "is_active": True,
-            **build_transitional_identity_defaults(normalized_email),
+            "email_confirmed": False,
+            "access_failed_count": 0,
+            "lockout_enabled": True,
+            "lockout_end": None,
+            "security_stamp": f"transitional-{hashlib.sha256(normalized_email.encode('utf-8')).hexdigest()[:32]}",
+            "last_login_at": None,
         }
         records.append(record)
         return self.user_model(**record)

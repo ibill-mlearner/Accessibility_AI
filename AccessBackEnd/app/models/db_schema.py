@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 
 from sqlalchemy import Boolean, DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 from sqlalchemy.sql import func
 
-from .accommodations import Accommodation
-from .ai_interaction import AIInteraction, AccommodationSystemPrompt, SystemPrompt
-from .ai_models import AIModel
+from .ai import AIInteraction, AIModel, AccommodationSystemPrompt, SystemPrompt
+from .learning import Accommodation, UserAccessibilityFeature
 from .audit_log import AuditLog
 from .base import Base
-from .chats import Chat, CourseClass, Message, Note, UserClassEnrollment
-from .identity_defaults import build_transitional_security_stamp
-from .role import Role
-from .session import UserSession
+from .learning import Chat, CourseClass, Message, Note, UserClassEnrollment
+from .identity import Role, UserSession
 
 
 class DBUser(Base):
@@ -46,7 +44,7 @@ class DBUser(Base):
     lockout_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     # Transitional placeholder until full identity policy enforcement is implemented.
     security_stamp: Mapped[str] = mapped_column(
-        String(64), nullable=False, default=lambda: build_transitional_security_stamp(None)
+        String(64), nullable=False, default=lambda: f"transitional-{hashlib.sha256('identity-placeholder'.encode('utf-8')).hexdigest()[:32]}"
     )
 
     chats: Mapped[list[Chat]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -57,6 +55,9 @@ class DBUser(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     sessions: Mapped[list[UserSession]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    accessibility_features: Mapped[list[UserAccessibilityFeature]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @staticmethod
     def _normalize_email(email: str) -> str:
@@ -85,6 +86,7 @@ DB_MODELS = {
     "accommodation_system_prompt": AccommodationSystemPrompt,
     "ai_interaction": AIInteraction,
     "accommodation": Accommodation,
+    "user_accessibility_feature": UserAccessibilityFeature,
     "user_session": UserSession,
     "audit_log": AuditLog,
 }

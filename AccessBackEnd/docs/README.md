@@ -38,3 +38,10 @@ Expected rows include `chats` and `users`.
 ## Logging
 
 - Logging architecture and extension points are documented in `AccessBackEnd/docs/logging.md`.
+
+
+## AI model operations
+
+- Hardware/runtime setup and sizing guide: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`.
+- System prompt composition workflow: `AccessBackEnd/docs/ai_system_prompt_workflow.md`.
+- System prompt step deep-dives: `AccessBackEnd/docs/ai_system_prompt_workflow/` (one file per workflow step).

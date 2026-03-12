@@ -19,15 +19,10 @@ from .routes import (
     _publish,
     _require_record,
     _serialize_record,
-    _validate_payload,
     api_v1_bp,
     db,
-    _read_json_object,
-    BadRequestError
 )
-from ...schemas.validation import AIInteractionPayloadSchema
 from ...models import AIInteraction, Chat
-from ...services.ai_pipeline.types import AIPipelineRequest
 from ...utils.chat_access import ChatAccessHelper
 from ...services.ai_pipeline.interfaces import AIPipelineServiceInterface
 
@@ -126,8 +121,20 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
         len((result or {}).get("notes")) if isinstance(result, dict) and isinstance((result or {}).get("notes"), list) else 0,
         str(result)[:200],
     )
-    normalized_result = _normalize_interaction_response(result)
-    normalized_result["meta"]["provider"] = _resolve_provider(result)
+    normalized_result = components.response_normalizer.normalize(result)
+    meta = normalized_result.get("meta") if isinstance(normalized_result.get("meta"), dict) else {}
+    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+    selected_provider = str((selected_runtime or {}).get("provider") or current_app.config.get("AI_PROVIDER") or "").strip().lower()
+    if selected_provider == "ollama":
+        selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_OLLAMA_MODEL") or current_app.config.get("AI_MODEL_NAME") or "").strip()
+    else:
+        selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_MODEL_NAME") or "").strip()
+    meta.setdefault("selected_provider", selected_provider)
+    meta.setdefault("selected_model_id", selected_model_id)
+    meta.setdefault("provider", selected_provider)
+    meta.setdefault("model", selected_model_id)
+    normalized_result["meta"] = meta
+
     current_app.logger.debug(
         "api.ai_interactions.ai_service.run.elapsed request_id=%s duration_ms=%s",
         request_id,

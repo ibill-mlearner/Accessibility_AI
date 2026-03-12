@@ -73,6 +73,41 @@ def _run_sqlite_ai_models_migration(app: Flask) -> None:
         except SQLAlchemyError as exc:
             app.logger.warning("Unable to migrate ai_models provider/model_id schema: %s", exc)
 
+
+
+def _run_sqlite_user_accessibility_features_migration(app: Flask) -> None:
+    """Create per-user accessibility feature preference table for legacy SQLite databases."""
+
+    from ..extensions import db
+
+    migration_script = Path(__file__).resolve().parent / "migrations" / "sqlite_user_accessibility_features.sql"
+    if not migration_script.exists():
+        app.logger.warning("User accessibility feature migration script missing at %s", migration_script)
+        return
+
+    with app.app_context():
+        engine = db.engine
+        if engine.dialect.name != "sqlite":
+            return
+
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        if "users" not in existing_tables or "accommodations" not in existing_tables:
+            return
+        if "user_accessibility_features" in existing_tables:
+            return
+
+        script = migration_script.read_text(encoding="utf-8")
+        statements = [stmt.strip() for stmt in script.split(";") if stmt.strip()]
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                for statement in statements:
+                    conn.execute(text(statement))
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+        except SQLAlchemyError as exc:
+            app.logger.warning("Unable to migrate user_accessibility_features schema: %s", exc)
+
 def init_flask_database(app: Flask) -> None:
     """Explicitly create every configured SQLAlchemy table set for the app DB."""
 
@@ -95,6 +130,7 @@ def ensure_sqlite_compat_schema(app: Flask) -> None:
 
     from ..extensions import db
     _run_sqlite_ai_models_migration(app)
+    _run_sqlite_user_accessibility_features_migration(app)
     column_updates: Iterable[tuple[str, str, str]] = (
         ("classes", "active", "BOOLEAN NOT NULL DEFAULT 1"),
         ("chats", "ai_interaction_id", "INTEGER"),

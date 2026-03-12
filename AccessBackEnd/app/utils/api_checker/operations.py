@@ -11,7 +11,7 @@ from sqlalchemy import and_, or_
 from ...api.errors import BadRequestError, NotFoundError
 from ...extensions import db
 from ...models import Accommodation, Chat, CourseClass, Message, Note, SystemPrompt, User, UserClassEnrollment, UserSession
-from ...models.role import Role
+from ...models.identity import Role
 from ...utils.chat_access import ChatAccessHelper
 from ...services.logging import DomainEvent
 from .validator import api_monolith_helper

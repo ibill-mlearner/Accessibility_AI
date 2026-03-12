@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 from ..interfaces import UserRepositoryInterface
-from ...models.identity_defaults import build_transitional_identity_defaults
+import hashlib
 
 
 class UserRepository(UserRepositoryInterface):
@@ -19,7 +19,12 @@ class UserRepository(UserRepositoryInterface):
             normalized_email=normalized_email,
             password_hash=password_hash,
             role=role,
-            **build_transitional_identity_defaults(normalized_email),
+            email_confirmed=False,
+            access_failed_count=0,
+            lockout_enabled=True,
+            lockout_end=None,
+            security_stamp=f"transitional-{hashlib.sha256(normalized_email.encode('utf-8')).hexdigest()[:32]}",
+            last_login_at=None,
         )
         session.add(user)
         session.flush()

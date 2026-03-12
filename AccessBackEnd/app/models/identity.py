@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+
+class Role(StrEnum):
+    """Canonical user roles for authorization and model defaults."""
+
+    STUDENT = "student"
+    INSTRUCTOR = "instructor"
+    ADMIN = "admin"
 
 
 class UserSession(Base):

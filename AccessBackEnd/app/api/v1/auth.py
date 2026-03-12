@@ -3,7 +3,7 @@ from flask_login import current_user, login_user, login_required, logout_user
 
 from .routes import BadRequestError, api_v1_bp, db, _read_json_object
 from ...models import User
-from ...models.identity_defaults import build_transitional_identity_defaults
+import hashlib
 from ...utils.api_checker import (
     _create_user_session,
     _enforce_roles,
@@ -131,7 +131,16 @@ def register_auth_user():
             409,
         )
 
-    user = User(email=email, role=role, **build_transitional_identity_defaults(email))
+    user = User(
+        email=email,
+        role=role,
+        email_confirmed=False,
+        access_failed_count=0,
+        lockout_enabled=True,
+        lockout_end=None,
+        security_stamp=f"transitional-{hashlib.sha256(email.encode('utf-8')).hexdigest()[:32]}",
+        last_login_at=None,
+    )
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
