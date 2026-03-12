@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from dataclasses import asdict
 from flask import current_app
 from flask_login import current_user
 
@@ -55,13 +55,30 @@ class AIInteractionRequestParser(AIInteractionRequestParserInterface):
         )
         return payload
 
-    def build_request_dto(self, payload: dict[str, object]) -> AIInteractionRequestDTOBuild:
+    def build_request_dto(
+            self,
+            payload: dict[str, object]
+    ) -> AIInteractionRequestDTOBuild:
         prompt, messages = build_prompt_and_messages(payload)
         context_payload, system_instructions = build_context_and_system_instructions(payload, messages)
         composed_system_prompt = compose_system_prompt(system_instructions, payload)
         chat_id = _resolve_chat_id(payload)
         initiated_by = _resolve_initiated_by(payload)
         request_id = str(payload.get("request_id") or "n/a")
+
+        current_app.logger.info(
+            "api.ai.interactions.dto.build_input prompt=%r messages=%r system_prompt=%r context=%r chat_id=%r initiated_by=%r class_id=%r user_id=%r rag=%r request_id=%r",
+            prompt,
+            messages,
+            composed_system_prompt,
+            context_payload,
+            chat_id,
+            initiated_by,
+            payload.get("class_id"),
+            payload.get("user_id"),
+            payload.get("rag") if isinstance(payload.get("rag"), dict) else None,
+            payload.get("request_id"),
+        )
 
         dto = AIPipelineRequest(
             prompt=prompt,
@@ -74,6 +91,11 @@ class AIInteractionRequestParser(AIInteractionRequestParserInterface):
             user_id=payload.get("user_id"),
             rag=payload.get("rag") if isinstance(payload.get("rag"), dict) else None,
             request_id=payload.get("request_id"),
+        )
+
+        current_app.logger.info(
+            "api.ai.interactions.dto.built dto=%r",
+            asdict(dto),
         )
 
         return AIInteractionRequestDTOBuild(

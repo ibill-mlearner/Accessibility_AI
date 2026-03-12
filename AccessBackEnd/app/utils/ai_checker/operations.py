@@ -3,6 +3,7 @@ from flask import current_app, jsonify, session
 from flask_login import current_user
 from sqlalchemy.exc import SQLAlchemyError
 
+from ...api.errors import BadRequestError
 from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...models import AIInteraction, AIModel, Chat, CourseClass, UserAccessibilityFeature
@@ -564,7 +565,16 @@ def build_context_and_system_instructions(payload: dict[str, Any], messages: lis
     if not isinstance(context_payload, dict):
         context_payload = {}
 
-    if payload.get("use_user_feature_preferences"):
+    explicit_selected_ids = payload.get("selected_accessibility_link_ids")
+    if isinstance(explicit_selected_ids, list):
+        selected_ids = [
+            int(feature_id)
+            for feature_id in explicit_selected_ids
+            if isinstance(feature_id, int) and feature_id > 0
+        ]
+        payload["selected_accessibility_link_ids"] = selected_ids
+        context_payload["selected_accessibility_link_ids"] = selected_ids
+    elif payload.get("use_user_feature_preferences"):
         selected_ids = AIInteractionOps._resolve_user_selected_feature_ids(getattr(current_user, "id", None))
         payload["selected_accessibility_link_ids"] = selected_ids
         context_payload["selected_accessibility_link_ids"] = selected_ids
