@@ -1,8 +1,8 @@
 import pytest
 
-from ..app.db import init_flask_database
-from ..app.extensions import db
-from ..app.models import Accommodation, AccommodationSystemPrompt, CourseClass, SystemPrompt, User
+from app.db import init_flask_database
+from app.extensions import db
+from app.models import Accommodation, AccommodationSystemPrompt, CourseClass, SystemPrompt, User
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-from ..app.services.ai_pipeline.bootstrap import HuggingFaceModelBootstrap
+from app.services.ai_pipeline.bootstrap import HuggingFaceModelBootstrap
 
 
 def test_ensure_model_uses_local_path_when_present(tmp_path: Path):

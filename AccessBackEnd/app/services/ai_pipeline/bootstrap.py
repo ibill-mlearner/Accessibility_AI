@@ -84,6 +84,8 @@ class HuggingFaceModelBootstrap:
         alias_path = Path(self.cache_dir).expanduser() / model_alias
         if self._looks_like_materialized_model_dir(alias_path):
             return alias_path
+        if alias_path.exists() and alias_path.is_dir():
+            return alias_path
         return None
 
     def _resolve_instance_models_alias_path(self) -> Path | None:

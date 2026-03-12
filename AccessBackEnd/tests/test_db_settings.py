@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..app.db.settings import resolve_database_url
+from app.db.settings import resolve_database_url
 
 
 def test_resolve_database_url_defaults_to_backend_instance_dir(tmp_path):

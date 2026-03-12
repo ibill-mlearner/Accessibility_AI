@@ -72,17 +72,17 @@ def update_system_prompt(prompt_id: int):
     payload = _read_json_object()
 
     #todo: Restrict writes to instructor/admin roles and class ownership.
+    resolved_class_id = prompt.class_id
     if "class_id" in payload:
         class_id = _parse_int_field(payload.get("class_id"), field_name="class_id")
         if class_id is not None:
             _require_record("class", CourseClass, class_id)
+        payload["class_id"] = class_id
+        resolved_class_id = class_id
 
-
-        denied = ensure_instructor_owns_system_prompt_class(class_id=class_id, action="update")
-        if denied is not None:
-            return denied
-            
-        payload['class_id'] = class_id
+    denied = ensure_instructor_owns_system_prompt_class(class_id=resolved_class_id, action="update")
+    if denied is not None:
+        return denied
 
     if "instructor_id" in payload:
         instructor_id = _parse_int_field(payload.get("instructor_id"), field_name="instructor_id")
