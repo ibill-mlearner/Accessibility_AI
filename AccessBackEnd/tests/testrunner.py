@@ -12,7 +12,11 @@ def main() -> int:
     project_root = backend_dir.parent
     report_file = script_dir / "test_results.txt"
 
-    test_files = sorted(script_dir.glob("test_*.py"))
+    test_files = sorted(
+        test_file
+        for test_file in script_dir.rglob("test_*.py")
+        if test_file.name != Path(__file__).name
+    )
 
     with report_file.open("w", encoding="utf-8") as report:
         report.write("Accessibility AI backend test run\n")
