@@ -10,10 +10,9 @@ from .api.v1.routes import api_v1_bp
 from .utils.ai_checker import sync_ai_models_with_local_inventory
 from .db import ensure_sqlite_compat_schema, init_flask_database
 from .db.settings import resolve_database_url
-from .extensions import cors, db as db_ext, jwt, login_manager, migrate
+from .extensions import cors, db as db_ext, jwt, load_module_configs, login_manager, migrate
 from .services.logging import initialize_logging
 from .models import User
-from .services import AIPipelineService
 from .services.ai_pipeline_v2.factory import build_ai_service_from_config
 from .services import AIPipelineServiceInterface
 
@@ -30,7 +29,8 @@ def _register_cli_commands(app: Flask) -> None:
 
 
 def build_ai_service(app: Flask) -> AIPipelineServiceInterface:
-    return build_ai_service_from_config(app.config)
+    module_config = app.config.get("AI_PIPELINE_V2_CONFIG")
+    return build_ai_service_from_config(module_config, config=app.config)
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -47,6 +47,7 @@ def create_app(config_name: str | None = None) -> Flask:
     )
     app.config.from_object(cfg)
     app.config.from_pyfile("config.py", silent=True)
+    module_configs = load_module_configs(app)
 
     app.config["SQLALCHEMY_DATABASE_URI"] = resolve_database_url(
         instance_path=app.instance_path,
@@ -119,6 +120,8 @@ def create_app(config_name: str | None = None) -> Flask:
         except Exception as exc:  # noqa: BLE001
             app.logger.warning("AI model sync skipped during app init: %s", exc)
     initialize_logging(app)
+    app.logger.info("Loaded module configs: %s", ", ".join(sorted(module_configs.keys())))
+
     app.register_blueprint(api_v1_bp)
     register_api_error_handlers(app)
     _register_cli_commands(app)

@@ -31,11 +31,20 @@ def _ensure_default_observers(event_bus: EventBusInterface) -> None:
             event_bus.subscribe(observer_type())
 
 
-def _run_startup_tests(app: Flask, command: str, cwd: Path) -> None:
-    app.logger.info("startup_test_runner.start command=%s cwd=%s", command, cwd)
+def _render_startup_command(command: str | list[str]) -> str:
+    return command if isinstance(command, str) else " ".join(command)
 
+
+def _startup_command_argv(command: str | list[str]) -> list[str]:
+    return shlex.split(command) if isinstance(command, str) else list(command)
+
+
+def _run_startup_tests(app: Flask, command: str | list[str], cwd: Path) -> None:
+    app.logger.info("startup_test_runner.start command=%s cwd=%s", _render_startup_command(command), cwd)
+
+    argv = _startup_command_argv(command)
     process = subprocess.Popen(
-        shlex.split(command),
+        argv,
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,

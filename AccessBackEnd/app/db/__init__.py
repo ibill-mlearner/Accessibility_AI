@@ -7,10 +7,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 
 from .interfaces import AIInteractionRepositoryInterface, UserRepositoryInterface
-from ..models.db_schema import get_schema_bundle
 from .base import DatabaseConfig, StandaloneDatabase
-from .json_backend import create_json_backed_db
-from .repositories import AIInteractionRepository, UserRepository
 from .settings import resolve_database_url
 
 
@@ -23,6 +20,9 @@ def create_standalone_db(
     """Create an app-agnostic DB runtime with repositories and schema bound."""
 
     resolved_url = database_url or "sqlite:///:memory:"
+    from ..models.db_schema import get_schema_bundle
+    from .repositories import AIInteractionRepository, UserRepository
+
     runtime = StandaloneDatabase(DatabaseConfig(database_url=resolved_url, echo=echo))
     runtime.bind_schema(get_schema_bundle)
     if create_schema:
@@ -162,11 +162,8 @@ def ensure_sqlite_compat_schema(app: Flask) -> None:
 
 
 __all__ = [
-    "AIInteractionRepository",
     "DatabaseConfig",
     "StandaloneDatabase",
-    "UserRepository",
-    "create_json_backed_db",
     "ensure_sqlite_compat_schema",
     "init_flask_database",
     "init_standalone_schema",

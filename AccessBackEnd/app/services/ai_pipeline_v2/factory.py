@@ -4,6 +4,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from .config import AIPipelineV2ModuleConfig
+
 from .interfaces import AIProviderFactoryInterface
 from .providers import HuggingFaceProvider, HttpProvider, OllamaProvider, normalize_provider_name
 from .service import AIPipelineService
@@ -22,11 +24,11 @@ def create_provider(config: AIPipelineConfig, *, provider: str, model_id: str):
     raise ValueError(f"Unsupported AI provider: {provider}")
 
 
-def _validate_huggingface_local_only_config(config: Mapping[str, Any]) -> None:
-    provider = normalize_provider_name(str(config.get("AI_PROVIDER") or ""))
-    if provider != "huggingface" or bool(config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False)):
+def _validate_huggingface_local_only_config(config: AIPipelineV2ModuleConfig) -> None:
+    provider = normalize_provider_name(config.provider)
+    if provider != "huggingface" or config.huggingface_allow_download:
         return
-    model_name = str(config.get("AI_MODEL_NAME") or "").strip()
+    model_name = str(config.model_name).strip()
     model_path = Path(model_name).expanduser() if model_name else None
     if model_path and model_path.exists() and model_path.is_dir():
         return
@@ -36,23 +38,45 @@ def _validate_huggingface_local_only_config(config: Mapping[str, Any]) -> None:
     )
 
 
-def build_ai_service_from_config(
-    config: Mapping[str, Any],
-    provider_factory: AIProviderFactoryInterface | None = None,
-) -> AIPipelineService:
-    _validate_huggingface_local_only_config(config)
-    pipeline_config = AIPipelineConfig(
-        provider=str(config["AI_PROVIDER"]),
-        model_name=str(config.get("AI_MODEL_NAME") or ""),
-        live_endpoint=str(config.get("AI_LIVE_ENDPOINT") or ""),
+def _module_config_from_mapping(config: Mapping[str, Any]) -> AIPipelineV2ModuleConfig:
+    model_name = str(config.get("AI_MODEL_NAME") or "").strip()
+    return AIPipelineV2ModuleConfig(
+        provider=str(config.get("AI_PROVIDER") or "ollama"),
+        model_name=model_name,
+        live_endpoint=str(config.get("AI_LIVE_ENDPOINT") or config.get("AI_OLLAMA_ENDPOINT") or ""),
         ollama_endpoint=str(config.get("AI_OLLAMA_ENDPOINT") or ""),
-        ollama_model_id=str(config.get("AI_OLLAMA_MODEL") or config.get("AI_MODEL_NAME") or ""),
+        ollama_model_id=str(config.get("AI_OLLAMA_MODEL") or model_name),
         ollama_options=config.get("AI_OLLAMA_OPTIONS"),
         timeout_seconds=int(config.get("AI_TIMEOUT_SECONDS", 60)),
-        huggingface_model_id=str(config.get("AI_MODEL_NAME") or ""),
+        huggingface_model_id=model_name,
         huggingface_cache_dir=config.get("AI_HUGGINGFACE_CACHE_DIR"),
         huggingface_allow_download=bool(config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False)),
-        enable_ollama_fallback_on_hf_local_only_error=bool(config.get("AI_ENABLE_OLLAMA_FALLBACK", True)),
+        enable_ollama_fallback=bool(config.get("AI_ENABLE_OLLAMA_FALLBACK", True)),
+        inventory_cache_ttl_seconds=int(config.get("AI_INVENTORY_CACHE_TTL_SECONDS", 30)),
+    )
+
+
+def build_ai_service_from_config(
+    module_config: AIPipelineV2ModuleConfig | None = None,
+    *,
+    config: Mapping[str, Any] | None = None,
+    provider_factory: AIProviderFactoryInterface | None = None,
+) -> AIPipelineService:
+    resolved_module = module_config or _module_config_from_mapping(config or {})
+    _validate_huggingface_local_only_config(resolved_module)
+    pipeline_config = AIPipelineConfig(
+        provider=resolved_module.provider,
+        model_name=resolved_module.model_name,
+        live_endpoint=resolved_module.live_endpoint,
+        ollama_endpoint=resolved_module.ollama_endpoint,
+        ollama_model_id=resolved_module.ollama_model_id,
+        ollama_options=resolved_module.ollama_options,
+        timeout_seconds=resolved_module.timeout_seconds,
+        huggingface_model_id=resolved_module.huggingface_model_id,
+        huggingface_cache_dir=resolved_module.huggingface_cache_dir,
+        huggingface_allow_download=resolved_module.huggingface_allow_download,
+        enable_ollama_fallback_on_hf_local_only_error=resolved_module.enable_ollama_fallback,
+        inventory_cache_ttl_seconds=resolved_module.inventory_cache_ttl_seconds,
     )
     service = AIPipelineService(config=pipeline_config, provider_factory=provider_factory or create_provider)
     return service
