@@ -124,6 +124,8 @@ class BaseConfig:
 
     DATA_BACKEND_FACTORY = None
 
+    # DEPRECATED: AI_* keys remain here as transitional defaults while module-scoped
+    # config objects colocated with owning modules become the primary ownership model.
     # static control on model's used right now since model runtime is not sent through cuda or numa
     #todo: need to switch entirely over to model names from DB ai_models.py ai_models should reflect app/instance saved models
     AI_PROVIDER = _env("AI_PROVIDER", "ollama")

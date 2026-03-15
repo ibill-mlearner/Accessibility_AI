@@ -98,13 +98,19 @@ def get_ai_catalog():
     now = time.time()
     cached = _ai_catalog_cache.get(cache_key)
 
+    span_start = time.perf_counter()
+    span: dict[str, Any] = {"cache_hit": False}
+
     if cached and (now - cached['timestamp']) < AI_CATALOG_TTL_SECONDS:
+        span["cache_hit"] = True
         response_payload = {
             'families': cached['families'],
             'selected': cached['selected']
         }
     else:
+        inventory_start = time.perf_counter()
         inventory = ai_service.list_available_models()
+        span["inventory_ms"] = round((time.perf_counter() - inventory_start) * 1000, 2)
         available_by_provider = _extract_available_model_ids(inventory)
 
         known_candidats_by_provider: dict[str, set[str]] = {
@@ -188,6 +194,9 @@ def get_ai_catalog():
     if include_health:
         provider_health = ai_service.provider_health() if hasattr(ai_service, 'provider_health') else {}
         response_payload['provider_health'] = provider_health
+
+    span["total_ms"] = round((time.perf_counter() - span_start) * 1000, 2)
+    response_payload.setdefault("meta", {})["timings_ms"] = span
 
     return jsonify(response_payload), 200
 

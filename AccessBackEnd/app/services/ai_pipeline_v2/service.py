@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from .interfaces import AIProviderFactoryInterface, AIProviderInterface
@@ -163,24 +164,43 @@ class AIPipelineService:
 
     def list_available_models(self) -> dict[str, Any]:
         now = time.time()
-        if self._inventory_cache and now - self._inventory_cache[0] < 10:
-            return self._inventory_cache[1]
+        ttl = max(int(self.config.inventory_cache_ttl_seconds), 1)
+        if self._inventory_cache and now - self._inventory_cache[0] < ttl:
+            cached_payload = self._inventory_cache[1]
+            meta = cached_payload.get("meta") if isinstance(cached_payload.get("meta"), dict) else {}
+            cached_payload["meta"] = {**meta, "cache_hit": True, "cache_ttl_seconds": ttl}
+            return cached_payload
 
         warnings: list[dict[str, Any]] = []
+        provider_timings: dict[str, float] = {}
         ollama_models: list[dict[str, Any]] = []
         hf_models: list[dict[str, Any]] = []
-        for provider_name in ("ollama", "huggingface"):
-            model_id = self._resolve_model_id(provider_name)
-            if not model_id:
-                continue
-            try:
-                models = self._get_provider(provider_name, model_id).inventory()
-                if provider_name == "ollama":
-                    ollama_models = models
-                else:
-                    hf_models = models
-            except Exception as exc:  # noqa: BLE001
-                warnings.append({"source": provider_name, "message": str(exc)})
+
+        inventory_start = time.perf_counter()
+
+        def _fetch_inventory(provider_name: str, model_id: str) -> tuple[str, list[dict[str, Any]], float]:
+            provider_start = time.perf_counter()
+            models = self._get_provider(provider_name, model_id).inventory()
+            return provider_name, models, round((time.perf_counter() - provider_start) * 1000, 2)
+
+        futures = []
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            for provider_name in ("ollama", "huggingface"):
+                model_id = self._resolve_model_id(provider_name)
+                if not model_id:
+                    continue
+                futures.append(executor.submit(_fetch_inventory, provider_name, model_id))
+
+            for future in as_completed(futures):
+                try:
+                    provider_name, models, duration_ms = future.result()
+                    provider_timings[provider_name] = duration_ms
+                    if provider_name == "ollama":
+                        ollama_models = models
+                    else:
+                        hf_models = models
+                except Exception as exc:  # noqa: BLE001
+                    warnings.append({"source": "inventory", "message": str(exc)})
 
         payload = {
             "provider_defaults": {
@@ -191,7 +211,16 @@ class AIPipelineService:
             },
             "ollama": {"models": ollama_models, "count": len(ollama_models)},
             "huggingface_local": {"models": hf_models, "count": len(hf_models)},
-            "meta": {"pipeline": "app.services.ai_pipeline_v2", "warnings": warnings},
+            "meta": {
+                "pipeline": "app.services.ai_pipeline_v2",
+                "warnings": warnings,
+                "timings_ms": {
+                    "total": round((time.perf_counter() - inventory_start) * 1000, 2),
+                    "providers": provider_timings,
+                },
+                "cache_hit": False,
+                "cache_ttl_seconds": ttl,
+            },
         }
         self._inventory_cache = (now, payload)
         return payload

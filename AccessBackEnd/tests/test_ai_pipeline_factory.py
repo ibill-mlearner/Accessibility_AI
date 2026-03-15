@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from app.services.ai_pipeline_v2.factory import build_ai_service_from_config
+from AccessBackEnd.app.services.ai_pipeline_v2.config import AIPipelineV2ModuleConfig
+from AccessBackEnd.app.services.ai_pipeline_v2.factory import build_ai_service_from_config
 
 
 class _DummyProvider:
@@ -17,55 +18,56 @@ def _dummy_provider_factory(**_kwargs):
     return _DummyProvider()
 
 
-def _base_config(**overrides):
-    config = {
-        "AI_PROVIDER": "ollama",
-        "AI_MODEL_NAME": "local-model",
-        "AI_TIMEOUT_SECONDS": 60,
-        "AI_OLLAMA_ENDPOINT": "http://localhost:11434/api/chat",
-        "AI_OLLAMA_MODEL": "qwen2.5:0.5b",
-        "AI_OLLAMA_OPTIONS": {},
-        "AI_LIVE_ENDPOINT": "http://localhost:11434/api/chat",
-        "AI_HUGGINGFACE_CACHE_DIR": None,
-        "AI_HUGGINGFACE_ALLOW_DOWNLOAD": False,
-    }
-    config.update(overrides)
+def _base_module_config(**overrides):
+    config = AIPipelineV2ModuleConfig(
+        provider="ollama",
+        model_name="local-model",
+        timeout_seconds=60,
+        ollama_endpoint="http://localhost:11434/api/chat",
+        ollama_model_id="qwen2.5:0.5b",
+        ollama_options={},
+        live_endpoint="http://localhost:11434/api/chat",
+        huggingface_cache_dir=None,
+        huggingface_allow_download=False,
+    )
+    for key, value in overrides.items():
+        setattr(config, key, value)
     return config
 
 
 def test_build_ai_service_rejects_huggingface_local_only_without_local_model_dir(tmp_path: Path):
-    config = _base_config(
-        AI_PROVIDER="huggingface",
-        AI_MODEL_NAME="Qwen/Qwen2.5-0.5B-Instruct",
-        AI_HUGGINGFACE_CACHE_DIR=str(tmp_path),
-        AI_HUGGINGFACE_ALLOW_DOWNLOAD=False,
+    module_config = _base_module_config(
+        provider="huggingface",
+        model_name="Qwen/Qwen2.5-0.5B-Instruct",
+        huggingface_cache_dir=str(tmp_path),
+        huggingface_allow_download=False,
     )
 
     with pytest.raises(ValueError, match="AI_PROVIDER=huggingface"):
-        build_ai_service_from_config(config, provider_factory=_dummy_provider_factory)
+        build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
 
 
 def test_build_ai_service_accepts_huggingface_local_model_dir_when_download_disabled(tmp_path: Path):
     model_dir = tmp_path / "qwen-local"
     model_dir.mkdir()
-    config = _base_config(
-        AI_PROVIDER="huggingface",
-        AI_MODEL_NAME=str(model_dir),
-        AI_HUGGINGFACE_ALLOW_DOWNLOAD=False,
+    module_config = _base_module_config(
+        provider="huggingface",
+        model_name=str(model_dir),
+        huggingface_allow_download=False,
     )
 
-    service = build_ai_service_from_config(config, provider_factory=_dummy_provider_factory)
+    service = build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
 
     assert service is not None
 
 
-def test_build_ai_service_accepts_huggingface_repo_id_when_download_enabled():
-    config = _base_config(
-        AI_PROVIDER="huggingface",
-        AI_MODEL_NAME="Qwen/Qwen2.5-0.5B-Instruct",
-        AI_HUGGINGFACE_ALLOW_DOWNLOAD=True,
-    )
+def test_build_ai_service_accepts_mapping_fallback_for_transition():
+    config = {
+        "AI_PROVIDER": "huggingface",
+        "AI_MODEL_NAME": "Qwen/Qwen2.5-0.5B-Instruct",
+        "AI_HUGGINGFACE_ALLOW_DOWNLOAD": True,
+    }
 
-    service = build_ai_service_from_config(config, provider_factory=_dummy_provider_factory)
+    service = build_ai_service_from_config(config=config, provider_factory=_dummy_provider_factory)
 
     assert service is not None

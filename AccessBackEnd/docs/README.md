@@ -45,3 +45,15 @@ Expected rows include `chats` and `users`.
 - Hardware/runtime setup and sizing guide: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`.
 - System prompt composition workflow: `AccessBackEnd/docs/ai_system_prompt_workflow.md`.
 - System prompt step deep-dives: `AccessBackEnd/docs/ai_system_prompt_workflow/` (one file per workflow step).
+
+## Configuration modularization migration note
+
+Application settings are now owned by module-scoped config dataclasses colocated with their modules:
+
+- `app/services/ai_pipeline_v2/config.py`
+- `app/auth/config.py`
+- `app/services/logging/module_config.py`
+- `app/db/configs.py`
+
+During migration, Flask bootstrap loads these into `app.extensions["module_configs"]` and mirrors legacy keys (for example `AI_PROVIDER`, `AI_MODEL_NAME`) into `app.config` for backward compatibility.
+Prefer reading module config objects (`app.config["AI_PIPELINE_V2_CONFIG"]`, etc.) for new code.
