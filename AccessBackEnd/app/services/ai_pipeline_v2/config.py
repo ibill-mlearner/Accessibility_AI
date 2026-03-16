@@ -26,7 +26,7 @@ class AIPipelineV2ModuleConfig:
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
     huggingface_allow_download: bool = False
-    enable_ollama_fallback: bool = True
+    enable_ollama_fallback: bool = False
     inventory_cache_ttl_seconds: int = 30
 
     @classmethod
@@ -44,7 +44,7 @@ class AIPipelineV2ModuleConfig:
             huggingface_model_id=model_name,
             huggingface_cache_dir=parse_env("AI_HUGGINGFACE_CACHE_DIR"),
             huggingface_allow_download=parse_env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool),
-            enable_ollama_fallback=parse_env("AI_ENABLE_OLLAMA_FALLBACK", True, bool),
+            enable_ollama_fallback=parse_env("AI_ENABLE_OLLAMA_FALLBACK", False, bool),
             inventory_cache_ttl_seconds=parse_positive_int("AI_INVENTORY_CACHE_TTL_SECONDS", 30),
         )
 
@@ -54,4 +54,5 @@ class AIPipelineV2ModuleConfig:
             "provider": self.provider,
             "has_model": bool(self.model_name),
             "hf_download": self.huggingface_allow_download,
+            "hf_cache_dir": self.huggingface_cache_dir,
         }

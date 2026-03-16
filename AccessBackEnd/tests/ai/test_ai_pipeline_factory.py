@@ -71,3 +71,32 @@ def test_build_ai_service_accepts_mapping_fallback_for_transition():
     service = build_ai_service_from_config(config=config, provider_factory=_dummy_provider_factory)
 
     assert service is not None
+
+
+def test_build_ai_service_accepts_repo_id_with_writable_cache_dir(tmp_path: Path):
+    cache_dir = tmp_path / "hf-cache"
+    module_config = _base_module_config(
+        provider="huggingface",
+        model_name="Qwen/Qwen2.5-0.5B-Instruct",
+        huggingface_cache_dir=str(cache_dir),
+        huggingface_allow_download=True,
+    )
+
+    service = build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
+
+    assert service is not None
+    assert cache_dir.exists() and cache_dir.is_dir()
+
+
+def test_build_ai_service_rejects_huggingface_cache_dir_when_path_is_file(tmp_path: Path):
+    file_path = tmp_path / "hf-cache-file"
+    file_path.write_text("x", encoding="utf-8")
+    module_config = _base_module_config(
+        provider="huggingface",
+        model_name="Qwen/Qwen2.5-0.5B-Instruct",
+        huggingface_cache_dir=str(file_path),
+        huggingface_allow_download=True,
+    )
+
+    with pytest.raises(ValueError, match="AI_HUGGINGFACE_CACHE_DIR"):
+        build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)

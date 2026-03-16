@@ -41,7 +41,7 @@ class AIPipelineConfig:
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
     huggingface_allow_download: bool = False
-    enable_ollama_fallback_on_hf_local_only_error: bool = True
+    enable_ollama_fallback_on_hf_local_only_error: bool = False
     inventory_cache_ttl_seconds: int = 30
     max_new_tokens: int = 256
     temperature: float = 0.1

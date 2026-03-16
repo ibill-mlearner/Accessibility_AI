@@ -135,3 +135,36 @@ nvidia-smi dmon -s pucm -c 5
 - [ ] Ollama runtime path verified and logged.
 - [ ] Model routing by size/hardware enforced.
 - [ ] Latency + fallback metrics available.
+
+
+---
+
+## Local Transformers runtime (operator notes)
+
+`ai_pipeline_v2` supports running Hugging Face models through `transformers` with either:
+
+- a **repo ID** (for example `Qwen/Qwen2.5-3B-Instruct`), or
+- a **local model directory** path.
+
+### Required settings
+
+- `AI_PROVIDER=huggingface`
+- `AI_MODEL_NAME=<repo-id-or-local-path>`
+
+### Cache location
+
+- `AI_HUGGINGFACE_CACHE_DIR` controls where `from_pretrained(...)` reads/writes model artifacts.
+- If set, this directory must be writable by the backend process.
+- If omitted, transformers uses its default cache behavior.
+
+### Online vs offline/local-only behavior
+
+- `AI_HUGGINGFACE_ALLOW_DOWNLOAD=true`
+  - repo IDs are allowed and missing artifacts can be downloaded into cache.
+- `AI_HUGGINGFACE_ALLOW_DOWNLOAD=false`
+  - backend runs in local-only mode and requires `AI_MODEL_NAME` to be an existing local model directory.
+
+### Operational guidance
+
+- Use repo IDs in environments with outbound network access and controlled cache volumes.
+- Use local-only mode for air-gapped/offline deployments after pre-populating model files into cache/local path.

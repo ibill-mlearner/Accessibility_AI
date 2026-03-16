@@ -94,11 +94,12 @@ class AIPipelineService:
             payload = backend.generate(prompt, str(context.get("system_instructions") or ""), context) if hasattr(backend, "generate") else backend.invoke(prompt, context)
         except Exception as exc:  # noqa: BLE001
             mapped = map_exception(exc)
-            if (
+            should_fallback = (
                 provider_name == "huggingface"
-                and self.config.enable_ollama_fallback_on_hf_local_only_error
+                and bool(self.config.enable_ollama_fallback_on_hf_local_only_error)
                 and self._is_hf_local_only_bootstrap_error(mapped)
-            ):
+            )
+            if should_fallback:
                 provider_name = "ollama"
                 model_id = self._resolve_model_id("ollama")
                 backend = self._get_backend(provider_name, model_id)
@@ -109,7 +110,18 @@ class AIPipelineService:
                     "fallback_reason": "huggingface_local_only_bootstrap_error",
                 }
             else:
-                raise AIPipelineUpstreamError(str(mapped), details=getattr(mapped, "details", {})) from exc
+                details = getattr(mapped, "details", {}) if isinstance(getattr(mapped, "details", {}), dict) else {}
+                raise AIPipelineUpstreamError(
+                    f"Selected provider '{provider_name}' is unavailable for model '{model_id}'. {mapped}",
+                    details={
+                        **details,
+                        "error_code": "provider_unavailable",
+                        "provider": provider_name,
+                        "model_id": model_id,
+                        "selected_provider": provider_name,
+                        "selected_model_id": model_id,
+                    },
+                ) from exc
 
         _ = invoke_start  # keep timing hook available for future logging
         payload = normalize_backend_response(payload)

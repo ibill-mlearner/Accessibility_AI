@@ -22,6 +22,34 @@ def create_provider(config: AIPipelineConfig, *, provider: str, model_id: str):
     raise ValueError(f"Unsupported AI provider: {provider}")
 
 
+def _validate_huggingface_cache_dir_writable(config: AIPipelineV2ModuleConfig) -> None:
+    provider = normalize_provider_name(config.provider)
+    if provider != "huggingface":
+        return
+    cache_dir_raw = str(config.huggingface_cache_dir or "").strip()
+    if not cache_dir_raw:
+        return
+    cache_dir = Path(cache_dir_raw).expanduser()
+    try:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(
+            "Invalid AI runtime configuration: AI_HUGGINGFACE_CACHE_DIR must be writable when AI_PROVIDER=huggingface."
+        ) from exc
+    if not cache_dir.is_dir():
+        raise ValueError(
+            "Invalid AI runtime configuration: AI_HUGGINGFACE_CACHE_DIR must be a directory when AI_PROVIDER=huggingface."
+        )
+    probe = cache_dir / ".write_test"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(
+            "Invalid AI runtime configuration: AI_HUGGINGFACE_CACHE_DIR must be writable when AI_PROVIDER=huggingface."
+        ) from exc
+
+
 def _validate_huggingface_local_only_config(config: AIPipelineV2ModuleConfig) -> None:
     provider = normalize_provider_name(config.provider)
     if provider != "huggingface" or config.huggingface_allow_download:
@@ -49,7 +77,7 @@ def _module_config_from_mapping(config: Mapping[str, Any]) -> AIPipelineV2Module
         huggingface_model_id=model_name,
         huggingface_cache_dir=config.get("AI_HUGGINGFACE_CACHE_DIR"),
         huggingface_allow_download=bool(config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False)),
-        enable_ollama_fallback=bool(config.get("AI_ENABLE_OLLAMA_FALLBACK", True)),
+        enable_ollama_fallback=bool(config.get("AI_ENABLE_OLLAMA_FALLBACK", False)),
         inventory_cache_ttl_seconds=int(config.get("AI_INVENTORY_CACHE_TTL_SECONDS", 30)),
     )
 
@@ -61,6 +89,7 @@ def build_ai_service_from_config(
     provider_factory: AIProviderFactoryInterface | None = None,
 ) -> AIPipelineService:
     resolved_module = module_config or _module_config_from_mapping(config or {})
+    _validate_huggingface_cache_dir_writable(resolved_module)
     _validate_huggingface_local_only_config(resolved_module)
     pipeline_config = AIPipelineConfig(
         provider=resolved_module.provider,
