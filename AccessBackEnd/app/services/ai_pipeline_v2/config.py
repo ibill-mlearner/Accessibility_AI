@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.utils.env_config import parse_env, parse_json_object, parse_positive_int
+from app.utils.env_config import parse_env, parse_positive_int
 
 
 def default_ai_model_name() -> str:
@@ -16,7 +16,7 @@ def default_ai_model_name() -> str:
 
 @dataclass(slots=True)
 class AIPipelineV2ModuleConfig:
-    provider: str = "ollama"
+    provider: str = "huggingface"
     model_name: str = ""
     ollama_endpoint: str = "http://localhost:11434/api/chat"
     live_endpoint: str = "http://localhost:11434/api/chat"
@@ -34,17 +34,17 @@ class AIPipelineV2ModuleConfig:
         model_name = parse_env("AI_MODEL_NAME", default_ai_model_name())
         ollama_endpoint = parse_env("AI_OLLAMA_ENDPOINT", "http://localhost:11434/api/chat")
         return cls(
-            provider=parse_env("AI_PROVIDER", "ollama"),
+            provider="huggingface",
             model_name=model_name,
-            ollama_endpoint=ollama_endpoint,
-            live_endpoint=parse_env("AI_LIVE_ENDPOINT", ollama_endpoint),
-            ollama_model_id=parse_env("AI_OLLAMA_MODEL", model_name),
-            ollama_options=parse_json_object("AI_OLLAMA_OPTIONS", {}),
+            ollama_endpoint="",
+            live_endpoint="",
+            ollama_model_id="",
+            ollama_options={},
             timeout_seconds=parse_positive_int("AI_TIMEOUT_SECONDS", 60),
             huggingface_model_id=model_name,
             huggingface_cache_dir=parse_env("AI_HUGGINGFACE_CACHE_DIR"),
             huggingface_allow_download=parse_env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool),
-            enable_ollama_fallback=parse_env("AI_ENABLE_OLLAMA_FALLBACK", False, bool),
+            enable_ollama_fallback=False,
             inventory_cache_ttl_seconds=parse_positive_int("AI_INVENTORY_CACHE_TTL_SECONDS", 30),
         )
 

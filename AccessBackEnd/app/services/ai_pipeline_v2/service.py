@@ -1,55 +1,51 @@
 from __future__ import annotations
 
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from .interfaces import AIProviderFactoryInterface, AIProviderInterface
-from .providers import map_exception, normalize_backend_response, normalize_provider_name
+from .providers import HuggingFaceBackend, map_exception, normalize_backend_response
 from .types import ASSISTANT_TEXT_KEYS, AIPipelineConfig, AIPipelineRequest, AIPipelineUpstreamError
 
 
 class AIPipelineService:
     def __init__(
         self,
-        config: AIPipelineConfig,
+        config: AIPipelineConfig | None = None,
+        runtime_client: AIProviderInterface | None = None,
+        runtime_client_factory: AIProviderFactoryInterface | None = None,
         provider: AIProviderInterface | None = None,
         provider_factory: AIProviderFactoryInterface | None = None,
     ) -> None:
-        self.config = config
-        self._provider_factory = provider_factory
-        default_provider = normalize_provider_name(config.provider)
-        default_model = self._resolve_model_id(default_provider)
-        self._backends: dict[tuple[str, str], AIProviderInterface] = {}
-        if provider is not None:
-            self._backends[(default_provider, default_model)] = provider
+        self.config = config or AIPipelineConfig(model_name=str(os.getenv("AI_MODEL_NAME") or "").strip())
+        self._runtime_client_factory = runtime_client_factory or provider_factory
+        selected_client = runtime_client or provider
+        self._runtime_clients: dict[str, AIProviderInterface] = {}
+        default_model = self._resolve_model_id()
+        if selected_client is not None:
+            self._runtime_clients[default_model] = selected_client
         self._inventory_cache: tuple[float, dict[str, Any]] | None = None
 
-    def _resolve_model_id(self, provider: str) -> str:
-        if provider == "ollama":
-            return str(self.config.ollama_model_id or self.config.model_name or self.config.huggingface_model_id or "").strip()
-        if provider == "huggingface":
-            return str(self.config.huggingface_model_id or self.config.model_name or "").strip()
-        return str(self.config.model_name or "").strip()
+    def _resolve_model_id(self) -> str:
+        return str(self.config.huggingface_model_id or self.config.model_name or "").strip()
 
-    def _select_runtime(self, context: dict[str, Any]) -> tuple[str, str]:
+    def _select_model_id(self, context: dict[str, Any]) -> str:
         runtime = context.get("runtime_model_selection")
         if isinstance(runtime, dict):
-            provider = normalize_provider_name(runtime.get("provider"))
             model = str(runtime.get("model_id") or "").strip()
-            if provider and model:
-                return provider, model
-        provider = normalize_provider_name(self.config.provider)
-        return provider, self._resolve_model_id(provider)
+            if model:
+                return model
+        return self._resolve_model_id()
 
-    def _get_backend(self, provider: str, model_id: str) -> AIProviderInterface:
-        key = (provider, model_id)
-        if key in self._backends:
-            return self._backends[key]
-        if self._provider_factory is None:
-            raise ValueError("provider_factory is required to create providers")
-        instance = self._provider_factory(self.config, provider=provider, model_id=model_id)
-        self._backends[key] = instance
+    def _get_runtime_client(self, model_id: str) -> AIProviderInterface:
+        if model_id in self._runtime_clients:
+            return self._runtime_clients[model_id]
+        if self._runtime_client_factory is None:
+            self._runtime_client_factory = lambda cfg, *, model_id: HuggingFaceBackend(config=cfg, model_id=model_id)
+        instance = self._runtime_client_factory(self.config, model_id=model_id)
+        self._runtime_clients[model_id] = instance
         return instance
 
     @staticmethod
@@ -70,11 +66,6 @@ class AIPipelineService:
                 return str(payload.get(key))
         return ""
 
-    @staticmethod
-    def _is_hf_local_only_bootstrap_error(exc: Exception) -> bool:
-        message = str(exc).lower()
-        return "local-only mode" in message and "huggingface" in message
-
     def run(self, request: AIPipelineRequest) -> dict[str, Any]:
         prompt = self._resolve_prompt(request)
         context = request.context.copy() if isinstance(request.context, dict) else {}
@@ -85,45 +76,26 @@ class AIPipelineService:
         if request.system_prompt:
             context["system_instructions"] = request.system_prompt
 
-        provider_name, model_id = self._select_runtime(context)
-        backend = self._get_backend(provider_name, model_id)
+        model_id = self._select_model_id(context)
+        runtime_client = self._get_runtime_client(model_id)
 
         invoke_start = time.time()
-        fallback_meta: dict[str, str] = {}
         try:
-            payload = backend.generate(prompt, str(context.get("system_instructions") or ""), context) if hasattr(backend, "generate") else backend.invoke(prompt, context)
+            payload = runtime_client.generate(prompt, str(context.get("system_instructions") or ""), context) if hasattr(runtime_client, "generate") else runtime_client.invoke(prompt, context)
         except Exception as exc:  # noqa: BLE001
             mapped = map_exception(exc)
-            should_fallback = (
-                provider_name == "huggingface"
-                and bool(self.config.enable_ollama_fallback_on_hf_local_only_error)
-                and self._is_hf_local_only_bootstrap_error(mapped)
-            )
-            if should_fallback:
-                provider_name = "ollama"
-                model_id = self._resolve_model_id("ollama")
-                backend = self._get_backend(provider_name, model_id)
-                payload = backend.generate(prompt, str(context.get("system_instructions") or ""), context) if hasattr(backend, "generate") else backend.invoke(prompt, context)
-                fallback_meta = {
-                    "fallback_from": "huggingface",
-                    "fallback_to": "ollama",
-                    "fallback_reason": "huggingface_local_only_bootstrap_error",
-                }
-            else:
-                details = getattr(mapped, "details", {}) if isinstance(getattr(mapped, "details", {}), dict) else {}
-                raise AIPipelineUpstreamError(
-                    f"Selected provider '{provider_name}' is unavailable for model '{model_id}'. {mapped}",
-                    details={
-                        **details,
-                        "error_code": "provider_unavailable",
-                        "provider": provider_name,
-                        "model_id": model_id,
-                        "selected_provider": provider_name,
-                        "selected_model_id": model_id,
-                    },
-                ) from exc
+            details = getattr(mapped, "details", {}) if isinstance(getattr(mapped, "details", {}), dict) else {}
+            raise AIPipelineUpstreamError(
+                f"AI runtime is unavailable for model '{model_id}'. {mapped}",
+                details={
+                    **details,
+                    "error_code": "runtime_unavailable",
+                    "model_id": model_id,
+                    "selected_model_id": model_id,
+                },
+            ) from exc
 
-        _ = invoke_start  # keep timing hook available for future logging
+        _ = invoke_start
         payload = normalize_backend_response(payload)
         assistant_text = self._extract_assistant_text(payload)
         confidence = float(payload["confidence"]) if isinstance(payload.get("confidence"), (float, int)) else None
@@ -137,12 +109,9 @@ class AIPipelineService:
             "notes": notes,
             "meta": {
                 **meta,
-                "provider": meta.get("provider") or provider_name,
                 "model": meta.get("model") or meta.get("model_id") or model_id,
                 "pipeline": "app.services.ai_pipeline_v2",
-                "selected_provider": provider_name,
                 "selected_model_id": model_id,
-                **fallback_meta,
             },
         }
 
@@ -162,17 +131,21 @@ class AIPipelineService:
             )
         )
 
+    def generate_text(self, text: str, model_name: str) -> dict[str, Any]:
+        context = {"runtime_model_selection": {"model_id": str(model_name or "").strip()}}
+        request = AIPipelineRequest(prompt=str(text or ""), system_prompt="", context=context)
+        return self.run(request)
+
     def provider_health(self) -> dict[str, Any]:
         statuses: dict[str, Any] = {}
-        for provider_name in ("ollama", "huggingface"):
-            model_id = self._resolve_model_id(provider_name)
-            if not model_id:
-                statuses[provider_name] = {"ok": False, "status": "not_configured"}
-                continue
-            try:
-                statuses[provider_name] = self._get_backend(provider_name, model_id).health()
-            except Exception as exc:  # noqa: BLE001
-                statuses[provider_name] = {"ok": False, "status": "health_check_failed", "error": str(exc), "model_id": model_id}
+        model_id = self._resolve_model_id()
+        if not model_id:
+            statuses["runtime"] = {"ok": False, "status": "not_configured"}
+            return statuses
+        try:
+            statuses["runtime"] = self._get_runtime_client(model_id).health()
+        except Exception as exc:  # noqa: BLE001
+            statuses["runtime"] = {"ok": False, "status": "health_check_failed", "error": str(exc), "model_id": model_id}
         return statuses
 
     def list_available_models(self) -> dict[str, Any]:
@@ -185,51 +158,38 @@ class AIPipelineService:
             return cached_payload
 
         warnings: list[dict[str, Any]] = []
-        provider_timings: dict[str, float] = {}
-        ollama_models: list[dict[str, Any]] = []
-        hf_models: list[dict[str, Any]] = []
+        timings: dict[str, float] = {}
+        models: list[dict[str, Any]] = []
 
         inventory_start = time.perf_counter()
 
-        def _fetch_inventory(provider_name: str, model_id: str) -> tuple[str, list[dict[str, Any]], float]:
-            provider_start = time.perf_counter()
-            models = self._get_backend(provider_name, model_id).inventory()
-            return provider_name, models, round((time.perf_counter() - provider_start) * 1000, 2)
+        def _fetch_inventory(model_id: str) -> tuple[list[dict[str, Any]], float]:
+            runtime_start = time.perf_counter()
+            payload = self._get_runtime_client(model_id).inventory()
+            return payload, round((time.perf_counter() - runtime_start) * 1000, 2)
 
-        futures = []
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            for provider_name in ("ollama", "huggingface"):
-                model_id = self._resolve_model_id(provider_name)
-                if not model_id:
-                    continue
-                futures.append(executor.submit(_fetch_inventory, provider_name, model_id))
-
-            for future in as_completed(futures):
+        model_id = self._resolve_model_id()
+        if model_id:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_fetch_inventory, model_id)
                 try:
-                    provider_name, models, duration_ms = future.result()
-                    provider_timings[provider_name] = duration_ms
-                    if provider_name == "ollama":
-                        ollama_models = models
-                    else:
-                        hf_models = models
+                    models, duration_ms = future.result()
+                    timings["runtime"] = duration_ms
                 except Exception as exc:  # noqa: BLE001
                     warnings.append({"source": "inventory", "message": str(exc)})
 
         payload = {
-            "provider_defaults": {
-                "provider": self.config.provider,
+            "model_defaults": {
                 "model_name": self.config.model_name,
-                "ollama_model_id": self.config.ollama_model_id,
-                "huggingface_model_id": self.config.huggingface_model_id,
+                "model_id": self.config.huggingface_model_id,
             },
-            "ollama": {"models": ollama_models, "count": len(ollama_models)},
-            "huggingface_local": {"models": hf_models, "count": len(hf_models)},
+            "local": {"models": models, "count": len(models)},
             "meta": {
                 "pipeline": "app.services.ai_pipeline_v2",
                 "warnings": warnings,
                 "timings_ms": {
                     "total": round((time.perf_counter() - inventory_start) * 1000, 2),
-                    "providers": provider_timings,
+                    "runtime": timings,
                 },
                 "cache_hit": False,
                 "cache_ttl_seconds": ttl,
@@ -237,3 +197,11 @@ class AIPipelineService:
         }
         self._inventory_cache = (now, payload)
         return payload
+
+
+class AIPipeline(AIPipelineService):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def AIPipelineRequest(self, prompt: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self.run_interaction(prompt=prompt, context=context or {})

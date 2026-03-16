@@ -130,11 +130,8 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
     normalized_result = _normalize_interaction_response(result)
     meta = normalized_result.get("meta") if isinstance(normalized_result.get("meta"), dict) else {}
     selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
-    selected_provider = str((selected_runtime or {}).get("provider") or current_app.config.get("AI_PROVIDER") or "").strip().lower()
-    if selected_provider == "ollama":
-        selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_OLLAMA_MODEL") or current_app.config.get("AI_MODEL_NAME") or "").strip()
-    else:
-        selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_MODEL_NAME") or "").strip()
+    selected_provider = "huggingface"
+    selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_MODEL_NAME") or "").strip()
     meta.setdefault("selected_provider", selected_provider)
     meta.setdefault("selected_model_id", selected_model_id)
     meta.setdefault("provider", selected_provider)

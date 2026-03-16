@@ -73,3 +73,14 @@ class AIInteractionMonolithInterface(Protocol):
 
     def check(self, envelope: AIInteractionEnvelope) -> dict[str, Any]:
         """Return health/debug checks for telemetry and diagnostics."""
+
+
+class AIModelArtifactOpsInterface(Protocol):
+    @staticmethod
+    def model_artifact_diagnostics(path: Any) -> dict[str, Any]: ...
+
+    @staticmethod
+    def has_valid_model_artifacts(path: Any) -> bool: ...
+
+    @staticmethod
+    def local_model_dir(project_root: Any, model_id: str): ...

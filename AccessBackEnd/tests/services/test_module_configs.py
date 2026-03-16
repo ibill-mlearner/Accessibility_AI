@@ -8,7 +8,7 @@ from AccessBackEnd.app.services.logging.module_config import LoggingModuleConfig
 def test_ai_pipeline_module_config_defaults(monkeypatch):
     monkeypatch.delenv("AI_PROVIDER", raising=False)
     cfg = AIPipelineV2ModuleConfig.from_env()
-    assert cfg.provider == "ollama"
+    assert cfg.provider == "huggingface"
     assert cfg.timeout_seconds == 60
 
 
@@ -17,7 +17,7 @@ def test_ai_pipeline_module_config_preserves_supplied_values(monkeypatch):
     monkeypatch.setenv("AI_TIMEOUT_SECONDS", "0")
     cfg = AIPipelineV2ModuleConfig.from_env()
 
-    assert cfg.provider == "HuggingFace "
+    assert cfg.provider == "huggingface"
     assert cfg.timeout_seconds == 0
 
 
