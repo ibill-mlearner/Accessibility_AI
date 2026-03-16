@@ -29,14 +29,15 @@ export const useAppBootstrapStore = defineStore('appBootstrap', {
 
       const chats = useChatStore()
       const classes = useClassStore()
-      const notes = useNoteStore()
+      // const notes = useNoteStore()
       const features = useFeatureStore()
 
       const results = await Promise.allSettled([
         chats.ensureModelCatalogFreshForSession(),
         chats.fetchChats(),
         classes.fetchClasses(),
-        notes.fetchNotes(),
+        // Intentionally not fetching notes during sprint 4 due to time constraints 
+        // notes.fetchNotes(),
         features.fetchFeatures()
       ])
 

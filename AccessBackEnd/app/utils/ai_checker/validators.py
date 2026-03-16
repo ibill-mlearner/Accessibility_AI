@@ -30,6 +30,27 @@ class AIInteractionValidator:
         return []
 
     @staticmethod
+    def to_clean_model_id(value: Any) -> str:
+        text = AIInteractionValidator.to_clean_text(value)
+        if not text:
+            return ""
+        normalized = text.replace("\\", "/")
+        compact = normalized.rstrip("/")
+        if compact.lower().startswith("models--"):
+            return compact[len("models--"):].replace("--", "/")
+        if "/" not in compact:
+            return compact
+        last_segment = compact.rsplit("/", 1)[-1].strip()
+        if not last_segment:
+            return compact
+        if ":" in last_segment:
+            return last_segment.lower()
+        if "--" in last_segment and "models--" not in last_segment.lower():
+            return last_segment.replace("--", "/")
+        return last_segment
+
+
+    @staticmethod
     def resolve_help_intent(value: Any, *, default: str = "summarization") -> str:
         intent = AIInteractionValidator.to_clean_text(value, lower=True)
         return intent or AIInteractionValidator.to_clean_text(default, lower=True)

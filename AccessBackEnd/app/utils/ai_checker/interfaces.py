@@ -24,6 +24,9 @@ class AIInteractionValidatorInterface(Protocol):
     def to_clean_text(value: Any, *, lower: bool = False) -> str: ...
 
     @staticmethod
+    def to_clean_model_id(value: Any) -> str: ...
+
+    @staticmethod
     def to_optional_float(value: Any) -> float | None: ...
 
     @staticmethod

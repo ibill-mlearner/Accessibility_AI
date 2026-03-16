@@ -5,7 +5,8 @@
       <div v-if="showActions" 
         class="d-flex justify-content-between mt-1 gap-1">
         <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('read-aloud')">Read Aloud</button>
-        <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button>
+        <!-- Intentionally hidden during sprint 4 -->
+        <!-- <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button> -->
       </div>
     </div>
   </article>
@@ -20,7 +21,7 @@ const props = defineProps({
   showActions: { type: Boolean, default: false }
 })
 
-defineEmits(['read-aloud', 'save-note'])
+defineEmits(['read-aloud'/*, 'save-note'*/])
 const variantClass = computed(() => {
   if (props.variant === 'user') return 'ms-auto border-primary'
   return 'me-auto border-secondary'

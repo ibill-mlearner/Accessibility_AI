@@ -22,12 +22,13 @@
           >
           Accessibility Features
         </RouterLink>
-        <RouterLink to="/saved-notes" 
+        <!-- Intentionally hidden during sprint 4 -->
+        <!-- <RouterLink to="/saved-notes" 
           class="btn btn-outline-primary text-start"
           active-class="bg-purple-200 text-dark border-0"
           >
           Saved Notes
-        </RouterLink>
+        </RouterLink> -->
 
         <RouterLink 
           to="/classes" 

@@ -5,13 +5,13 @@
         <p v-if="interactionError" class="alert alert-danger py-2 mb-0">{{ interactionError }}</p>
         <p v-if="interactionLoading" class="alert alert-info py-2 mb-0">Sending…</p>
         <template v-if="auth.role !== 'guest'">
+          <!-- save as note button @save-note removed during sprint 4 -->
           <ChatBubbleCard
             v-for="message in conversationMessages"
             :key="message.id"
             :text="message.text"
             :variant="messageVariantMap[message.role] || message.role"
             :show-actions="message.role === 'assistant'"
-            @save-note="saveCurrentChatAsNote"
           />
         </template>
       </div>

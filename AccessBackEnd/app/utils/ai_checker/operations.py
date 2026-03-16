@@ -538,7 +538,17 @@ def classify_upstream_error(exc: AIPipelineUpstreamError, *, provider: str, mode
             error_code = "provider_auth_failed"
         elif any(token in message_lower for token in ("not found", "no such model", "404")):
             error_code = "provider_model_not_found"
-    normalized_details = {**details, "source": source, "provider": provider or details.get("provider") or "unknown", "model_id": model_id or details.get("model_id") or "unknown", "upstream_status": upstream_status, "request_id": request_id}
+    normalized_model_id = AIInteractionOps._validator.to_clean_model_id(model_id or details.get("model_id") or "") or "unknown"
+
+    normalized_details = {
+        **details,
+        "source": source,
+        "provider": provider or details.get("provider") or "unknown",
+        "model_id": normalized_model_id,
+        "upstream_status": upstream_status,
+        "request_id": request_id
+    }
+
     return error_code, status_code, normalized_details
 
 
