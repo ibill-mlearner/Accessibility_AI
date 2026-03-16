@@ -40,7 +40,6 @@ from .operations import (
     resolve_model_override,
     run_pipeline,
     sync_ai_models_with_local_inventory,
-    resolve_model_selection,
 )
 
 

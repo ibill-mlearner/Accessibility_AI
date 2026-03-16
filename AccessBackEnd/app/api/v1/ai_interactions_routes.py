@@ -12,7 +12,6 @@ from ...utils.ai_checker import (
     _resolve_initiated_by,
     _resolve_provider,
     prepare_interaction_inputs,
-    ensure_runtime_model_selection,
     create_pipeline_request,
     run_pipeline,
 )
@@ -30,6 +29,7 @@ from ...models import AIInteraction, Chat
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...utils.chat_access import ChatAccessHelper
 from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_provider_model_selection
 from ...services.ai_pipeline_v2.types import AIPipelineRequest
 
 
@@ -226,9 +226,16 @@ def create_ai_interaction():
         return chat_state
 
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
-    selection_error = ensure_runtime_model_selection(payload, ai_service, prepared["context_payload"], prepared["request_id"])
-    if selection_error is not None:
-        return jsonify(selection_error[0]), selection_error[1]
+    selection_input = {
+        "provider": payload.get("provider"),
+        "model_id": payload.get("model_id"),
+    }
+    try:
+        selected_runtime = resolve_provider_model_selection(selection_input, ai_service)
+    except ModelSelectionError as exc:
+        return jsonify(exc.payload), exc.status_code
+
+    prepared["context_payload"]["runtime_model_selection"] = selected_runtime
 
     dto = _build_request_dto(payload, prepared, chat_state, _resolve_initiated_by(payload))
     pipeline_error, normalized_result = _run_and_normalize(ai_service, dto, prepared["request_id"], prepared["prompt"])

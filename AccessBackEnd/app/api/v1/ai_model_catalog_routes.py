@@ -3,20 +3,31 @@ import time
 
 from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
-from difflib import get_close_matches
-from ...utils.ai_checker import (
-    _extract_available_model_ids,
-    _resolve_selected_model,
-)
-from .routes import BadRequestError, _read_json_object, api_v1_bp
-from ...services.ai_pipeline.model_catelog import MODEL_FAMILIES, family_id_from_model_id, resolve_model_selection
+from .routes import _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
 from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_provider_model_selection
 from ...models import AIModel
 from ...extensions import db
 
 AI_CATALOG_TTL_SECONDS = 30
 _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
+
+
+
+def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
+    provider_models: dict[str, set[str]] = {"ollama": set(), "huggingface": set()}
+    for provider, top_key in (("ollama", "ollama"), ("huggingface", "huggingface_local")):
+        provider_payload = payload.get(top_key)
+        if not isinstance(provider_payload, dict):
+            continue
+        models = provider_payload.get("models")
+        if not isinstance(models, list):
+            continue
+        for model in models:
+            if isinstance(model, dict) and model.get("id"):
+                provider_models[provider].add(str(model.get("id")).strip().lower())
+    return provider_models
 
 
 def _catalog_cache_key() -> tuple[int | None, Any]:
@@ -90,7 +101,7 @@ def list_available_ai_models():
 @api_v1_bp.get("/ai/catalog")
 @login_required
 def get_ai_catalog():
-    """Return catalog grouped by model family with discoverability and current selection."""
+    """Return discoverable models grouped by provider, with temporary legacy fields."""
     include_health = str(request.args.get('include_health') or '').strip().lower() in {'1', 'true', 'yes'}
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
 
@@ -103,92 +114,37 @@ def get_ai_catalog():
 
     if cached and (now - cached['timestamp']) < AI_CATALOG_TTL_SECONDS:
         span["cache_hit"] = True
-        response_payload = {
-            'families': cached['families'],
-            'selected': cached['selected']
-        }
+        response_payload = cached["payload"]
     else:
         inventory_start = time.perf_counter()
         inventory = ai_service.list_available_models()
         span["inventory_ms"] = round((time.perf_counter() - inventory_start) * 1000, 2)
-        available_by_provider = _extract_available_model_ids(inventory)
 
-        known_candidats_by_provider: dict[str, set[str]] = {
-            "ollama": set(),
-            "huggingface": set()
+        provider_grouped = {
+            "ollama": sorted([m for m in inventory.get("ollama", {}).get("models", []) if isinstance(m, dict)], key=lambda item: str(item.get("id") or "")),
+            "huggingface": sorted([m for m in inventory.get("huggingface_local", {}).get("models", []) if isinstance(m, dict)], key=lambda item: str(item.get("id") or "")),
         }
-        for family in MODEL_FAMILIES:
-            for provider, candidates in family.provider_candidates.items():
-                if provider not in known_candidats_by_provider:
-                    continue
+        flat_models = [
+            {"provider": provider, **model}
+            for provider, models in provider_grouped.items()
+            for model in models
+        ]
 
-                known_candidats_by_provider[provider].update(
-                    c.lower() for c in candidates
-                )
-
-        families: list[dict[str, Any]] = []
-        for family in MODEL_FAMILIES:
-            models: list[dict[str, Any]] = []
-            seen_pairs: set[tuple[str, str]] = set()
-
-            for provider, candidates in family.provider_candidates.items():
-                available_models = available_by_provider.get(provider, set())
-                for model_id in candidates:
-                    pair = (provider, model_id)
-                    if pair in seen_pairs:
-                        continue
-                    models.append(
-                        {
-                            "provider": provider,
-                            "model_id": model_id,
-                            "available": model_id.lower() in available_models,
-                            "display_name": model_id
-                        }
-                    )
-            families.append(
-                {
-                    "family_id": family.family_id,
-                    "label": family.label,
-                    "owner": family.owner,
-                    "models": models,
-                }
-            )
-
-        uncataloged_models: list[dict[str, Any]] = []
-        for provider in ('ollama', 'huggingface'):
-            available_models = sorted(available_by_provider.get(provider, set()))
-            known_models = known_candidats_by_provider[provider]
-            for model_id in available_models:
-                if model_id in known_models:
-                    continue
-                uncataloged_models.append(
-                    {
-                        "provider": provider,
-                        'model_id': model_id,
-                        'available': True,
-                        "display_name": model_id
-
-                    }
-                )
-
-        if uncataloged_models:
-            families.append(
-                {
-                    'family_id': 'other_available',
-                    'label': 'other available models',
-                    'owner': 'discovered',
-                    'models': uncataloged_models
-                }
-            )
+        try:
+            selected = resolve_provider_model_selection({}, ai_service, inventory_payload=inventory)
+        except ModelSelectionError as exc:
+            return jsonify(exc.payload), exc.status_code
 
         response_payload = {
-            "families": families,
-            "selected": _resolve_selected_model(inventory)
+            "selected": selected,
+            "models_by_provider": provider_grouped,
+            "models": flat_models,
+            # Temporary legacy field retained for frontend compatibility.
+            "families": [],
         }
         _ai_catalog_cache[cache_key] = {
-            'families': families,
-            'selected': response_payload['selected'],
-            'timestamp': now
+            'payload': response_payload,
+            'timestamp': now,
         }
 
     if include_health:
@@ -207,55 +163,11 @@ def set_ai_selection():
     """Persist per-session AI model selection for the authenticated user."""
     payload = _read_json_object()
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
-    inventory = ai_service.list_available_models()
-    available_by_provider = _extract_available_model_ids(inventory)
-
-    has_provider_pair = bool(payload.get("provider") and payload.get("model_id"))
-    has_family_pair = bool(payload.get("family_id") and payload.get("provider_preference"))
-    if has_provider_pair == has_family_pair:
-        raise BadRequestError(
-            "Provide either provider/model_id or family_id/provider_preference",
-        )
 
     try:
-        if has_provider_pair:
-            selected = resolve_model_selection(
-                provider=str(payload.get("provider") or "").strip().lower(),
-                model_id=str(payload.get("model_id") or "").strip(),
-                available_model_ids=available_by_provider,
-            )
-        else:
-            selected = resolve_model_selection(
-                family_id=str(payload.get("family_id") or "").strip(),
-                provider_preference=str(payload.get("provider_preference") or "").strip().lower(),
-                available_model_ids=available_by_provider,
-            )
-    except ValueError as exc:
-        err_msg = str(exc)
-        if has_provider_pair:
-            provider = str(payload.get('provider') or '').strip().lower()
-            requested_model = str(payload.get("model_id") or "").strip().lower()
-            candidates = sorted(available_by_provider.get(provider, set()))
-            suggestions = get_close_matches(requested_model, candidates, n=5, cutoff=0.4)
-            return (
-                jsonify(
-                    {
-                        "error": {
-                            "code": "invalid_model_selection",
-                            "message": err_msg,
-                            "details": {
-                                "provider": provider,
-                                "model_id": requested_model,
-                                "available_models": candidates,
-                                "suggested_alternatives": suggestions
-                            }
-                        }
-                    }
-                ), 400
-            )
-        if "No candidate model available" in err_msg:
-            return jsonify({"error": "no available model for requested family"}), 400
-        raise BadRequestError(err_msg) from exc
+        selected = resolve_provider_model_selection(payload, ai_service, allow_session=False, require_explicit=True)
+    except ModelSelectionError as exc:
+        return jsonify(exc.payload), exc.status_code
 
     session["ai_model_selection"] = {
         "user_id": int(current_user.id),
@@ -269,6 +181,6 @@ def set_ai_selection():
         {
             "provider": selected["provider"],
             "model_id": selected["model_id"],
-            "family_id": family_id_from_model_id(selected["model_id"]),
+            "source": selected["source"],
         }
     ), 200

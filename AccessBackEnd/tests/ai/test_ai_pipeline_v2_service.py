@@ -178,6 +178,42 @@ def test_hf_error_falls_back_to_ollama():
     assert result["meta"]["fallback_to"] == "ollama"
 
 
+
+
+def test_hf_error_without_fallback_raises_provider_unavailable():
+    class HF:
+        def invoke(self, prompt, context):
+            raise RuntimeError("HuggingFace dynamic download is disabled in local-only mode")
+
+        def health(self):
+            return {"ok": False}
+
+        def inventory(self):
+            return []
+
+        def name(self):
+            return "huggingface"
+
+    service = AIPipelineService(
+        AIPipelineConfig(
+            provider="huggingface",
+            model_name="hf-model",
+            huggingface_model_id="hf-model",
+            ollama_model_id="ollama-model",
+            enable_ollama_fallback_on_hf_local_only_error=False,
+        ),
+        provider=HF(),
+    )
+
+    with pytest.raises(AIPipelineUpstreamError) as exc_info:
+        service.run(AIPipelineRequest(prompt="help"))
+
+    details = exc_info.value.details if isinstance(exc_info.value.details, dict) else {}
+    assert details.get("error_code") == "provider_unavailable"
+    assert details.get("provider") == "huggingface"
+    assert details.get("model_id") == "hf-model"
+
+
 def test_non_fallback_error_raises_upstream_error():
     class BadProvider(DummyProvider):
         def invoke(self, prompt, context):
