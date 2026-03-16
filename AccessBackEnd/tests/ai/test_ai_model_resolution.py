@@ -52,15 +52,14 @@ def test_model_resolution_applies_config_default_when_available():
 
     app = Flask(__name__)
     app.config.update(
-        AI_PROVIDER="ollama",
+        AI_PROVIDER="huggingface",
         AI_MODEL_NAME="Qwen/Qwen2.5-0.5B-Instruct",
         AI_OLLAMA_MODEL="qwen2.5:0.5b",
     )
 
     service = _FakeService(
         {
-            "ollama": {"models": [{"id": "qwen2.5:0.5b"}]},
-            "huggingface_local": {"models": []},
+            "huggingface_local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
         }
     )
 
@@ -73,8 +72,8 @@ def test_model_resolution_applies_config_default_when_available():
         )
 
     assert response is None
-    assert context_payload["runtime_model_selection"]["provider"] == "ollama"
-    assert context_payload["runtime_model_selection"]["model_id"] == "qwen2.5:0.5b"
+    assert context_payload["runtime_model_selection"]["provider"] == "huggingface"
+    assert context_payload["runtime_model_selection"]["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
     assert context_payload["runtime_model_selection"]["source"] == "config_default"
 
 

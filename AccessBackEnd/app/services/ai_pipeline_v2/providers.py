@@ -6,25 +6,14 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.request import Request, urlopen
 
 from .types import AIPipelineConfig, AIPipelineUpstreamError
 
 logger = logging.getLogger(__name__)
 _MAX_CONTEXT_MESSAGES = 4
-_PROVIDER_ALIASES: dict[str, set[str]] = {
-    "ollama": {"ollama", "ollama_local"},
-    "http": {"live", "live_agent", "http"},
-    "huggingface": {"hf", "huggingface", "langchain_hf"},
-}
-
-
 def normalize_provider_name(provider: str | None) -> str:
-    selected = str(provider or "").strip().lower()
-    for canonical, aliases in _PROVIDER_ALIASES.items():
-        if selected in aliases:
-            return canonical
-    return selected
+    _ = provider
+    return "local"
 
 
 def clip(value: Any, limit: int = 500) -> str:
@@ -134,48 +123,19 @@ class BaseBackend:
         return []
 
 
+
 class OllamaBackend(BaseBackend):
+    # Deprecated: kept as inert compatibility shim while Ollama is removed from MVP.
     provider_name = "ollama"
 
     def __init__(self, *, config: AIPipelineConfig, model_id: str, endpoint: str) -> None:
-        super().__init__(config=config, model_id=model_id, endpoint=self._resolve_chat_endpoint(endpoint))
+        super().__init__(config=config, model_id=model_id, endpoint=endpoint)
 
     def generate(self, prompt: str, system_prompt: str, context: dict[str, Any]) -> dict[str, Any]:
-        payload = {
-            "model": self.model_id,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-            "format": "json",
-            "options": self.config.ollama_options or {},
-        }
-        req = Request(self.endpoint, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json", "Accept": "application/json"}, method="POST")
-        with urlopen(req, timeout=self.config.timeout_seconds) as response:
-            return json.loads(response.read().decode("utf-8") or "{}")
+        raise RuntimeError("Ollama provider is deprecated for this project; use Hugging Face models only.")
 
     def inventory(self) -> list[dict[str, Any]]:
-        tags_endpoint = self.endpoint.replace("/api/chat", "/api/tags")
-        req = Request(tags_endpoint, headers={"Accept": "application/json"}, method="GET")
-        with urlopen(req, timeout=self.config.timeout_seconds) as response:
-            parsed = json.loads(response.read().decode("utf-8") or "{}")
-        models = parsed.get("models") if isinstance(parsed, dict) else []
-        if not isinstance(models, list):
-            return []
-        return [{"id": str(item.get("model") or item.get("name") or "").strip(), "source": "ollama", "path": None, "size": item.get("size"), "modified_at": item.get("modified_at")} for item in models if isinstance(item, dict) and (item.get("model") or item.get("name"))]
-
-    @staticmethod
-    def _resolve_chat_endpoint(endpoint: str) -> str:
-        cleaned = (endpoint or "").strip().rstrip("/")
-        if cleaned.lower().endswith("/api/chat"):
-            return cleaned
-        if cleaned.lower().endswith("/api/generate"):
-            return f"{cleaned[:-len('/api/generate')]}/api/chat"
-        if cleaned.lower().endswith("/api"):
-            return f"{cleaned}/chat"
-        return f"{cleaned}/api/chat"
-
+        return []
 
 class HuggingFaceBackend(BaseBackend):
     provider_name = "huggingface"

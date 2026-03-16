@@ -7,10 +7,12 @@ from .interfaces import (
     AIInteractionMonolithInterface,
     AIInteractionMutationsInterface,
     AIInteractionValidatorInterface,
+    AIModelArtifactOpsInterface,
 )
 from .mutations import AIInteractionMutations
 from .operations import AIInteractionOps
 from .validators import AIInteractionValidator
+from .model_artifacts import AIModelArtifactOps, has_valid_model_artifacts, local_model_dir, model_artifact_diagnostics
 
 from .operations import (
     _extract_response_text,
@@ -68,6 +70,11 @@ __all__ = [
     "AIInteractionOps",
     "AIInteractionMonolith",
     "AIInteractionValidator",
+    "AIModelArtifactOpsInterface",
+    "AIModelArtifactOps",
+    "model_artifact_diagnostics",
+    "has_valid_model_artifacts",
+    "local_model_dir",
     "_extract_response_text",
     "_truncate_debug_payload",
     "_strip_prompt_template_echo",

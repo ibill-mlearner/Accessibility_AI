@@ -32,9 +32,9 @@ def _invalid_selection_payload(*, message: str, provider: str = "", model_id: st
 
 
 def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    provider_models: dict[str, set[str]] = {"ollama": set(), "huggingface": set()}
+    provider_models: dict[str, set[str]] = {"huggingface": set()}
 
-    for provider, top_key in (("ollama", "ollama"), ("huggingface", "huggingface_local")):
+    for provider, top_key in (("huggingface", "huggingface_local"),):
         provider_payload = payload.get(top_key)
         if not isinstance(provider_payload, dict):
             continue
@@ -77,12 +77,8 @@ def _resolve_session_model_selection() -> dict[str, str] | None:
 
 
 def _resolve_config_default() -> dict[str, str]:
-    provider = str(current_app.config.get("AI_PROVIDER") or "").strip().lower()
-    if provider == "ollama":
-        model_id = str(current_app.config.get("AI_OLLAMA_MODEL") or current_app.config.get("AI_MODEL_NAME") or "").strip()
-    else:
-        model_id = str(current_app.config.get("AI_MODEL_NAME") or "").strip()
-    return {"provider": provider, "model_id": model_id}
+    model_id = str(current_app.config.get("AI_MODEL_NAME") or "").strip()
+    return {"provider": "huggingface", "model_id": model_id}
 
 
 def _resolve_candidate(payload: dict[str, Any], *, allow_session: bool, require_explicit: bool) -> tuple[dict[str, str], str]:
@@ -128,8 +124,8 @@ def resolve_provider_model_selection(
         candidate, source = _resolve_candidate(payload, allow_session=allow_session, require_explicit=require_explicit)
         provider = str(candidate.get("provider") or "").strip().lower()
         model_id = str(candidate.get("model_id") or "").strip()
-        if provider not in {"ollama", "huggingface"}:
-            raise ValueError(f"Unsupported provider: {provider}")
+        if provider != "huggingface":
+            raise ValueError("Unsupported provider: only huggingface is allowed")
         if model_id.lower() not in available_by_provider.get(provider, set()):
             raise ValueError(f"Model not available for provider {provider}: {model_id}")
     except ValueError as exc:

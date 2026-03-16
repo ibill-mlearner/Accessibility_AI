@@ -31,9 +31,10 @@ class AIPipelineRequest:
 
 @dataclass(slots=True)
 class AIPipelineConfig:
-    provider: str = "ollama"
+    provider: str = "huggingface"
     model_name: str = ""
     live_endpoint: str = ""
+    # Deprecated: Ollama has been removed from the active MVP runtime.
     ollama_endpoint: str = ""
     ollama_model_id: str = ""
     ollama_options: dict[str, Any] | None = None
@@ -41,6 +42,7 @@ class AIPipelineConfig:
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
     huggingface_allow_download: bool = False
+    # Deprecated: fallback is disabled because Ollama is no longer used.
     enable_ollama_fallback_on_hf_local_only_error: bool = False
     inventory_cache_ttl_seconds: int = 30
     max_new_tokens: int = 256

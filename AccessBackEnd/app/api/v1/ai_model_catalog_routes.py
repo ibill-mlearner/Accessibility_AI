@@ -16,8 +16,8 @@ _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
 
 
 def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    provider_models: dict[str, set[str]] = {"ollama": set(), "huggingface": set()}
-    for provider, top_key in (("ollama", "ollama"), ("huggingface", "huggingface_local")):
+    provider_models: dict[str, set[str]] = {"huggingface": set()}
+    for provider, top_key in (("huggingface", "huggingface_local"),):
         provider_payload = payload.get(top_key)
         if not isinstance(provider_payload, dict):
             continue
@@ -121,7 +121,6 @@ def get_ai_catalog():
         span["inventory_ms"] = round((time.perf_counter() - inventory_start) * 1000, 2)
 
         provider_grouped = {
-            "ollama": sorted([m for m in inventory.get("ollama", {}).get("models", []) if isinstance(m, dict)], key=lambda item: str(item.get("id") or "")),
             "huggingface": sorted([m for m in inventory.get("huggingface_local", {}).get("models", []) if isinstance(m, dict)], key=lambda item: str(item.get("id") or "")),
         }
         flat_models = [
