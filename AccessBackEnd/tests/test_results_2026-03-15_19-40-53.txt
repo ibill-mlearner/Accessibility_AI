@@ -1,0 +1,395 @@
+Accessibility AI backend test run
+Started: 2026-03-15T19:40:53.909117
+Tests directory: E:\Tests\Accessibility_AI\AccessBackEnd\tests
+Project root: E:\Tests\Accessibility_AI
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_checker_helpers.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_monolith_normalize_and_check_compact_payload PASSED [ 25%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_monolith_validate_and_mutate PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_ai_checker_cleans_model_id_for_provider_errors PASSED [ 75%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_ai_checker_normalizes_cached_model_aliases PASSED [100%]
+
+============================== 4 passed in 0.52s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_model_resolution.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_returns_invalid_model_selection_when_default_unavailable PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_applies_config_default_when_available PASSED [100%]
+
+============================== 2 passed in 0.43s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_pipeline_factory.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 3 items
+
+AccessBackEnd\tests\ai\test_ai_pipeline_factory.py::test_build_ai_service_rejects_huggingface_local_only_without_local_model_dir PASSED [ 33%]
+AccessBackEnd\tests\ai\test_ai_pipeline_factory.py::test_build_ai_service_accepts_huggingface_local_model_dir_when_download_disabled PASSED [ 66%]
+AccessBackEnd\tests\ai\test_ai_pipeline_factory.py::test_build_ai_service_accepts_mapping_fallback_for_transition PASSED [100%]
+
+============================== 3 passed in 0.46s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_pipeline_service.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 12 items
+
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_resolve_prompt_prefers_explicit_prompt PASSED [  8%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_resolve_prompt_uses_latest_user_message_when_prompt_missing PASSED [ 16%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_populates_context_and_normalizes_payload PASSED [ 25%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_uses_runtime_model_selection_and_caches_provider PASSED [ 33%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_provider_health_reports_not_configured_and_health_check_failures PASSED [ 41%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_interaction_builds_request_from_prompt_and_metadata PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_falls_back_to_ollama_on_hf_local_only_bootstrap_error PASSED [ 58%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_does_not_fallback_on_non_local_only_errors PASSED [ 66%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_huggingface_prompt_assembly_includes_system_instructions PASSED [ 75%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_huggingface_parse_json_extracts_assistant_text_from_messages_payload PASSED [ 83%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_huggingface_parse_json_prefers_contract_payload_when_available PASSED [ 91%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_falls_back_to_ollama_on_empty_huggingface_response PASSED [100%]
+
+============================= 12 passed in 0.45s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_run_normalizes_payload_and_context PASSED [ 25%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_runtime_selection_uses_cached_provider PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_hf_error_falls_back_to_ollama PASSED [ 75%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_non_fallback_error_raises_upstream_error PASSED [100%]
+
+============================== 4 passed in 0.42s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_huggingface_bootstrap.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_uses_local_path_when_present PASSED [ 25%]
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_uses_cached_snapshot_when_available PASSED [ 50%]
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_raises_in_local_only_mode_without_local_artifacts PASSED [ 75%]
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_uses_cache_alias_directory_when_available PASSED [100%]
+
+============================== 4 passed in 0.42s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_model_inventory.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 3 items
+
+AccessBackEnd\tests\ai\test_model_inventory.py::test_discover_local_huggingface_models_ignores_non_model_dirs PASSED [ 33%]
+AccessBackEnd\tests\ai\test_model_inventory.py::test_discover_local_huggingface_models_accepts_cache_snapshot_dirs PASSED [ 66%]
+AccessBackEnd\tests\ai\test_model_inventory.py::test_discover_local_huggingface_models_accepts_materialized_dirs_with_markers PASSED [100%]
+
+============================== 3 passed in 0.43s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_ai_interactions_flow.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 5 items
+
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_resolve_model_override_uses_session_selection_when_payload_has_no_override PASSED [ 20%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_resolve_model_override_prioritizes_request_override_over_session PASSED [ 40%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_build_context_uses_user_feature_preferences_when_requested PASSED [ 60%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_accepts_non_numeric_model_id_without_500 PASSED [ 80%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_persists_valid_ai_model_fk_for_string_model_id PASSED [100%]
+
+============================== 5 passed in 0.66s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_auth_session_state_routes.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_missing_session_id_returns_401 PASSED [ 25%]
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_expired_session_returns_401_and_revokes_record PASSED [ 50%]
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_revoked_session_returns_401 PASSED [ 75%]
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_mismatched_session_returns_401 PASSED [100%]
+
+============================== 4 passed in 0.88s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_feature_preferences_routes.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\api\test_feature_preferences_routes.py::test_feature_preferences_routes_read_and_update_current_user_preferences PASSED [ 50%]
+AccessBackEnd\tests\api\test_feature_preferences_routes.py::test_feature_preferences_replace_endpoint_upserts_records PASSED [100%]
+
+============================== 2 passed in 0.63s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_system_prompt_access_controls.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 9 items
+
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_create_forbidden_for_student PASSED [ 11%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_owner_can_create PASSED [ 22%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_non_owner_forbidden_update PASSED [ 33%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_admin_allowed_delete PASSED [ 44%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_create_forbidden_for_student PASSED [ 55%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_owner_can_create PASSED [ 66%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_non_owner_forbidden_delete PASSED [ 77%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_admin_allowed_delete PASSED [ 88%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_integration_owner_lifecycle_and_non_owner_blocked PASSED [100%]
+
+============================== 9 passed in 3.83s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\db\test_db_module_config.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 1 item
+
+AccessBackEnd\tests\db\test_db_module_config.py::test_db_module_config_defaults PASSED [100%]
+
+============================== 1 passed in 0.46s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\db\test_db_settings.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\db\test_db_settings.py::test_resolve_database_url_defaults_to_backend_instance_dir PASSED [ 50%]
+AccessBackEnd\tests\db\test_db_settings.py::test_resolve_database_url_keeps_in_memory_sqlite_unchanged PASSED [100%]
+
+============================== 2 passed in 0.44s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\db\test_json_backend.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 5 items
+
+AccessBackEnd\tests\db\test_json_backend.py::test_resolve_database_url_defaults_to_backend_instance_dir PASSED [ 20%]
+AccessBackEnd\tests\db\test_json_backend.py::test_resolve_database_url_keeps_in_memory_sqlite_unchanged PASSED [ 40%]
+AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_resolves_relative_path_inside_instance_dir PASSED [ 60%]
+AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_leaves_non_sqlite_urls_unchanged PASSED [ 80%]
+AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_handles_home_directory_expansion FAILED [100%]
+
+================================== FAILURES ===================================
+_________ test_normalize_sqlite_url_handles_home_directory_expansion __________
+
+tmp_path = WindowsPath('C:/Users/Isaac/AppData/Local/Temp/pytest-of-Isaac/pytest-12/test_normalize_sqlite_url_hand0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000185B766CCB0>
+
+    def test_normalize_sqlite_url_handles_home_directory_expansion(tmp_path, monkeypatch):
+        fake_home = tmp_path / 'home'
+        monkeypatch.setenv('HOME', fake_home.as_posix())
+    
+        url = _normalize_sqlite_url('sqlite:///~/app.db', instance_path=tmp_path.as_posix())
+    
+        expected_path = Path(fake_home / 'app.db').resolve().as_posix()
+>       assert url == f'sqlite:///{expected_path}'
+E       AssertionError: assert 'sqlite:///C:.../Isaac/app.db' == 'sqlite:///C:...0/home/app.db'
+E         
+E         - sqlite:///C:/Users/Isaac/AppData/Local/Temp/pytest-of-Isaac/pytest-12/test_normalize_sqlite_url_hand0/home/app.db
+E         + sqlite:///C:/Users/Isaac/app.db
+
+AccessBackEnd\tests\db\test_json_backend.py:48: AssertionError
+=========================== short test summary info ===========================
+FAILED AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_handles_home_directory_expansion
+========================= 1 failed, 4 passed in 0.54s =========================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_ai_pipeline_version_wiring.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 1 item
+
+AccessBackEnd\tests\services\test_ai_pipeline_version_wiring.py::test_app_bootstrap_uses_ai_pipeline_v2_service PASSED [100%]
+
+============================== 1 passed in 0.50s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_logging_bootstrap.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\services\test_logging_bootstrap.py::test_startup_test_runner_starts_background_thread PASSED [ 50%]
+AccessBackEnd\tests\services\test_logging_bootstrap.py::test_startup_test_runner_logs_output_and_exit_code PASSED [100%]
+
+============================== 2 passed in 0.42s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_module_config_bootstrap_integration.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\services\test_module_config_bootstrap_integration.py::test_module_configs_loaded_at_startup PASSED [ 50%]
+AccessBackEnd\tests\services\test_module_config_bootstrap_integration.py::test_ai_service_uses_module_config_contract PASSED [100%]
+
+============================== 2 passed in 0.52s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_module_configs.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\services\test_module_configs.py::test_ai_pipeline_module_config_defaults PASSED [ 25%]
+AccessBackEnd\tests\services\test_module_configs.py::test_ai_pipeline_module_config_preserves_supplied_values PASSED [ 50%]
+AccessBackEnd\tests\services\test_module_configs.py::test_auth_module_config_defaults PASSED [ 75%]
+AccessBackEnd\tests\services\test_module_configs.py::test_logging_module_config_preserves_supplied_values PASSED [100%]
+
+============================== 4 passed in 0.48s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\utilities\test_api_checker_helpers.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_deserialize_maps_aliases PASSED [ 25%]
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_validate_raises_bad_request_for_schema_errors PASSED [ 50%]
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_datetime_int_and_date_parsers_cover_valid_and_invalid_inputs PASSED [ 75%]
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_serialize_and_apply_updates PASSED [100%]
+
+============================== 4 passed in 0.46s ==============================
+
+==================================================
+Running: AccessBackEnd\tests\utilities\test_helpers_unit.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 13 items
+
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_normalize_auth_email_trims_and_lowercases PASSED [  7%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolve_session_timetolive_honors_timedelta PASSED [ 15%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolve_session_timetolive_converts_numeric_minutes PASSED [ 23%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolve_session_timetolive_uses_default_when_not_configured PASSED [ 30%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolved_allowed_actions_for_known_and_unknown_roles PASSED [ 38%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_as_utc_normalizes_naive_and_aware_values PASSED [ 46%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_deserialize_payload_maps_api_fields_to_model_fields PASSED [ 53%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_optional_datetime_accepts_iso_and_datetime_objects PASSED [ 61%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_optional_datetime_rejects_non_iso_values PASSED [ 69%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_required_date_supports_date_and_iso_string PASSED [ 76%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_required_date_raises_for_invalid_values PASSED [ 84%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_int_field_handles_required_optional_and_invalid_values PASSED [ 92%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_serialize_record_for_note_resource_includes_alias_fields PASSED [100%]
+
+============================= 13 passed in 0.48s ==============================
+
+Finished: 2026-03-15T19:41:22.813594
+Overall result: FAIL

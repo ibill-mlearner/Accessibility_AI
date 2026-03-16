@@ -10,7 +10,7 @@ def main() -> int:
     script_dir = Path(__file__).resolve().parent
     backend_dir = script_dir.parent
     project_root = backend_dir.parent
-    report_file = script_dir / "test_results.txt"
+    report_file = script_dir / f"test_results_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
 
     test_files = sorted(
         test_file
