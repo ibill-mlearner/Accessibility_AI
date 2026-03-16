@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from .interfaces import AIProviderFactoryInterface, AIProviderInterface
-from .providers import map_exception, normalize_provider_name
+from .providers import map_exception, normalize_backend_response, normalize_provider_name
 from .types import ASSISTANT_TEXT_KEYS, AIPipelineConfig, AIPipelineRequest, AIPipelineUpstreamError
 
 
@@ -20,9 +20,9 @@ class AIPipelineService:
         self._provider_factory = provider_factory
         default_provider = normalize_provider_name(config.provider)
         default_model = self._resolve_model_id(default_provider)
-        self._providers: dict[tuple[str, str], AIProviderInterface] = {}
+        self._backends: dict[tuple[str, str], AIProviderInterface] = {}
         if provider is not None:
-            self._providers[(default_provider, default_model)] = provider
+            self._backends[(default_provider, default_model)] = provider
         self._inventory_cache: tuple[float, dict[str, Any]] | None = None
 
     def _resolve_model_id(self, provider: str) -> str:
@@ -42,14 +42,14 @@ class AIPipelineService:
         provider = normalize_provider_name(self.config.provider)
         return provider, self._resolve_model_id(provider)
 
-    def _get_provider(self, provider: str, model_id: str) -> AIProviderInterface:
+    def _get_backend(self, provider: str, model_id: str) -> AIProviderInterface:
         key = (provider, model_id)
-        if key in self._providers:
-            return self._providers[key]
+        if key in self._backends:
+            return self._backends[key]
         if self._provider_factory is None:
             raise ValueError("provider_factory is required to create providers")
         instance = self._provider_factory(self.config, provider=provider, model_id=model_id)
-        self._providers[key] = instance
+        self._backends[key] = instance
         return instance
 
     @staticmethod
@@ -86,12 +86,12 @@ class AIPipelineService:
             context["system_instructions"] = request.system_prompt
 
         provider_name, model_id = self._select_runtime(context)
-        provider = self._get_provider(provider_name, model_id)
+        backend = self._get_backend(provider_name, model_id)
 
         invoke_start = time.time()
         fallback_meta: dict[str, str] = {}
         try:
-            payload = provider.invoke(prompt, context)
+            payload = backend.generate(prompt, str(context.get("system_instructions") or ""), context) if hasattr(backend, "generate") else backend.invoke(prompt, context)
         except Exception as exc:  # noqa: BLE001
             mapped = map_exception(exc)
             if (
@@ -101,8 +101,8 @@ class AIPipelineService:
             ):
                 provider_name = "ollama"
                 model_id = self._resolve_model_id("ollama")
-                provider = self._get_provider(provider_name, model_id)
-                payload = provider.invoke(prompt, context)
+                backend = self._get_backend(provider_name, model_id)
+                payload = backend.generate(prompt, str(context.get("system_instructions") or ""), context) if hasattr(backend, "generate") else backend.invoke(prompt, context)
                 fallback_meta = {
                     "fallback_from": "huggingface",
                     "fallback_to": "ollama",
@@ -112,6 +112,7 @@ class AIPipelineService:
                 raise AIPipelineUpstreamError(str(mapped), details=getattr(mapped, "details", {})) from exc
 
         _ = invoke_start  # keep timing hook available for future logging
+        payload = normalize_backend_response(payload)
         assistant_text = self._extract_assistant_text(payload)
         confidence = float(payload["confidence"]) if isinstance(payload.get("confidence"), (float, int)) else None
         notes_raw = payload.get("notes")
@@ -157,7 +158,7 @@ class AIPipelineService:
                 statuses[provider_name] = {"ok": False, "status": "not_configured"}
                 continue
             try:
-                statuses[provider_name] = self._get_provider(provider_name, model_id).health()
+                statuses[provider_name] = self._get_backend(provider_name, model_id).health()
             except Exception as exc:  # noqa: BLE001
                 statuses[provider_name] = {"ok": False, "status": "health_check_failed", "error": str(exc), "model_id": model_id}
         return statuses
@@ -180,7 +181,7 @@ class AIPipelineService:
 
         def _fetch_inventory(provider_name: str, model_id: str) -> tuple[str, list[dict[str, Any]], float]:
             provider_start = time.perf_counter()
-            models = self._get_provider(provider_name, model_id).inventory()
+            models = self._get_backend(provider_name, model_id).inventory()
             return provider_name, models, round((time.perf_counter() - provider_start) * 1000, 2)
 
         futures = []

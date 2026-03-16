@@ -7,20 +7,18 @@ from typing import Any
 from .config import AIPipelineV2ModuleConfig
 
 from .interfaces import AIProviderFactoryInterface
-from .providers import HuggingFaceProvider, HttpProvider, OllamaProvider, normalize_provider_name
+from .providers import HuggingFaceBackend, OllamaBackend, normalize_provider_name
 from .service import AIPipelineService
 from .types import AIPipelineConfig
 
 
 def create_provider(config: AIPipelineConfig, *, provider: str, model_id: str):
     selected = normalize_provider_name(provider)
-    if selected == "ollama":
+    if selected in {"ollama", "http"}:
         endpoint = config.ollama_endpoint or config.live_endpoint
-        return OllamaProvider(config=config, model_id=model_id, endpoint=endpoint)
-    if selected == "http":
-        return HttpProvider(config=config, model_id=model_id, endpoint=config.live_endpoint)
+        return OllamaBackend(config=config, model_id=model_id, endpoint=endpoint)
     if selected == "huggingface":
-        return HuggingFaceProvider(config=config, model_id=model_id)
+        return HuggingFaceBackend(config=config, model_id=model_id)
     raise ValueError(f"Unsupported AI provider: {provider}")
 
 
