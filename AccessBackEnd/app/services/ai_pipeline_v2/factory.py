@@ -11,7 +11,7 @@ from .types import AIPipelineConfig
 def _module_config_from_mapping(config: Mapping[str, Any]) -> AIPipelineV2ModuleConfig:
     return AIPipelineV2ModuleConfig(
         provider=str(config.get("AI_PROVIDER") or "huggingface").strip().lower(),
-        model_name=str(config.get("AI_MODEL_NAME") or "meta-llama/Llama-3.2-3B-Instruct").strip(),
+        model_name=str(config.get("AI_MODEL_NAME") or "Qwen/Qwen2.5-0.5B-Instruct").strip(),
         timeout_seconds=int(config.get("AI_TIMEOUT_SECONDS", 60)),
         max_new_tokens=int(config.get("AI_MAX_NEW_TOKENS", 256)),
         temperature=float(config.get("AI_TEMPERATURE", 0.7)),

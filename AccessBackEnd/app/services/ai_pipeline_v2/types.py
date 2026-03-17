@@ -20,7 +20,7 @@ class AIPipelineRequest:
 
 @dataclass(slots=True)
 class AIPipelineConfig:
-    model_id: str = "meta-llama/Llama-3.2-3B-Instruct"
+    model_id: str = "Qwen/Qwen2.5-0.5B-Instruct"
     max_new_tokens: int = 256
     temperature: float = 0.7
     torch_dtype: str = "bfloat16"
