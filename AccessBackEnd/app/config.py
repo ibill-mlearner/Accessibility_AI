@@ -51,10 +51,7 @@ def _env_json(key: str, default: dict | None = None):
 
 
 def _default_ai_model_name() -> str:
-    """Prefer a local path by default when HF dynamic downloads are disabled."""
-    allow_download = _env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool)
-    if allow_download:
-        return "Qwen/Qwen2.5-0.5B-Instruct"
+    """Use a local model path by default for runtime inference."""
     return str(_DEFAULT_LOCAL_MODEL_DIR)
 
 
@@ -128,15 +125,13 @@ class BaseConfig:
     # config objects colocated with owning modules become the primary ownership model.
     # static control on model's used right now since model runtime is not sent through cuda or numa
     #todo: need to switch entirely over to model names from DB ai_models.py ai_models should reflect app/instance saved models
-    AI_PROVIDER = _env("AI_PROVIDER", "ollama")
+    AI_PROVIDER = _env("AI_PROVIDER", "huggingface")
     # Common model options (toggle by setting AI_MODEL_NAME in env):
     # - local path under instance/models for local-only Hugging Face policy (default)
-    # - "Qwen/Qwen2.5-0.5B-Instruct" when AI_HUGGINGFACE_ALLOW_DOWNLOAD=true
     # - "Qwen/Qwen2.5-1.5B-Instruct"
     # - "NousResearch/Meta-Llama-3-8B-Instruct"
     AI_MODEL_NAME = _env("AI_MODEL_NAME", _default_ai_model_name())
     AI_HUGGINGFACE_CACHE_DIR = _env("AI_HUGGINGFACE_CACHE_DIR")
-    AI_HUGGINGFACE_ALLOW_DOWNLOAD = _env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool)
     AI_ENABLE_OLLAMA_FALLBACK = _env("AI_ENABLE_OLLAMA_FALLBACK", True, bool)
     AI_TIMEOUT_SECONDS = _env("AI_TIMEOUT_SECONDS", 60, int)
     AI_OLLAMA_ENDPOINT = _env(
@@ -164,7 +159,6 @@ class TestingConfig(BaseConfig):
     TESTING = True
     DEBUG = False
     AI_PROVIDER = _env("TEST_AI_PROVIDER", "huggingface")
-    AI_HUGGINGFACE_ALLOW_DOWNLOAD = _env("TEST_AI_HUGGINGFACE_ALLOW_DOWNLOAD", True, bool)
     SQLALCHEMY_DATABASE_URI = _env("TEST_DATABASE_URL", "sqlite:///:memory:")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=5)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(minutes=10)

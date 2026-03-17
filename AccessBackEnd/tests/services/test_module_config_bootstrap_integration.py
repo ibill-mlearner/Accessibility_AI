@@ -20,7 +20,6 @@ def test_module_configs_loaded_at_startup(monkeypatch, tmp_path):
 def test_ai_service_uses_module_config_contract(monkeypatch, tmp_path):
     monkeypatch.setenv("AI_PROVIDER", "huggingface")
     monkeypatch.setenv("AI_MODEL_NAME", tmp_path.as_posix())
-    monkeypatch.setenv("AI_HUGGINGFACE_ALLOW_DOWNLOAD", "false")
     monkeypatch.setenv("AI_ENABLE_OLLAMA_FALLBACK", "true")
     monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
 

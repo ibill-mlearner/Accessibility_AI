@@ -286,6 +286,7 @@ def test_ai_interaction_returns_provider_unavailable_error_for_failed_selected_b
     assert response.status_code == 503
     payload = response.get_json()
     assert payload["error"]["code"] == "provider_unavailable"
+    assert payload["error"]["message"] == "There was a problem with the model contact the administrator."
 
 
 def test_ai_interaction_uses_session_selection_after_available_inventory_selection(app, client):

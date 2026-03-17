@@ -28,7 +28,6 @@ def _base_module_config(**overrides):
         ollama_options={},
         live_endpoint="http://localhost:11434/api/chat",
         huggingface_cache_dir=None,
-        huggingface_allow_download=False,
     )
     for key, value in overrides.items():
         setattr(config, key, value)
@@ -40,20 +39,18 @@ def test_build_ai_service_rejects_huggingface_local_only_without_local_model_dir
         provider="huggingface",
         model_name="Qwen/Qwen2.5-0.5B-Instruct",
         huggingface_cache_dir=str(tmp_path),
-        huggingface_allow_download=False,
     )
 
     with pytest.raises(ValueError, match="AI_PROVIDER=huggingface"):
         build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
 
 
-def test_build_ai_service_accepts_huggingface_local_model_dir_when_download_disabled(tmp_path: Path):
+def test_build_ai_service_accepts_huggingface_local_model_dir(tmp_path: Path):
     model_dir = tmp_path / "qwen-local"
     model_dir.mkdir()
     module_config = _base_module_config(
         provider="huggingface",
         model_name=str(model_dir),
-        huggingface_allow_download=False,
     )
 
     service = build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
@@ -61,30 +58,27 @@ def test_build_ai_service_accepts_huggingface_local_model_dir_when_download_disa
     assert service is not None
 
 
-def test_build_ai_service_accepts_mapping_fallback_for_transition():
+def test_build_ai_service_mapping_transition_rejects_non_local_model_path():
     config = {
         "AI_PROVIDER": "huggingface",
         "AI_MODEL_NAME": "Qwen/Qwen2.5-0.5B-Instruct",
-        "AI_HUGGINGFACE_ALLOW_DOWNLOAD": True,
     }
 
-    service = build_ai_service_from_config(config=config, provider_factory=_dummy_provider_factory)
+    with pytest.raises(ValueError, match="AI_PROVIDER=huggingface"):
+        build_ai_service_from_config(config=config, provider_factory=_dummy_provider_factory)
 
-    assert service is not None
 
-
-def test_build_ai_service_accepts_repo_id_with_writable_cache_dir(tmp_path: Path):
+def test_build_ai_service_rejects_repo_id_even_with_writable_cache_dir(tmp_path: Path):
     cache_dir = tmp_path / "hf-cache"
     module_config = _base_module_config(
         provider="huggingface",
         model_name="Qwen/Qwen2.5-0.5B-Instruct",
         huggingface_cache_dir=str(cache_dir),
-        huggingface_allow_download=True,
     )
 
-    service = build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
+    with pytest.raises(ValueError, match="AI_MODEL_NAME"):
+        build_ai_service_from_config(module_config, provider_factory=_dummy_provider_factory)
 
-    assert service is not None
     assert cache_dir.exists() and cache_dir.is_dir()
 
 
@@ -95,7 +89,6 @@ def test_build_ai_service_rejects_huggingface_cache_dir_when_path_is_file(tmp_pa
         provider="huggingface",
         model_name="Qwen/Qwen2.5-0.5B-Instruct",
         huggingface_cache_dir=str(file_path),
-        huggingface_allow_download=True,
     )
 
     with pytest.raises(ValueError, match="AI_HUGGINGFACE_CACHE_DIR"):

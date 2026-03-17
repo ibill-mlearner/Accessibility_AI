@@ -41,7 +41,6 @@ class AIPipelineConfig:
     timeout_seconds: int = 60
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
-    huggingface_allow_download: bool = False
     # Deprecated: fallback is disabled because Ollama is no longer used.
     enable_ollama_fallback_on_hf_local_only_error: bool = False
     inventory_cache_ttl_seconds: int = 30

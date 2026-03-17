@@ -14,6 +14,7 @@ export function useSendPrompt({
   const prompt = ref('')
   const interactionLoading = ref(false)
   const featureStore = useFeatureStore()
+  const SAFE_MODEL_CONTACT_ERROR_MESSAGE = 'There was a problem with the model contact the administrator.'
 
 
   function logSendCheckpoint(label, details = {}) {
@@ -137,16 +138,25 @@ export function useSendPrompt({
       return `${rejectedPromptMessage} ${backendMessage}`.trim()
     }
 
+    const isModelContactFailure = new Set([
+      'runtime_unavailable',
+      'provider_unavailable',
+      'provider_auth_failed',
+      'provider_model_not_found',
+      'provider_gated_model',
+      'upstream_error'
+    ]).has(errorCode)
 
-    if (errorCode === 'provider_unavailable') {
-      return backendMessage || 'The selected AI provider/model is unavailable. Please switch mode or choose a different model.'
+    if (isModelContactFailure) {
+      return SAFE_MODEL_CONTACT_ERROR_MESSAGE
     }
-    const isProviderAuthIssue = errorCode === 'upstream_error'
+
+    const legacyProviderAuthSignal = errorCode === 'upstream_error'
       && errorSource === 'provider_runtime'
       && (status === 401 || messageLower.includes('repository not found') || messageLower.includes('invalid username or password'))
 
-    if (isProviderAuthIssue) {
-      return 'The selected Hugging Face model is unavailable or requires authentication. Choose another model or configure valid provider credentials.'
+    if (legacyProviderAuthSignal) {
+      return SAFE_MODEL_CONTACT_ERROR_MESSAGE
     }
 
     return backendMessage || 'AI is temporarily unavailable. Please retry.'

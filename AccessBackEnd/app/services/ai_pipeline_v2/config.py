@@ -9,8 +9,6 @@ from app.utils.env_config import parse_env, parse_positive_int
 def default_ai_model_name() -> str:
     instance_dir = Path(__file__).resolve().parents[3] / "instance"
     local_default = instance_dir / "models" / "Qwen2.5-0.5B-Instruct"
-    if parse_env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool):
-        return "Qwen/Qwen2.5-0.5B-Instruct"
     return str(local_default)
 
 
@@ -25,7 +23,6 @@ class AIPipelineV2ModuleConfig:
     timeout_seconds: int = 60
     huggingface_model_id: str = ""
     huggingface_cache_dir: str | None = None
-    huggingface_allow_download: bool = False
     enable_ollama_fallback: bool = False
     inventory_cache_ttl_seconds: int = 30
 
@@ -48,7 +45,6 @@ class AIPipelineV2ModuleConfig:
             timeout_seconds=parse_positive_int("AI_TIMEOUT_SECONDS", 60),
             huggingface_model_id=model_name,
             huggingface_cache_dir=parse_env("AI_HUGGINGFACE_CACHE_DIR"),
-            huggingface_allow_download=parse_env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool),
             enable_ollama_fallback=enable_ollama_fallback,
             inventory_cache_ttl_seconds=parse_positive_int("AI_INVENTORY_CACHE_TTL_SECONDS", 30),
         )
@@ -58,6 +54,5 @@ class AIPipelineV2ModuleConfig:
             "section": "ai_pipeline_v2",
             "provider": self.provider,
             "has_model": bool(self.model_name),
-            "hf_download": self.huggingface_allow_download,
             "hf_cache_dir": self.huggingface_cache_dir,
         }

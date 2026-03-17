@@ -503,6 +503,8 @@ def compose_system_prompt(system_instructions: str, payload: dict[str, Any]) -> 
     return combined or None
 
 
+SAFE_MODEL_CONTACT_ERROR_MESSAGE = "There was a problem with the model contact the administrator."
+
 def validate_runtime_model_selection(payload: dict[str, Any], ai_service: AIPipelineServiceInterface) -> tuple[dict[str, Any], int] | None:
     """Validate/resolve runtime selection through the canonical resolver."""
     try:
@@ -652,7 +654,23 @@ def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest,
     except AIPipelineUpstreamError as exc:
         details = exc.details if isinstance(exc.details, dict) else {}
         error_code, status_code, normalized_details = classify_upstream_error(exc, provider=str(details.get("provider") or current_app.config.get("AI_PROVIDER") or ""), model_id=str(details.get("model_id") or current_app.config.get("AI_MODEL_NAME") or ""), request_id=request_id)
-        return jsonify({"error": {"code": error_code, "message": str(exc), "details": normalized_details}}), status_code
+        current_app.logger.error(
+            "ai_interaction.pipeline.upstream_error request_id=%s code=%s status=%s details=%s",
+            request_id,
+            error_code,
+            status_code,
+            normalized_details,
+        )
+        safe_error_codes = {
+            "runtime_unavailable",
+            "provider_unavailable",
+            "provider_auth_failed",
+            "provider_model_not_found",
+            "provider_gated_model",
+            "upstream_error",
+        }
+        response_message = SAFE_MODEL_CONTACT_ERROR_MESSAGE if error_code in safe_error_codes else str(exc)
+        return jsonify({"error": {"code": error_code, "message": response_message, "details": normalized_details}}), status_code
 
 
 _extract_response_text = AIInteractionOps._extract_response_text

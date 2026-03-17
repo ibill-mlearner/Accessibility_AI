@@ -157,15 +157,10 @@ class HuggingFaceBackend(BaseBackend):
         model_ref = str(self.model_id or "").strip()
         if not model_ref:
             raise ValueError("huggingface model_id must be configured")
-        if self.config.huggingface_allow_download:
-            return model_ref
         path = Path(model_ref).expanduser()
         if path.exists() and path.is_dir():
             return str(path)
-        raise RuntimeError(
-            "HuggingFace dynamic download is disabled in local-only mode for this POC. "
-            "Provide a local model path in AI_MODEL_NAME or pre-download into AI_HUGGINGFACE_CACHE_DIR."
-        )
+        raise RuntimeError("Model runtime is unavailable.")
 
     def _get_or_load_model_bundle(self) -> tuple[Any, Any]:
         if self._model is not None and self._tokenizer is not None:

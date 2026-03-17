@@ -86,7 +86,7 @@ class AIPipelineService:
             mapped = map_exception(exc)
             details = getattr(mapped, "details", {}) if isinstance(getattr(mapped, "details", {}), dict) else {}
             raise AIPipelineUpstreamError(
-                f"AI runtime is unavailable for model '{model_id}'. {mapped}",
+                "There was a problem with the model contact the administrator.",
                 details={
                     **details,
                     "error_code": "runtime_unavailable",

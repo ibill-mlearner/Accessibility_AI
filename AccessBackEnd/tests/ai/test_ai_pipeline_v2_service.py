@@ -171,7 +171,7 @@ def test_non_fallback_error_raises_upstream_error():
 
     service = AIPipelineService(AIPipelineConfig(model_name="m"), runtime_client=RuntimeClient())
 
-    with pytest.raises(AIPipelineUpstreamError, match="upstream auth failed"):
+    with pytest.raises(AIPipelineUpstreamError, match=r"There was a problem with the model contact the administrator\."):
         service.run(AIPipelineRequest(prompt="hello"))
 
 
@@ -240,7 +240,6 @@ def test_pipeline_with_local_small_models_returns_response(model_id: str):
     service = AIPipelineService(
         AIPipelineConfig(
             model_name=str(model_dir),
-            huggingface_allow_download=False,
             timeout_seconds=120,
             max_new_tokens=64,
         ),
