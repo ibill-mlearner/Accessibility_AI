@@ -176,3 +176,57 @@ def test_pipeline_with_local_small_models_returns_response(model_id: str):
     assert isinstance(result["assistant_text"], str)
     assert result["assistant_text"].strip()
     assert result["meta"]["selected_model_id"] == str(model_dir)
+
+
+def test_ensure_pipe_uses_dtype_kwarg_and_skips_device_map_without_accelerate(monkeypatch):
+    captured = {}
+
+    def fake_pipeline(task, model=None, **kwargs):
+        captured["task"] = task
+        captured["model"] = model
+        captured["kwargs"] = kwargs
+
+        class _Pipe:
+            def __call__(self, messages, max_new_tokens=256):
+                return [{"generated_text": [*messages, {"role": "assistant", "content": "ok"}]}]
+
+        return _Pipe()
+
+    from ai_pipeline_v2 import service as service_module
+
+    monkeypatch.setattr(service_module, "pipeline", fake_pipeline)
+    monkeypatch.setattr(AIPipelineService, "_accelerate_available", staticmethod(lambda: False))
+
+    service = AIPipelineService(AIPipelineConfig(model_id="repo/model", torch_dtype="bfloat16", device_map="auto"))
+
+    service.run(AIPipelineRequest(prompt="hello"))
+
+    assert captured["task"] == "text-generation"
+    assert captured["model"] == "repo/model"
+    assert "dtype" in captured["kwargs"]
+    assert "torch_dtype" not in captured["kwargs"]
+    assert "device_map" not in captured["kwargs"]
+
+
+def test_ensure_pipe_passes_device_map_when_accelerate_available(monkeypatch):
+    captured = {}
+
+    def fake_pipeline(task, model=None, **kwargs):
+        captured["kwargs"] = kwargs
+
+        class _Pipe:
+            def __call__(self, messages, max_new_tokens=256):
+                return [{"generated_text": [*messages, {"role": "assistant", "content": "ok"}]}]
+
+        return _Pipe()
+
+    from ai_pipeline_v2 import service as service_module
+
+    monkeypatch.setattr(service_module, "pipeline", fake_pipeline)
+    monkeypatch.setattr(AIPipelineService, "_accelerate_available", staticmethod(lambda: True))
+
+    service = AIPipelineService(AIPipelineConfig(model_id="repo/model", device_map="auto"))
+
+    service.run(AIPipelineRequest(prompt="hello"))
+
+    assert captured["kwargs"].get("device_map") == "auto"

@@ -1,0 +1,2060 @@
+Accessibility AI backend test run
+Started: 2026-03-17T02:29:25.738664
+Tests directory: E:\Tests\Accessibility_AI\AccessBackEnd\tests
+Project root: E:\Tests\Accessibility_AI
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_checker_helpers.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 6 items
+
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_monolith_normalize_and_check_compact_payload PASSED [ 16%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_monolith_validate_and_mutate PASSED [ 33%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_ai_checker_preserves_raw_model_id_for_provider_errors PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_ai_checker_normalizes_cached_model_aliases PASSED [ 66%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_classify_upstream_error_uses_runtime_model_id_over_upstream_details PASSED [ 83%]
+AccessBackEnd\tests\ai\test_ai_checker_helpers.py::test_classify_upstream_error_preserves_namespaced_model_id PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 6 passed, 3 warnings in 3.86s ========================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_model_resolution.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_returns_invalid_model_selection_when_default_unavailable PASSED [ 25%]
+AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_applies_config_default_when_available[local] FAILED [ 50%]
+AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_applies_config_default_when_available[huggingface_local] FAILED [ 75%]
+AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_rejects_deprecated_family_override PASSED [100%]
+
+================================== FAILURES ===================================
+_____ test_model_resolution_applies_config_default_when_available[local] ______
+
+inventory_key = 'local'
+
+    @pytest.mark.parametrize("inventory_key", ["local", "huggingface_local"])
+    def test_model_resolution_applies_config_default_when_available(inventory_key):
+        resolver = AIInteractionModelResolver()
+        payload = {"prompt": "hello"}
+        context_payload = {}
+    
+        app = Flask(__name__)
+        app.config.update(
+            AI_PROVIDER="huggingface",
+            AI_MODEL_NAME="Qwen/Qwen2.5-0.5B-Instruct",
+            AI_OLLAMA_MODEL="qwen2.5:0.5b",
+        )
+    
+        service = _FakeService(
+            {
+                inventory_key: {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
+            }
+        )
+    
+        with app.test_request_context("/api/v1/ai/interactions"):
+            response = resolver.resolve_runtime_model_selection(
+                payload,
+                service,
+                context_payload,
+                "req-2",
+            )
+    
+        assert response is None
+        assert context_payload["runtime_model_selection"]["provider"] == "huggingface"
+>       assert context_payload["runtime_model_selection"]["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
+E       AssertionError: assert 'qwen/qwen2.5-0.5b-instruct' == 'Qwen/Qwen2.5-0.5B-Instruct'
+E         
+E         - Qwen/Qwen2.5-0.5B-Instruct
+E         ? ^    ^          ^ ^
+E         + qwen/qwen2.5-0.5b-instruct
+E         ? ^    ^          ^ ^
+
+AccessBackEnd\tests\ai\test_ai_model_resolution.py:78: AssertionError
+_ test_model_resolution_applies_config_default_when_available[huggingface_local] _
+
+inventory_key = 'huggingface_local'
+
+    @pytest.mark.parametrize("inventory_key", ["local", "huggingface_local"])
+    def test_model_resolution_applies_config_default_when_available(inventory_key):
+        resolver = AIInteractionModelResolver()
+        payload = {"prompt": "hello"}
+        context_payload = {}
+    
+        app = Flask(__name__)
+        app.config.update(
+            AI_PROVIDER="huggingface",
+            AI_MODEL_NAME="Qwen/Qwen2.5-0.5B-Instruct",
+            AI_OLLAMA_MODEL="qwen2.5:0.5b",
+        )
+    
+        service = _FakeService(
+            {
+                inventory_key: {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
+            }
+        )
+    
+        with app.test_request_context("/api/v1/ai/interactions"):
+            response = resolver.resolve_runtime_model_selection(
+                payload,
+                service,
+                context_payload,
+                "req-2",
+            )
+    
+        assert response is None
+        assert context_payload["runtime_model_selection"]["provider"] == "huggingface"
+>       assert context_payload["runtime_model_selection"]["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
+E       AssertionError: assert 'qwen/qwen2.5-0.5b-instruct' == 'Qwen/Qwen2.5-0.5B-Instruct'
+E         
+E         - Qwen/Qwen2.5-0.5B-Instruct
+E         ? ^    ^          ^ ^
+E         + qwen/qwen2.5-0.5b-instruct
+E         ? ^    ^          ^ ^
+
+AccessBackEnd\tests\ai\test_ai_model_resolution.py:78: AssertionError
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_applies_config_default_when_available[local]
+FAILED AccessBackEnd\tests\ai\test_ai_model_resolution.py::test_model_resolution_applies_config_default_when_available[huggingface_local]
+=================== 2 failed, 2 passed, 3 warnings in 3.75s ===================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_pipeline_factory.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\ai\test_ai_pipeline_factory.py::test_build_ai_service_uses_repo_model_id_and_pipeline_params PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_pipeline_factory.py::test_build_ai_service_mapping_transition_accepts_huggingface_repo_id PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 3 warnings in 3.74s ========================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_pipeline_service.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 12 items
+
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_resolve_prompt_prefers_explicit_prompt PASSED [  8%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_resolve_prompt_uses_latest_user_message_when_prompt_missing PASSED [ 16%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_populates_context_and_normalizes_payload PASSED [ 25%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_uses_runtime_model_selection_and_caches_provider PASSED [ 33%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_provider_health_reports_not_configured_and_health_check_failures PASSED [ 41%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_interaction_builds_request_from_prompt_and_metadata PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_falls_back_to_ollama_on_hf_local_only_bootstrap_error PASSED [ 58%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_does_not_fallback_on_non_local_only_errors PASSED [ 66%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_huggingface_prompt_assembly_includes_system_instructions PASSED [ 75%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_huggingface_parse_json_extracts_assistant_text_from_messages_payload PASSED [ 83%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_huggingface_parse_json_prefers_contract_payload_when_available PASSED [ 91%]
+AccessBackEnd\tests\ai\test_ai_pipeline_service.py::test_run_falls_back_to_ollama_on_empty_huggingface_response PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 12 passed, 3 warnings in 3.85s ========================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 8 items
+
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_run_uses_chat_messages_and_system_prompt PASSED [ 12%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_run_uses_canonical_runtime_model_id_for_invocation PASSED [ 25%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_can_send_prompt_after_instantiation PASSED [ 37%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_runtime_error_raises_upstream_error PASSED [ 50%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_model_artifact_validator_detects_valid_and_invalid_layout PASSED [ 62%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_with_local_small_models_returns_response[Qwen/Qwen2.5-0.5B-Instruct] FAILED [ 75%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_with_local_small_models_returns_response[HuggingFaceTB/SmolLM2-360M-Instruct] FAILED [ 87%]
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_with_local_small_models_returns_response[HuggingFaceTB/SmolLM-135M-Instruct] FAILED [100%]
+
+================================== FAILURES ===================================
+_ test_pipeline_with_local_small_models_returns_response[Qwen/Qwen2.5-0.5B-Instruct] _
+
+self = <ai_pipeline_v2.service.AIPipelineService object at 0x000001C78243AB10>
+request = AIPipelineRequest(prompt='Reply with one short sentence confirming you are running.', messages=[], system_prompt=None, context={}, request_id=None, chat_id=None, initiated_by=None, class_id=None, user_id=None, rag=None)
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        messages = self._resolve_messages(request)
+        if not messages:
+            raise AIPipelineUpstreamError("Prompt or messages are required")
+    
+        settings = request.context if isinstance(request.context, dict) else {}
+        max_new_tokens = int(settings.get("max_new_tokens", self.config.max_new_tokens))
+        selected_model_id = self._resolve_runtime_model_id(request)
+    
+        try:
+>           outputs = self._ensure_pipe(selected_model_id)(messages, max_new_tokens=max_new_tokens)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:50: in _ensure_pipe
+    pipe = pipeline(
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\__init__.py:1027: in pipeline
+    framework, model = infer_framework_load_model(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+model = 'E:\\Tests\\Accessibility_AI\\AccessBackEnd\\instance\\models\\Qwen--Qwen2.5-0.5B-Instruct'
+config = Qwen2Config {
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 151643,
+ ...true,
+  "transformers_version": "4.57.1",
+  "use_cache": true,
+  "use_sliding_window": false,
+  "vocab_size": 151936
+}
+
+model_classes = {'pt': (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>,), 'tf': ()}
+task = 'text-generation', framework = None
+model_kwargs = {'_commit_hash': None, '_from_pipeline': 'text-generation', 'device_map': 'auto', 'dtype': torch.bfloat16, ...}
+class_tuple = (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>, <class 'transformers.models.qwen2.modeling_qwen2.Qwen2ForCausalLM'>)
+look_pt = True, look_tf = False
+classes = [<class 'transformers.models.qwen2.modeling_qwen2.Qwen2ForCausalLM'>]
+architecture = 'Qwen2ForCausalLM'
+transformers_module = <module 'transformers' from 'C:\\Users\\Isaac\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\transformers\\__init__.py'>
+_class = <class 'transformers.models.qwen2.modeling_qwen2.Qwen2ForCausalLM'>
+
+    def infer_framework_load_model(
+        model,
+        config: AutoConfig,
+        model_classes: Optional[dict[str, tuple[type]]] = None,
+        task: Optional[str] = None,
+        framework: Optional[str] = None,
+        **model_kwargs,
+    ):
+        """
+        Select framework (TensorFlow or PyTorch) to use from the `model` passed. Returns a tuple (framework, model).
+    
+        If `model` is instantiated, this function will just infer the framework from the model class. Otherwise `model` is
+        actually a checkpoint name and this method will try to instantiate it using `model_classes`. Since we don't want to
+        instantiate the model twice, this model is returned for use by the pipeline.
+    
+        If both frameworks are installed and available for `model`, PyTorch is selected.
+    
+        Args:
+            model (`str`, [`PreTrainedModel`] or [`TFPreTrainedModel]`):
+                The model to infer the framework from. If `str`, a checkpoint name. The model to infer the framewrok from.
+            config ([`AutoConfig`]):
+                The config associated with the model to help using the correct class
+            model_classes (dictionary `str` to `type`, *optional*):
+                A mapping framework to class.
+            task (`str`):
+                The task defining which pipeline will be returned.
+            model_kwargs:
+                Additional dictionary of keyword arguments passed along to the model's `from_pretrained(...,
+                **model_kwargs)` function.
+    
+        Returns:
+            `Tuple`: A tuple framework, model.
+        """
+        if not is_tf_available() and not is_torch_available():
+            raise RuntimeError(
+                "At least one of TensorFlow 2.0 or PyTorch should be installed. "
+                "To install TensorFlow 2.0, read the instructions at https://www.tensorflow.org/install/ "
+                "To install PyTorch, read the instructions at https://pytorch.org/."
+            )
+        if isinstance(model, str):
+            model_kwargs["_from_pipeline"] = task
+            class_tuple = ()
+            look_pt = is_torch_available() and framework in {"pt", None}
+            look_tf = is_tf_available() and framework in {"tf", None}
+            if model_classes:
+                if look_pt:
+                    class_tuple = class_tuple + model_classes.get("pt", (AutoModel,))
+                if look_tf:
+                    class_tuple = class_tuple + model_classes.get("tf", (TFAutoModel,))
+            if config.architectures:
+                classes = []
+                for architecture in config.architectures:
+                    transformers_module = importlib.import_module("transformers")
+                    if look_pt:
+                        _class = getattr(transformers_module, architecture, None)
+                        if _class is not None:
+                            classes.append(_class)
+                    if look_tf:
+                        _class = getattr(transformers_module, f"TF{architecture}", None)
+                        if _class is not None:
+                            classes.append(_class)
+                class_tuple = class_tuple + tuple(classes)
+    
+            if len(class_tuple) == 0:
+                raise ValueError(f"Pipeline cannot infer suitable model classes from {model}")
+    
+            all_traceback = {}
+            for model_class in class_tuple:
+                kwargs = model_kwargs.copy()
+                if framework == "pt" and model.endswith(".h5"):
+                    kwargs["from_tf"] = True
+                    logger.warning(
+                        "Model might be a TensorFlow model (ending with `.h5`) but TensorFlow is not available. "
+                        "Trying to load the model with PyTorch."
+                    )
+                elif framework == "tf" and model.endswith(".bin"):
+                    kwargs["from_pt"] = True
+                    logger.warning(
+                        "Model might be a PyTorch model (ending with `.bin`) but PyTorch is not available. "
+                        "Trying to load the model with Tensorflow."
+                    )
+    
+                try:
+                    model = model_class.from_pretrained(model, **kwargs)
+                    if hasattr(model, "eval"):
+                        model = model.eval()
+                    # Stop loading on the first successful load.
+                    break
+                except (OSError, ValueError, TypeError, RuntimeError):
+                    # `from_pretrained` may raise a `TypeError` or `RuntimeError` when the requested `dtype`
+                    # is not supported on the execution device (e.g. bf16 on a consumer GPU). We capture those so
+                    # we can transparently retry the load in float32 before surfacing an error to the user.
+                    fallback_tried = False
+                    if is_torch_available() and ("dtype" in kwargs):
+                        import torch  # local import to avoid unnecessarily importing torch for TF/JAX users
+    
+                        fallback_tried = True
+                        fp32_kwargs = kwargs.copy()
+                        fp32_kwargs["dtype"] = torch.float32
+    
+                        try:
+                            model = model_class.from_pretrained(model, **fp32_kwargs)
+                            if hasattr(model, "eval"):
+                                model = model.eval()
+                            logger.warning(
+                                "Falling back to torch.float32 because loading with the original dtype failed on the"
+                                " target device."
+                            )
+                            break
+                        except Exception:
+                            # If it still fails, capture the traceback and continue to the next class.
+                            all_traceback[model_class.__name__] = traceback.format_exc()
+                            continue
+    
+                    # If no fallback was attempted or it also failed, record the original traceback.
+                    if not fallback_tried:
+                        all_traceback[model_class.__name__] = traceback.format_exc()
+                    continue
+    
+            if isinstance(model, str):
+                error = ""
+                for class_name, trace in all_traceback.items():
+                    error += f"while loading with {class_name}, an error is thrown:\n{trace}\n"
+>               raise ValueError(
+                    f"Could not load model {model} with any of the following classes: {class_tuple}. See the original errors:\n\n{error}\n"
+                )
+E               ValueError: Could not load model E:\Tests\Accessibility_AI\AccessBackEnd\instance\models\Qwen--Qwen2.5-0.5B-Instruct with any of the following classes: (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>, <class 'transformers.models.qwen2.modeling_qwen2.Qwen2ForCausalLM'>). See the original errors:
+E               
+E               while loading with AutoModelForCausalLM, an error is thrown:
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 293, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\models\auto\auto_factory.py", line 604, in from_pretrained
+E                   return model_class.from_pretrained(
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               During handling of the above exception, another exception occurred:
+E               
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 311, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **fp32_kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\models\auto\auto_factory.py", line 604, in from_pretrained
+E                   return model_class.from_pretrained(
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               while loading with Qwen2ForCausalLM, an error is thrown:
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 293, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               During handling of the above exception, another exception occurred:
+E               
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 311, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **fp32_kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py:333: ValueError
+
+The above exception was the direct cause of the following exception:
+
+model_id = 'Qwen/Qwen2.5-0.5B-Instruct'
+
+    @pytest.mark.parametrize("model_id", _SMALL_MODEL_IDS)
+    def test_pipeline_with_local_small_models_returns_response(model_id: str):
+        project_root = Path(__file__).resolve().parents[2]
+        configured_model = str(os.getenv("AI_MODEL_NAME") or "").strip()
+        model_dir = Path(configured_model).expanduser().resolve() if configured_model else local_model_dir(project_root, model_id)
+    
+        transformers = pytest.importorskip("transformers", reason="transformers is required for local model download/inference")
+        _ensure_local_model_artifacts(model_dir, model_id, transformers)
+    
+        if not has_valid_model_artifacts(model_dir):
+            diagnostics = model_artifact_diagnostics(model_dir)
+            pytest.fail(
+                "Local model artifacts are invalid after download attempt. "
+                f"model_id={model_id} "
+                f"resolved_model_dir={diagnostics['resolved_model_dir']} "
+                f"exists={diagnostics['exists']} "
+                f"is_dir={diagnostics['is_dir']} "
+                f"config_json_exists={diagnostics['config_json_exists']} "
+                f"config_json_parseable={diagnostics['config_json_parseable']} "
+                f"config_model_type_present={diagnostics['config_model_type_present']} "
+                f"tokenizer_files_present={diagnostics['tokenizer_files_present']} "
+                f"tokenizer_files_found={diagnostics['tokenizer_files_found']} "
+                f"weight_files_present={diagnostics['weight_files_present']} "
+                f"weight_files_found={diagnostics['weight_files_found']} "
+                f"directory_listing={diagnostics['directory_listing']}"
+            )
+    
+        service = AIPipelineService(
+            AIPipelineConfig(
+                model_id=str(model_dir),
+                max_new_tokens=64,
+            )
+        )
+    
+>       result = service.run_interaction(_MODEL_TEST_PROMPT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:173: in run_interaction
+    return self.run(AIPipelineRequest(prompt=prompt, context=merged_context))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <ai_pipeline_v2.service.AIPipelineService object at 0x000001C78243AB10>
+request = AIPipelineRequest(prompt='Reply with one short sentence confirming you are running.', messages=[], system_prompt=None, context={}, request_id=None, chat_id=None, initiated_by=None, class_id=None, user_id=None, rag=None)
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        messages = self._resolve_messages(request)
+        if not messages:
+            raise AIPipelineUpstreamError("Prompt or messages are required")
+    
+        settings = request.context if isinstance(request.context, dict) else {}
+        max_new_tokens = int(settings.get("max_new_tokens", self.config.max_new_tokens))
+        selected_model_id = self._resolve_runtime_model_id(request)
+    
+        try:
+            outputs = self._ensure_pipe(selected_model_id)(messages, max_new_tokens=max_new_tokens)
+            assistant_text = self._extract_last_generated_message(outputs)
+            return {
+                "assistant_text": assistant_text,
+                "meta": {
+                    "provider": "huggingface",
+                    "model_id": selected_model_id,
+                    "selected_provider": "huggingface",
+                    "selected_model_id": selected_model_id,
+                    "max_new_tokens": max_new_tokens,
+                },
+            }
+        except Exception as exc:  # noqa: BLE001
+>           raise AIPipelineUpstreamError("Model invocation failed", details={"error": str(exc)}) from exc
+E           ai_pipeline_v2.types.AIPipelineUpstreamError: Model invocation failed
+
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:167: AIPipelineUpstreamError
+---------------------------- Captured stderr call -----------------------------
+`torch_dtype` is deprecated! Use `dtype` instead!
+_ test_pipeline_with_local_small_models_returns_response[HuggingFaceTB/SmolLM2-360M-Instruct] _
+
+self = <ai_pipeline_v2.service.AIPipelineService object at 0x000001C78243B620>
+request = AIPipelineRequest(prompt='Reply with one short sentence confirming you are running.', messages=[], system_prompt=None, context={}, request_id=None, chat_id=None, initiated_by=None, class_id=None, user_id=None, rag=None)
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        messages = self._resolve_messages(request)
+        if not messages:
+            raise AIPipelineUpstreamError("Prompt or messages are required")
+    
+        settings = request.context if isinstance(request.context, dict) else {}
+        max_new_tokens = int(settings.get("max_new_tokens", self.config.max_new_tokens))
+        selected_model_id = self._resolve_runtime_model_id(request)
+    
+        try:
+>           outputs = self._ensure_pipe(selected_model_id)(messages, max_new_tokens=max_new_tokens)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:50: in _ensure_pipe
+    pipe = pipeline(
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\__init__.py:1027: in pipeline
+    framework, model = infer_framework_load_model(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+model = 'E:\\Tests\\Accessibility_AI\\AccessBackEnd\\instance\\models\\HuggingFaceTB--SmolLM2-360M-Instruct'
+config = LlamaConfig {
+  "architectures": [
+    "LlamaForCausalLM"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+...,
+      "q4f16": "float16"
+    }
+  },
+  "transformers_version": "4.57.1",
+  "use_cache": true,
+  "vocab_size": 49152
+}
+
+model_classes = {'pt': (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>,), 'tf': ()}
+task = 'text-generation', framework = None
+model_kwargs = {'_commit_hash': None, '_from_pipeline': 'text-generation', 'device_map': 'auto', 'dtype': torch.bfloat16, ...}
+class_tuple = (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>, <class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>)
+look_pt = True, look_tf = False
+classes = [<class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>]
+architecture = 'LlamaForCausalLM'
+transformers_module = <module 'transformers' from 'C:\\Users\\Isaac\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\transformers\\__init__.py'>
+_class = <class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>
+
+    def infer_framework_load_model(
+        model,
+        config: AutoConfig,
+        model_classes: Optional[dict[str, tuple[type]]] = None,
+        task: Optional[str] = None,
+        framework: Optional[str] = None,
+        **model_kwargs,
+    ):
+        """
+        Select framework (TensorFlow or PyTorch) to use from the `model` passed. Returns a tuple (framework, model).
+    
+        If `model` is instantiated, this function will just infer the framework from the model class. Otherwise `model` is
+        actually a checkpoint name and this method will try to instantiate it using `model_classes`. Since we don't want to
+        instantiate the model twice, this model is returned for use by the pipeline.
+    
+        If both frameworks are installed and available for `model`, PyTorch is selected.
+    
+        Args:
+            model (`str`, [`PreTrainedModel`] or [`TFPreTrainedModel]`):
+                The model to infer the framework from. If `str`, a checkpoint name. The model to infer the framewrok from.
+            config ([`AutoConfig`]):
+                The config associated with the model to help using the correct class
+            model_classes (dictionary `str` to `type`, *optional*):
+                A mapping framework to class.
+            task (`str`):
+                The task defining which pipeline will be returned.
+            model_kwargs:
+                Additional dictionary of keyword arguments passed along to the model's `from_pretrained(...,
+                **model_kwargs)` function.
+    
+        Returns:
+            `Tuple`: A tuple framework, model.
+        """
+        if not is_tf_available() and not is_torch_available():
+            raise RuntimeError(
+                "At least one of TensorFlow 2.0 or PyTorch should be installed. "
+                "To install TensorFlow 2.0, read the instructions at https://www.tensorflow.org/install/ "
+                "To install PyTorch, read the instructions at https://pytorch.org/."
+            )
+        if isinstance(model, str):
+            model_kwargs["_from_pipeline"] = task
+            class_tuple = ()
+            look_pt = is_torch_available() and framework in {"pt", None}
+            look_tf = is_tf_available() and framework in {"tf", None}
+            if model_classes:
+                if look_pt:
+                    class_tuple = class_tuple + model_classes.get("pt", (AutoModel,))
+                if look_tf:
+                    class_tuple = class_tuple + model_classes.get("tf", (TFAutoModel,))
+            if config.architectures:
+                classes = []
+                for architecture in config.architectures:
+                    transformers_module = importlib.import_module("transformers")
+                    if look_pt:
+                        _class = getattr(transformers_module, architecture, None)
+                        if _class is not None:
+                            classes.append(_class)
+                    if look_tf:
+                        _class = getattr(transformers_module, f"TF{architecture}", None)
+                        if _class is not None:
+                            classes.append(_class)
+                class_tuple = class_tuple + tuple(classes)
+    
+            if len(class_tuple) == 0:
+                raise ValueError(f"Pipeline cannot infer suitable model classes from {model}")
+    
+            all_traceback = {}
+            for model_class in class_tuple:
+                kwargs = model_kwargs.copy()
+                if framework == "pt" and model.endswith(".h5"):
+                    kwargs["from_tf"] = True
+                    logger.warning(
+                        "Model might be a TensorFlow model (ending with `.h5`) but TensorFlow is not available. "
+                        "Trying to load the model with PyTorch."
+                    )
+                elif framework == "tf" and model.endswith(".bin"):
+                    kwargs["from_pt"] = True
+                    logger.warning(
+                        "Model might be a PyTorch model (ending with `.bin`) but PyTorch is not available. "
+                        "Trying to load the model with Tensorflow."
+                    )
+    
+                try:
+                    model = model_class.from_pretrained(model, **kwargs)
+                    if hasattr(model, "eval"):
+                        model = model.eval()
+                    # Stop loading on the first successful load.
+                    break
+                except (OSError, ValueError, TypeError, RuntimeError):
+                    # `from_pretrained` may raise a `TypeError` or `RuntimeError` when the requested `dtype`
+                    # is not supported on the execution device (e.g. bf16 on a consumer GPU). We capture those so
+                    # we can transparently retry the load in float32 before surfacing an error to the user.
+                    fallback_tried = False
+                    if is_torch_available() and ("dtype" in kwargs):
+                        import torch  # local import to avoid unnecessarily importing torch for TF/JAX users
+    
+                        fallback_tried = True
+                        fp32_kwargs = kwargs.copy()
+                        fp32_kwargs["dtype"] = torch.float32
+    
+                        try:
+                            model = model_class.from_pretrained(model, **fp32_kwargs)
+                            if hasattr(model, "eval"):
+                                model = model.eval()
+                            logger.warning(
+                                "Falling back to torch.float32 because loading with the original dtype failed on the"
+                                " target device."
+                            )
+                            break
+                        except Exception:
+                            # If it still fails, capture the traceback and continue to the next class.
+                            all_traceback[model_class.__name__] = traceback.format_exc()
+                            continue
+    
+                    # If no fallback was attempted or it also failed, record the original traceback.
+                    if not fallback_tried:
+                        all_traceback[model_class.__name__] = traceback.format_exc()
+                    continue
+    
+            if isinstance(model, str):
+                error = ""
+                for class_name, trace in all_traceback.items():
+                    error += f"while loading with {class_name}, an error is thrown:\n{trace}\n"
+>               raise ValueError(
+                    f"Could not load model {model} with any of the following classes: {class_tuple}. See the original errors:\n\n{error}\n"
+                )
+E               ValueError: Could not load model E:\Tests\Accessibility_AI\AccessBackEnd\instance\models\HuggingFaceTB--SmolLM2-360M-Instruct with any of the following classes: (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>, <class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>). See the original errors:
+E               
+E               while loading with AutoModelForCausalLM, an error is thrown:
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 293, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\models\auto\auto_factory.py", line 604, in from_pretrained
+E                   return model_class.from_pretrained(
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               During handling of the above exception, another exception occurred:
+E               
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 311, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **fp32_kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\models\auto\auto_factory.py", line 604, in from_pretrained
+E                   return model_class.from_pretrained(
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               while loading with LlamaForCausalLM, an error is thrown:
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 293, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               During handling of the above exception, another exception occurred:
+E               
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 311, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **fp32_kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py:333: ValueError
+
+The above exception was the direct cause of the following exception:
+
+model_id = 'HuggingFaceTB/SmolLM2-360M-Instruct'
+
+    @pytest.mark.parametrize("model_id", _SMALL_MODEL_IDS)
+    def test_pipeline_with_local_small_models_returns_response(model_id: str):
+        project_root = Path(__file__).resolve().parents[2]
+        configured_model = str(os.getenv("AI_MODEL_NAME") or "").strip()
+        model_dir = Path(configured_model).expanduser().resolve() if configured_model else local_model_dir(project_root, model_id)
+    
+        transformers = pytest.importorskip("transformers", reason="transformers is required for local model download/inference")
+        _ensure_local_model_artifacts(model_dir, model_id, transformers)
+    
+        if not has_valid_model_artifacts(model_dir):
+            diagnostics = model_artifact_diagnostics(model_dir)
+            pytest.fail(
+                "Local model artifacts are invalid after download attempt. "
+                f"model_id={model_id} "
+                f"resolved_model_dir={diagnostics['resolved_model_dir']} "
+                f"exists={diagnostics['exists']} "
+                f"is_dir={diagnostics['is_dir']} "
+                f"config_json_exists={diagnostics['config_json_exists']} "
+                f"config_json_parseable={diagnostics['config_json_parseable']} "
+                f"config_model_type_present={diagnostics['config_model_type_present']} "
+                f"tokenizer_files_present={diagnostics['tokenizer_files_present']} "
+                f"tokenizer_files_found={diagnostics['tokenizer_files_found']} "
+                f"weight_files_present={diagnostics['weight_files_present']} "
+                f"weight_files_found={diagnostics['weight_files_found']} "
+                f"directory_listing={diagnostics['directory_listing']}"
+            )
+    
+        service = AIPipelineService(
+            AIPipelineConfig(
+                model_id=str(model_dir),
+                max_new_tokens=64,
+            )
+        )
+    
+>       result = service.run_interaction(_MODEL_TEST_PROMPT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:173: in run_interaction
+    return self.run(AIPipelineRequest(prompt=prompt, context=merged_context))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <ai_pipeline_v2.service.AIPipelineService object at 0x000001C78243B620>
+request = AIPipelineRequest(prompt='Reply with one short sentence confirming you are running.', messages=[], system_prompt=None, context={}, request_id=None, chat_id=None, initiated_by=None, class_id=None, user_id=None, rag=None)
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        messages = self._resolve_messages(request)
+        if not messages:
+            raise AIPipelineUpstreamError("Prompt or messages are required")
+    
+        settings = request.context if isinstance(request.context, dict) else {}
+        max_new_tokens = int(settings.get("max_new_tokens", self.config.max_new_tokens))
+        selected_model_id = self._resolve_runtime_model_id(request)
+    
+        try:
+            outputs = self._ensure_pipe(selected_model_id)(messages, max_new_tokens=max_new_tokens)
+            assistant_text = self._extract_last_generated_message(outputs)
+            return {
+                "assistant_text": assistant_text,
+                "meta": {
+                    "provider": "huggingface",
+                    "model_id": selected_model_id,
+                    "selected_provider": "huggingface",
+                    "selected_model_id": selected_model_id,
+                    "max_new_tokens": max_new_tokens,
+                },
+            }
+        except Exception as exc:  # noqa: BLE001
+>           raise AIPipelineUpstreamError("Model invocation failed", details={"error": str(exc)}) from exc
+E           ai_pipeline_v2.types.AIPipelineUpstreamError: Model invocation failed
+
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:167: AIPipelineUpstreamError
+_ test_pipeline_with_local_small_models_returns_response[HuggingFaceTB/SmolLM-135M-Instruct] _
+
+self = <ai_pipeline_v2.service.AIPipelineService object at 0x000001C782411580>
+request = AIPipelineRequest(prompt='Reply with one short sentence confirming you are running.', messages=[], system_prompt=None, context={}, request_id=None, chat_id=None, initiated_by=None, class_id=None, user_id=None, rag=None)
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        messages = self._resolve_messages(request)
+        if not messages:
+            raise AIPipelineUpstreamError("Prompt or messages are required")
+    
+        settings = request.context if isinstance(request.context, dict) else {}
+        max_new_tokens = int(settings.get("max_new_tokens", self.config.max_new_tokens))
+        selected_model_id = self._resolve_runtime_model_id(request)
+    
+        try:
+>           outputs = self._ensure_pipe(selected_model_id)(messages, max_new_tokens=max_new_tokens)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:154: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:50: in _ensure_pipe
+    pipe = pipeline(
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\__init__.py:1027: in pipeline
+    framework, model = infer_framework_load_model(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+model = 'E:\\Tests\\Accessibility_AI\\AccessBackEnd\\instance\\models\\HuggingFaceTB--SmolLM-135M-Instruct'
+config = LlamaConfig {
+  "architectures": [
+    "LlamaForCausalLM"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+...000.0,
+  "tie_word_embeddings": true,
+  "transformers_version": "4.57.1",
+  "use_cache": true,
+  "vocab_size": 49152
+}
+
+model_classes = {'pt': (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>,), 'tf': ()}
+task = 'text-generation', framework = None
+model_kwargs = {'_commit_hash': None, '_from_pipeline': 'text-generation', 'device_map': 'auto', 'dtype': torch.bfloat16, ...}
+class_tuple = (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>, <class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>)
+look_pt = True, look_tf = False
+classes = [<class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>]
+architecture = 'LlamaForCausalLM'
+transformers_module = <module 'transformers' from 'C:\\Users\\Isaac\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages\\transformers\\__init__.py'>
+_class = <class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>
+
+    def infer_framework_load_model(
+        model,
+        config: AutoConfig,
+        model_classes: Optional[dict[str, tuple[type]]] = None,
+        task: Optional[str] = None,
+        framework: Optional[str] = None,
+        **model_kwargs,
+    ):
+        """
+        Select framework (TensorFlow or PyTorch) to use from the `model` passed. Returns a tuple (framework, model).
+    
+        If `model` is instantiated, this function will just infer the framework from the model class. Otherwise `model` is
+        actually a checkpoint name and this method will try to instantiate it using `model_classes`. Since we don't want to
+        instantiate the model twice, this model is returned for use by the pipeline.
+    
+        If both frameworks are installed and available for `model`, PyTorch is selected.
+    
+        Args:
+            model (`str`, [`PreTrainedModel`] or [`TFPreTrainedModel]`):
+                The model to infer the framework from. If `str`, a checkpoint name. The model to infer the framewrok from.
+            config ([`AutoConfig`]):
+                The config associated with the model to help using the correct class
+            model_classes (dictionary `str` to `type`, *optional*):
+                A mapping framework to class.
+            task (`str`):
+                The task defining which pipeline will be returned.
+            model_kwargs:
+                Additional dictionary of keyword arguments passed along to the model's `from_pretrained(...,
+                **model_kwargs)` function.
+    
+        Returns:
+            `Tuple`: A tuple framework, model.
+        """
+        if not is_tf_available() and not is_torch_available():
+            raise RuntimeError(
+                "At least one of TensorFlow 2.0 or PyTorch should be installed. "
+                "To install TensorFlow 2.0, read the instructions at https://www.tensorflow.org/install/ "
+                "To install PyTorch, read the instructions at https://pytorch.org/."
+            )
+        if isinstance(model, str):
+            model_kwargs["_from_pipeline"] = task
+            class_tuple = ()
+            look_pt = is_torch_available() and framework in {"pt", None}
+            look_tf = is_tf_available() and framework in {"tf", None}
+            if model_classes:
+                if look_pt:
+                    class_tuple = class_tuple + model_classes.get("pt", (AutoModel,))
+                if look_tf:
+                    class_tuple = class_tuple + model_classes.get("tf", (TFAutoModel,))
+            if config.architectures:
+                classes = []
+                for architecture in config.architectures:
+                    transformers_module = importlib.import_module("transformers")
+                    if look_pt:
+                        _class = getattr(transformers_module, architecture, None)
+                        if _class is not None:
+                            classes.append(_class)
+                    if look_tf:
+                        _class = getattr(transformers_module, f"TF{architecture}", None)
+                        if _class is not None:
+                            classes.append(_class)
+                class_tuple = class_tuple + tuple(classes)
+    
+            if len(class_tuple) == 0:
+                raise ValueError(f"Pipeline cannot infer suitable model classes from {model}")
+    
+            all_traceback = {}
+            for model_class in class_tuple:
+                kwargs = model_kwargs.copy()
+                if framework == "pt" and model.endswith(".h5"):
+                    kwargs["from_tf"] = True
+                    logger.warning(
+                        "Model might be a TensorFlow model (ending with `.h5`) but TensorFlow is not available. "
+                        "Trying to load the model with PyTorch."
+                    )
+                elif framework == "tf" and model.endswith(".bin"):
+                    kwargs["from_pt"] = True
+                    logger.warning(
+                        "Model might be a PyTorch model (ending with `.bin`) but PyTorch is not available. "
+                        "Trying to load the model with Tensorflow."
+                    )
+    
+                try:
+                    model = model_class.from_pretrained(model, **kwargs)
+                    if hasattr(model, "eval"):
+                        model = model.eval()
+                    # Stop loading on the first successful load.
+                    break
+                except (OSError, ValueError, TypeError, RuntimeError):
+                    # `from_pretrained` may raise a `TypeError` or `RuntimeError` when the requested `dtype`
+                    # is not supported on the execution device (e.g. bf16 on a consumer GPU). We capture those so
+                    # we can transparently retry the load in float32 before surfacing an error to the user.
+                    fallback_tried = False
+                    if is_torch_available() and ("dtype" in kwargs):
+                        import torch  # local import to avoid unnecessarily importing torch for TF/JAX users
+    
+                        fallback_tried = True
+                        fp32_kwargs = kwargs.copy()
+                        fp32_kwargs["dtype"] = torch.float32
+    
+                        try:
+                            model = model_class.from_pretrained(model, **fp32_kwargs)
+                            if hasattr(model, "eval"):
+                                model = model.eval()
+                            logger.warning(
+                                "Falling back to torch.float32 because loading with the original dtype failed on the"
+                                " target device."
+                            )
+                            break
+                        except Exception:
+                            # If it still fails, capture the traceback and continue to the next class.
+                            all_traceback[model_class.__name__] = traceback.format_exc()
+                            continue
+    
+                    # If no fallback was attempted or it also failed, record the original traceback.
+                    if not fallback_tried:
+                        all_traceback[model_class.__name__] = traceback.format_exc()
+                    continue
+    
+            if isinstance(model, str):
+                error = ""
+                for class_name, trace in all_traceback.items():
+                    error += f"while loading with {class_name}, an error is thrown:\n{trace}\n"
+>               raise ValueError(
+                    f"Could not load model {model} with any of the following classes: {class_tuple}. See the original errors:\n\n{error}\n"
+                )
+E               ValueError: Could not load model E:\Tests\Accessibility_AI\AccessBackEnd\instance\models\HuggingFaceTB--SmolLM-135M-Instruct with any of the following classes: (<class 'transformers.models.auto.modeling_auto.AutoModelForCausalLM'>, <class 'transformers.models.llama.modeling_llama.LlamaForCausalLM'>). See the original errors:
+E               
+E               while loading with AutoModelForCausalLM, an error is thrown:
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 293, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\models\auto\auto_factory.py", line 604, in from_pretrained
+E                   return model_class.from_pretrained(
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               During handling of the above exception, another exception occurred:
+E               
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 311, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **fp32_kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\models\auto\auto_factory.py", line 604, in from_pretrained
+E                   return model_class.from_pretrained(
+E                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               while loading with LlamaForCausalLM, an error is thrown:
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 293, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+E               
+E               During handling of the above exception, another exception occurred:
+E               
+E               Traceback (most recent call last):
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py", line 311, in infer_framework_load_model
+E                   model = model_class.from_pretrained(model, **fp32_kwargs)
+E                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 277, in _wrapper
+E                   return func(*args, **kwargs)
+E                          ^^^^^^^^^^^^^^^^^^^^^
+E                 File "C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\modeling_utils.py", line 4806, in from_pretrained
+E                   raise ValueError(
+E               ValueError: Using a `device_map`, `tp_plan`, `torch.device` context manager or setting `torch.set_default_device(device)` requires `accelerate`. You can install it with `pip install accelerate`
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\transformers\pipelines\base.py:333: ValueError
+
+The above exception was the direct cause of the following exception:
+
+model_id = 'HuggingFaceTB/SmolLM-135M-Instruct'
+
+    @pytest.mark.parametrize("model_id", _SMALL_MODEL_IDS)
+    def test_pipeline_with_local_small_models_returns_response(model_id: str):
+        project_root = Path(__file__).resolve().parents[2]
+        configured_model = str(os.getenv("AI_MODEL_NAME") or "").strip()
+        model_dir = Path(configured_model).expanduser().resolve() if configured_model else local_model_dir(project_root, model_id)
+    
+        transformers = pytest.importorskip("transformers", reason="transformers is required for local model download/inference")
+        _ensure_local_model_artifacts(model_dir, model_id, transformers)
+    
+        if not has_valid_model_artifacts(model_dir):
+            diagnostics = model_artifact_diagnostics(model_dir)
+            pytest.fail(
+                "Local model artifacts are invalid after download attempt. "
+                f"model_id={model_id} "
+                f"resolved_model_dir={diagnostics['resolved_model_dir']} "
+                f"exists={diagnostics['exists']} "
+                f"is_dir={diagnostics['is_dir']} "
+                f"config_json_exists={diagnostics['config_json_exists']} "
+                f"config_json_parseable={diagnostics['config_json_parseable']} "
+                f"config_model_type_present={diagnostics['config_model_type_present']} "
+                f"tokenizer_files_present={diagnostics['tokenizer_files_present']} "
+                f"tokenizer_files_found={diagnostics['tokenizer_files_found']} "
+                f"weight_files_present={diagnostics['weight_files_present']} "
+                f"weight_files_found={diagnostics['weight_files_found']} "
+                f"directory_listing={diagnostics['directory_listing']}"
+            )
+    
+        service = AIPipelineService(
+            AIPipelineConfig(
+                model_id=str(model_dir),
+                max_new_tokens=64,
+            )
+        )
+    
+>       result = service.run_interaction(_MODEL_TEST_PROMPT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py:174: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:173: in run_interaction
+    return self.run(AIPipelineRequest(prompt=prompt, context=merged_context))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <ai_pipeline_v2.service.AIPipelineService object at 0x000001C782411580>
+request = AIPipelineRequest(prompt='Reply with one short sentence confirming you are running.', messages=[], system_prompt=None, context={}, request_id=None, chat_id=None, initiated_by=None, class_id=None, user_id=None, rag=None)
+
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+        messages = self._resolve_messages(request)
+        if not messages:
+            raise AIPipelineUpstreamError("Prompt or messages are required")
+    
+        settings = request.context if isinstance(request.context, dict) else {}
+        max_new_tokens = int(settings.get("max_new_tokens", self.config.max_new_tokens))
+        selected_model_id = self._resolve_runtime_model_id(request)
+    
+        try:
+            outputs = self._ensure_pipe(selected_model_id)(messages, max_new_tokens=max_new_tokens)
+            assistant_text = self._extract_last_generated_message(outputs)
+            return {
+                "assistant_text": assistant_text,
+                "meta": {
+                    "provider": "huggingface",
+                    "model_id": selected_model_id,
+                    "selected_provider": "huggingface",
+                    "selected_model_id": selected_model_id,
+                    "max_new_tokens": max_new_tokens,
+                },
+            }
+        except Exception as exc:  # noqa: BLE001
+>           raise AIPipelineUpstreamError("Model invocation failed", details={"error": str(exc)}) from exc
+E           ai_pipeline_v2.types.AIPipelineUpstreamError: Model invocation failed
+
+AccessBackEnd\app\services\ai_pipeline_v2\service.py:167: AIPipelineUpstreamError
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_with_local_small_models_returns_response[Qwen/Qwen2.5-0.5B-Instruct]
+FAILED AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_with_local_small_models_returns_response[HuggingFaceTB/SmolLM2-360M-Instruct]
+FAILED AccessBackEnd\tests\ai\test_ai_pipeline_v2_service.py::test_pipeline_with_local_small_models_returns_response[HuggingFaceTB/SmolLM-135M-Instruct]
+=================== 3 failed, 5 passed, 3 warnings in 3.64s ===================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_catalog_selection.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\ai\test_catalog_selection.py::test_resolve_catalog_selection_prefers_valid_session_selection PASSED [ 50%]
+AccessBackEnd\tests\ai\test_catalog_selection.py::test_resolve_catalog_selection_falls_back_to_db_first_available PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 3 warnings in 3.88s ========================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_huggingface_bootstrap.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_uses_local_path_when_present PASSED [ 25%]
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_uses_cached_snapshot_when_available PASSED [ 50%]
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_raises_in_local_only_mode_without_local_artifacts PASSED [ 75%]
+AccessBackEnd\tests\ai\test_huggingface_bootstrap.py::test_ensure_model_uses_cache_alias_directory_when_available PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 4 passed, 3 warnings in 3.95s ========================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_model_inventory.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 3 items
+
+AccessBackEnd\tests\ai\test_model_inventory.py::test_discover_local_huggingface_models_ignores_non_model_dirs PASSED [ 33%]
+AccessBackEnd\tests\ai\test_model_inventory.py::test_discover_local_huggingface_models_accepts_cache_snapshot_dirs PASSED [ 66%]
+AccessBackEnd\tests\ai\test_model_inventory.py::test_discover_local_huggingface_models_accepts_materialized_dirs_with_markers PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 3 passed, 3 warnings in 4.06s ========================
+
+==================================================
+Running: AccessBackEnd\tests\ai\test_model_selection.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 5 items
+
+AccessBackEnd\tests\ai\test_model_selection.py::test_extract_available_model_ids_supports_local_and_huggingface_local_buckets PASSED [ 20%]
+AccessBackEnd\tests\ai\test_model_selection.py::test_resolve_provider_model_selection_accepts_available_inventory_ids_without_manual_alias_conversion PASSED [ 40%]
+AccessBackEnd\tests\ai\test_model_selection.py::test_resolve_catalog_selection_matches_config_default_with_canonical_normalizer PASSED [ 60%]
+AccessBackEnd\tests\ai\test_model_selection.py::test_resolve_provider_model_selection_normalizes_session_selection_model_id PASSED [ 80%]
+AccessBackEnd\tests\ai\test_model_selection.py::test_normalize_model_id_converts_huggingface_cache_style_delimiter_to_repo_id PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 5 passed, 3 warnings in 3.91s ========================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_ai_interactions_flow.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 10 items
+
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_resolve_model_override_uses_session_selection_when_payload_has_no_override PASSED [ 10%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_resolve_model_override_prioritizes_request_override_over_session PASSED [ 20%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_build_context_uses_user_feature_preferences_when_requested PASSED [ 30%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_accepts_non_numeric_model_id_without_500 PASSED [ 40%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_persists_valid_ai_model_fk_for_string_model_id PASSED [ 50%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_request_model_override_beats_session_selection PASSED [ 60%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_returns_provider_unavailable_error_for_failed_selected_backend PASSED [ 70%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_uses_session_selection_after_available_inventory_selection PASSED [ 80%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_upstream_error_details_prefer_runtime_selection_over_config PASSED [ 90%]
+AccessBackEnd\tests\api\test_ai_interactions_flow.py::test_ai_interaction_upstream_error_preserves_namespaced_runtime_model_id PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 10 passed, 3 warnings in 4.56s ========================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_ai_model_catalog_routes.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\api\test_ai_model_catalog_routes.py::test_ai_catalog_reads_models_from_db_and_ignores_invalid_session_selection PASSED [ 25%]
+AccessBackEnd\tests\api\test_ai_model_catalog_routes.py::test_ai_catalog_prefers_valid_session_selection_from_db_models FAILED [ 50%]
+AccessBackEnd\tests\api\test_ai_model_catalog_routes.py::test_ai_selection_accepts_model_id_from_models_available_payload FAILED [ 75%]
+AccessBackEnd\tests\api\test_ai_model_catalog_routes.py::test_models_available_public_shape_hides_internal_envelopes PASSED [100%]
+
+================================== FAILURES ===================================
+_______ test_ai_catalog_prefers_valid_session_selection_from_db_models ________
+
+app = <Flask 'app'>, client = <FlaskClient <Flask 'app'>>
+
+    def test_ai_catalog_prefers_valid_session_selection_from_db_models(app, client):
+        from app.api.v1 import ai_model_catalog_routes as catalog_routes
+    
+        catalog_routes._ai_catalog_cache.clear()
+        from app.db import init_flask_database
+        from app.extensions import db
+        from app.models import AIModel, DBUser
+    
+        with app.app_context():
+            init_flask_database(app)
+    
+        email = "catalog-session@example.com"
+        _register(client, email)
+    
+        with app.app_context():
+            user = db.session.query(DBUser).filter(DBUser.email == email).one()
+            db.session.add(AIModel(provider="huggingface", model_id="Qwen/Qwen2.5-0.5B-Instruct", source="seed", active=True))
+            db.session.commit()
+            user_id = int(user.id)
+    
+        with client.session_transaction() as sess:
+            sess["ai_model_selection"] = {
+                "user_id": user_id,
+                "auth_session_id": sess.get("auth_session_id"),
+                "provider": "huggingface",
+                "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+            }
+    
+        response = client.get("/api/v1/ai/catalog")
+        assert response.status_code == 200
+    
+        payload = response.get_json()
+>       assert payload["selected"] == {
+            "provider": "huggingface",
+            "id": "Qwen/Qwen2.5-0.5B-Instruct",
+            "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+            "source": "session_selection",
+        }
+E       AssertionError: assert {'id': 'qwen/...on_selection'} == {'id': 'Qwen/...on_selection'}
+E         
+E         Omitting 2 identical items, use -vv to show
+E         Differing items:
+E         {'id': 'qwen/qwen2.5-0.5b-instruct'} != {'id': 'Qwen/Qwen2.5-0.5B-Instruct'}
+E         {'model_id': 'qwen/qwen2.5-0.5b-instruct'} != {'model_id': 'Qwen/Qwen2.5-0.5B-Instruct'}
+E         
+E         Full diff:...
+E         
+E         ...Full output truncated (12 lines hidden), use '-vv' to show
+
+AccessBackEnd\tests\api\test_ai_model_catalog_routes.py:81: AssertionError
+----------------------------- Captured log setup ------------------------------
+WARNING  app:__init__.py:121 AI model sync skipped during app init: (sqlite3.OperationalError) no such table: ai_models
+[SQL: SELECT ai_models.id AS ai_models_id, ai_models.provider AS ai_models_provider, ai_models.model_id AS ai_models_model_id, ai_models.source AS ai_models_source, ai_models.path AS ai_models_path, ai_models.active AS ai_models_active, ai_models.created_at AS ai_models_created_at, ai_models.updated_at AS ai_models_updated_at 
+FROM ai_models 
+WHERE ai_models.provider = ?]
+[parameters: ('huggingface',)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+______ test_ai_selection_accepts_model_id_from_models_available_payload _______
+
+app = <Flask 'app'>, client = <FlaskClient <Flask 'app'>>
+
+    def test_ai_selection_accepts_model_id_from_models_available_payload(app, client):
+        from app.db import init_flask_database
+    
+        class _InventoryService:
+            def list_available_models(self):
+                return {
+                    "huggingface_local": {
+                        "models": [
+                            {
+                                "id": "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc",
+                            }
+                        ],
+                    },
+                    "local": {
+                        "models": [
+                            {
+                                "id": "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc",
+                            }
+                        ],
+                    },
+                }
+    
+        with app.app_context():
+            init_flask_database(app)
+    
+        _register(client, "catalog-selection-available@example.com")
+        app.extensions["ai_service"] = _InventoryService()
+    
+        available_response = client.get("/api/v1/ai/models/available")
+        assert available_response.status_code == 200
+        available_payload = available_response.get_json()
+        model_id = available_payload["local"]["models"][0]["id"]
+    
+        selection_response = client.post(
+            "/api/v1/ai/selection",
+            json={"provider": "huggingface", "model_id": model_id},
+        )
+        assert selection_response.status_code == 200
+        selection_payload = selection_response.get_json()
+        assert selection_payload["provider"] == "huggingface"
+>       assert selection_payload["id"] == model_id
+E       AssertionError: assert 'qwen/qwen2.5-0.5b-instruct' == '/workspace/i...pshots/123abc'
+E         
+E         - /workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc
+E         + qwen/qwen2.5-0.5b-instruct
+
+AccessBackEnd\tests\api\test_ai_model_catalog_routes.py:129: AssertionError
+----------------------------- Captured log setup ------------------------------
+WARNING  app:__init__.py:121 AI model sync skipped during app init: (sqlite3.OperationalError) no such table: ai_models
+[SQL: SELECT ai_models.id AS ai_models_id, ai_models.provider AS ai_models_provider, ai_models.model_id AS ai_models_model_id, ai_models.source AS ai_models_source, ai_models.path AS ai_models_path, ai_models.active AS ai_models_active, ai_models.created_at AS ai_models_created_at, ai_models.updated_at AS ai_models_updated_at 
+FROM ai_models 
+WHERE ai_models.provider = ?]
+[parameters: ('huggingface',)]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+============================== warnings summary ===============================
+tests/api/test_ai_model_catalog_routes.py::test_ai_catalog_reads_models_from_db_and_ignores_invalid_session_selection
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+tests/api/test_ai_model_catalog_routes.py::test_ai_catalog_reads_models_from_db_and_ignores_invalid_session_selection
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+tests/api/test_ai_model_catalog_routes.py::test_ai_catalog_reads_models_from_db_and_ignores_invalid_session_selection
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED AccessBackEnd\tests\api\test_ai_model_catalog_routes.py::test_ai_catalog_prefers_valid_session_selection_from_db_models
+FAILED AccessBackEnd\tests\api\test_ai_model_catalog_routes.py::test_ai_selection_accepts_model_id_from_models_available_payload
+=================== 2 failed, 2 passed, 3 warnings in 4.21s ===================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_auth_session_state_routes.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_missing_session_id_returns_401 PASSED [ 25%]
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_expired_session_returns_401_and_revokes_record PASSED [ 50%]
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_revoked_session_returns_401 PASSED [ 75%]
+AccessBackEnd\tests\api\test_auth_session_state_routes.py::test_auth_session_mismatched_session_returns_401 PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 4 passed, 3 warnings in 4.26s ========================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_feature_preferences_routes.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\api\test_feature_preferences_routes.py::test_feature_preferences_routes_read_and_update_current_user_preferences PASSED [ 50%]
+AccessBackEnd\tests\api\test_feature_preferences_routes.py::test_feature_preferences_replace_endpoint_upserts_records PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 3 warnings in 3.96s ========================
+
+==================================================
+Running: AccessBackEnd\tests\api\test_system_prompt_access_controls.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 9 items
+
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_create_forbidden_for_student PASSED [ 11%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_owner_can_create PASSED [ 22%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_non_owner_forbidden_update PASSED [ 33%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_system_prompt_admin_allowed_delete PASSED [ 44%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_create_forbidden_for_student PASSED [ 55%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_owner_can_create PASSED [ 66%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_non_owner_forbidden_delete PASSED [ 77%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_link_admin_allowed_delete PASSED [ 88%]
+AccessBackEnd\tests\api\test_system_prompt_access_controls.py::test_integration_owner_lifecycle_and_non_owner_blocked PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 9 passed, 3 warnings in 7.26s ========================
+
+==================================================
+Running: AccessBackEnd\tests\db\test_db_module_config.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 1 item
+
+AccessBackEnd\tests\db\test_db_module_config.py::test_db_module_config_defaults PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 3 warnings in 3.80s ========================
+
+==================================================
+Running: AccessBackEnd\tests\db\test_db_settings.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\db\test_db_settings.py::test_resolve_database_url_defaults_to_backend_instance_dir PASSED [ 50%]
+AccessBackEnd\tests\db\test_db_settings.py::test_resolve_database_url_keeps_in_memory_sqlite_unchanged PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 3 warnings in 3.78s ========================
+
+==================================================
+Running: AccessBackEnd\tests\db\test_json_backend.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 5 items
+
+AccessBackEnd\tests\db\test_json_backend.py::test_resolve_database_url_defaults_to_backend_instance_dir PASSED [ 20%]
+AccessBackEnd\tests\db\test_json_backend.py::test_resolve_database_url_keeps_in_memory_sqlite_unchanged PASSED [ 40%]
+AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_resolves_relative_path_inside_instance_dir PASSED [ 60%]
+AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_leaves_non_sqlite_urls_unchanged PASSED [ 80%]
+AccessBackEnd\tests\db\test_json_backend.py::test_normalize_sqlite_url_handles_home_directory_expansion PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 5 passed, 3 warnings in 3.82s ========================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_ai_pipeline_version_wiring.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 1 item
+
+AccessBackEnd\tests\services\test_ai_pipeline_version_wiring.py::test_app_bootstrap_uses_ai_pipeline_v2_service PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 3 warnings in 3.95s ========================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_logging_bootstrap.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\services\test_logging_bootstrap.py::test_startup_test_runner_starts_background_thread PASSED [ 50%]
+AccessBackEnd\tests\services\test_logging_bootstrap.py::test_startup_test_runner_logs_output_and_exit_code PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 3 warnings in 3.78s ========================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_module_config_bootstrap_integration.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 2 items
+
+AccessBackEnd\tests\services\test_module_config_bootstrap_integration.py::test_module_configs_loaded_at_startup PASSED [ 50%]
+AccessBackEnd\tests\services\test_module_config_bootstrap_integration.py::test_ai_service_uses_module_config_contract PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 2 passed, 3 warnings in 3.89s ========================
+
+==================================================
+Running: AccessBackEnd\tests\services\test_module_configs.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\services\test_module_configs.py::test_ai_pipeline_module_config_defaults PASSED [ 25%]
+AccessBackEnd\tests\services\test_module_configs.py::test_ai_pipeline_module_config_preserves_supplied_values PASSED [ 50%]
+AccessBackEnd\tests\services\test_module_configs.py::test_auth_module_config_defaults PASSED [ 75%]
+AccessBackEnd\tests\services\test_module_configs.py::test_logging_module_config_preserves_supplied_values PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 4 passed, 3 warnings in 4.11s ========================
+
+==================================================
+Running: AccessBackEnd\tests\utilities\test_api_checker_helpers.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 4 items
+
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_deserialize_maps_aliases PASSED [ 25%]
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_validate_raises_bad_request_for_schema_errors PASSED [ 50%]
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_datetime_int_and_date_parsers_cover_valid_and_invalid_inputs PASSED [ 75%]
+AccessBackEnd\tests\utilities\test_api_checker_helpers.py::test_monolith_serialize_and_apply_updates PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 4 passed, 3 warnings in 3.77s ========================
+
+==================================================
+Running: AccessBackEnd\tests\utilities\test_helpers_unit.py
+==================================================
+============================= test session starts =============================
+platform win32 -- Python 3.12.2, pytest-8.4.2, pluggy-1.6.0 -- C:\Users\Isaac\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: E:\Tests\Accessibility_AI\AccessBackEnd
+configfile: pytest.ini
+plugins: anyio-4.2.0, langsmith-0.7.3
+collecting ... collected 13 items
+
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_normalize_auth_email_trims_and_lowercases PASSED [  7%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolve_session_timetolive_honors_timedelta PASSED [ 15%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolve_session_timetolive_converts_numeric_minutes PASSED [ 23%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolve_session_timetolive_uses_default_when_not_configured PASSED [ 30%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_resolved_allowed_actions_for_known_and_unknown_roles PASSED [ 38%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_as_utc_normalizes_naive_and_aware_values PASSED [ 46%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_deserialize_payload_maps_api_fields_to_model_fields PASSED [ 53%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_optional_datetime_accepts_iso_and_datetime_objects PASSED [ 61%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_optional_datetime_rejects_non_iso_values PASSED [ 69%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_required_date_supports_date_and_iso_string PASSED [ 76%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_required_date_raises_for_invalid_values PASSED [ 84%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_parse_int_field_handles_required_optional_and_invalid_values PASSED [ 92%]
+AccessBackEnd\tests\utilities\test_helpers_unit.py::test_serialize_record_for_note_resource_includes_alias_fields PASSED [100%]
+
+============================== warnings summary ===============================
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\dateutil\tz\tz.py:37: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+
+C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20
+  C:\Users\Isaac\AppData\Local\Programs\Python\Python312\Lib\site-packages\sklearn\utils\fixes.py:20: DeprecationWarning: 
+  Pyarrow will become a required dependency of pandas in the next major release of pandas (pandas 3.0),
+  (to allow more performant data types, such as the Arrow string type, and better interoperability with other libraries)
+  but was not found to be installed on your system.
+  If this would cause problems for you,
+  please provide us feedback at https://github.com/pandas-dev/pandas/issues/54466
+          
+    import pandas as pd
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 13 passed, 3 warnings in 3.84s ========================
+
+Finished: 2026-03-17T02:31:32.979112
+Overall result: FAIL

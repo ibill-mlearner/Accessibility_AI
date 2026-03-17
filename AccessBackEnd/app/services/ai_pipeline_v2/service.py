@@ -47,14 +47,25 @@ class AIPipelineService:
             self._pipe_by_model[model_id] = pipe
             return pipe
         dtype = torch.bfloat16 if self.config.torch_dtype == "bfloat16" else torch.float32
-        pipe = pipeline(
-            "text-generation",
-            model=model_id,
-            torch_dtype=dtype,
-            device_map=self.config.device_map,
-        )
+        pipeline_kwargs: dict[str, Any] = {
+            "dtype": dtype,
+        }
+        requested_device_map = str(self.config.device_map or "").strip()
+        if requested_device_map and self._accelerate_available():
+            pipeline_kwargs["device_map"] = requested_device_map
+
+        pipe = pipeline("text-generation", model=model_id, **pipeline_kwargs)
+
         self._pipe_by_model[model_id] = pipe
         return pipe
+
+    @staticmethod
+    def _accelerate_available() -> bool:
+        try:
+            import accelerate  # noqa: F401
+        except Exception:  # noqa: BLE001
+            return False
+        return True
 
     @staticmethod
     def _has_hf_artifacts(path: Path) -> bool:
