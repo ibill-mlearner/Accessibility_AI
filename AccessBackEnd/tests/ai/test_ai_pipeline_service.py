@@ -167,10 +167,7 @@ def test_run_falls_back_to_ollama_on_hf_local_only_bootstrap_error():
         model_id = "Qwen/Qwen2.5-0.5B-Instruct"
 
         def invoke(self, prompt, context):
-            raise RuntimeError(
-                "HuggingFace dynamic download is disabled in local-only mode for this POC. "
-                "Provide a local model path in AI_MODEL_NAME or pre-download into AI_HUGGINGFACE_CACHE_DIR."
-            )
+            raise RuntimeError("Model runtime is unavailable.")
 
         def health(self):
             return {"ok": False}
@@ -200,7 +197,6 @@ def test_run_falls_back_to_ollama_on_hf_local_only_bootstrap_error():
             provider="huggingface",
             model_name="Qwen/Qwen2.5-0.5B-Instruct",
             huggingface_model_id="Qwen/Qwen2.5-0.5B-Instruct",
-            huggingface_allow_download=False,
             ollama_model_id="qwen2.5:0.5b",
             ollama_endpoint="http://localhost:11434/api/chat",
             enable_ollama_fallback_on_hf_local_only_error=True,
@@ -233,7 +229,6 @@ def test_run_does_not_fallback_on_non_local_only_errors():
             provider="huggingface",
             model_name="Qwen/Qwen2.5-0.5B-Instruct",
             huggingface_model_id="Qwen/Qwen2.5-0.5B-Instruct",
-            huggingface_allow_download=False,
             ollama_model_id="qwen2.5:0.5b",
             ollama_endpoint="http://localhost:11434/api/chat",
         ),

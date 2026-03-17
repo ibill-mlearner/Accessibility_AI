@@ -39,21 +39,20 @@ def _validate_huggingface_cache_dir_writable(config: AIPipelineV2ModuleConfig) -
 def _validate_huggingface_local_only_config(config: AIPipelineV2ModuleConfig) -> None:
     if str(config.provider).strip().lower() != "huggingface":
         return
-    if config.huggingface_allow_download:
-        return
     model_name = str(config.model_name).strip()
     model_path = Path(model_name).expanduser() if model_name else None
     if model_path and model_path.exists() and model_path.is_dir():
         return
     raise ValueError(
-        "Invalid AI runtime configuration: AI_PROVIDER=huggingface local-only mode requires AI_MODEL_NAME to be an existing local model directory."
+        "Invalid AI runtime configuration: AI_PROVIDER=huggingface requires AI_MODEL_NAME to be an existing local model directory."
     )
 
 
 def _module_config_from_mapping(config: Mapping[str, Any]) -> AIPipelineV2ModuleConfig:
     model_name = str(config.get("AI_MODEL_NAME") or "").strip()
+    provider = str(config.get("AI_PROVIDER") or "huggingface").strip().lower() or "huggingface"
     return AIPipelineV2ModuleConfig(
-        provider="local",
+        provider=provider,
         model_name=model_name,
         live_endpoint="",
         ollama_endpoint="",
@@ -62,7 +61,6 @@ def _module_config_from_mapping(config: Mapping[str, Any]) -> AIPipelineV2Module
         timeout_seconds=int(config.get("AI_TIMEOUT_SECONDS", 60)),
         huggingface_model_id=model_name,
         huggingface_cache_dir=config.get("AI_HUGGINGFACE_CACHE_DIR"),
-        huggingface_allow_download=bool(config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False)),
         enable_ollama_fallback=False,
         inventory_cache_ttl_seconds=int(config.get("AI_INVENTORY_CACHE_TTL_SECONDS", 30)),
     )
@@ -88,7 +86,6 @@ def build_ai_service_from_config(
         timeout_seconds=resolved_module.timeout_seconds,
         huggingface_model_id=resolved_module.huggingface_model_id,
         huggingface_cache_dir=resolved_module.huggingface_cache_dir,
-        huggingface_allow_download=resolved_module.huggingface_allow_download,
         enable_ollama_fallback_on_hf_local_only_error=resolved_module.enable_ollama_fallback,
         inventory_cache_ttl_seconds=resolved_module.inventory_cache_ttl_seconds,
     )

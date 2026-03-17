@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 
 def _validate_huggingface_local_only_config(config: Mapping[str, Any]) -> None:
     provider = str(config.get("AI_PROVIDER") or "").strip().lower()
-    allow_download = bool(config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False))
-    if provider != "huggingface" or allow_download:
+    if provider != "huggingface":
         return
 
     model_name = str(config.get("AI_MODEL_NAME") or "").strip()
@@ -24,11 +23,9 @@ def _validate_huggingface_local_only_config(config: Mapping[str, Any]) -> None:
 
     cache_dir = str(config.get("AI_HUGGINGFACE_CACHE_DIR") or "").strip() or "<unset>"
     raise ValueError(
-        "Invalid AI runtime configuration: AI_PROVIDER=huggingface with local-only mode "
-        "requires AI_MODEL_NAME to be an existing local model directory. "
-        f"Current AI_MODEL_NAME={model_name!r}, AI_HUGGINGFACE_CACHE_DIR={cache_dir!r}. "
-        "Remediation: set AI_PROVIDER=ollama for local development, or set AI_MODEL_NAME "
-        "to a valid local model path, or pre-populate AI_HUGGINGFACE_CACHE_DIR with cached model snapshots."
+        "Invalid AI runtime configuration: AI_PROVIDER=huggingface requires AI_MODEL_NAME "
+        "to be an existing local model directory. "
+        f"Current AI_MODEL_NAME={model_name!r}, AI_HUGGINGFACE_CACHE_DIR={cache_dir!r}."
     )
 
 def build_ai_service_from_config(
@@ -64,7 +61,6 @@ def build_ai_service_from_config(
         timeout_seconds=config["AI_TIMEOUT_SECONDS"],
         huggingface_model_id=config["AI_MODEL_NAME"],
         huggingface_cache_dir=config.get("AI_HUGGINGFACE_CACHE_DIR"),
-        huggingface_allow_download=config.get("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False),
         enable_ollama_fallback_on_hf_local_only_error=config.get("AI_ENABLE_OLLAMA_FALLBACK", True),
     )
 
@@ -80,7 +76,6 @@ def build_ai_service_from_config(
         timeout_seconds=pipeline_config.timeout_seconds,
         huggingface_model_id=pipeline_config.huggingface_model_id,
         huggingface_cache_dir=pipeline_config.huggingface_cache_dir,
-        huggingface_allow_download=pipeline_config.huggingface_allow_download,
         max_new_tokens=pipeline_config.max_new_tokens,
         temperature=pipeline_config.temperature,
     )

@@ -59,7 +59,6 @@ def load_module_configs(app: Flask) -> dict[str, object]:
     app.config["AI_OLLAMA_OPTIONS"] = ai_cfg.ollama_options
     app.config["AI_TIMEOUT_SECONDS"] = ai_cfg.timeout_seconds
     app.config["AI_HUGGINGFACE_CACHE_DIR"] = ai_cfg.huggingface_cache_dir
-    app.config["AI_HUGGINGFACE_ALLOW_DOWNLOAD"] = ai_cfg.huggingface_allow_download
     app.config["AI_ENABLE_OLLAMA_FALLBACK"] = ai_cfg.enable_ollama_fallback
     app.config["AI_INVENTORY_CACHE_TTL_SECONDS"] = ai_cfg.inventory_cache_ttl_seconds
 

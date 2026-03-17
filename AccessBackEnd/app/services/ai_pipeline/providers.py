@@ -271,7 +271,6 @@ class HuggingFaceLangChainProvider:
         *, 
         model_id: str, 
         cache_dir: str | None = None,
-        allow_download: bool = False,
         max_new_tokens: int = 256, 
         temperature: float = 0.1
     ) -> None:
@@ -281,8 +280,7 @@ class HuggingFaceLangChainProvider:
         self.temperature = temperature
         self._bootstrap = HuggingFaceModelBootstrap(
             model_id=model_id,
-            cache_dir=cache_dir,
-            allow_download=allow_download
+            cache_dir=cache_dir
         )
 
     def invoke(
@@ -474,7 +472,6 @@ def create_provider(
     timeout_seconds: int = 60, 
     huggingface_model_id: str = "", 
     huggingface_cache_dir: str | None = None,
-    huggingface_allow_download: bool = False,
     enable_ollama_fallback_on_hf_local_only_error: bool = True,
     max_new_tokens: int = 256, 
     temperature: float = 0.1
@@ -498,7 +495,6 @@ def create_provider(
         return HuggingFaceLangChainProvider(
             model_id=huggingface_model_id,
             cache_dir=huggingface_cache_dir,
-            allow_download=huggingface_allow_download,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
         )
