@@ -6,27 +6,18 @@ from flask_login import current_user, login_required
 from .routes import _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
 from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_catalog_selection, resolve_provider_model_selection
+from ...services.ai_pipeline_v2.model_selection import (
+    ModelSelectionError,
+    extract_available_model_ids,
+    normalize_model_id,
+    resolve_catalog_selection,
+    resolve_provider_model_selection,
+)
 from ...models import AIModel
 from ...extensions import db
 
 AI_CATALOG_TTL_SECONDS = 30
 _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
-
-
-def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    provider_models: dict[str, set[str]] = {"huggingface": set()}
-    for provider, top_key in (("huggingface", "huggingface_local"),):
-        provider_payload = payload.get(top_key)
-        if not isinstance(provider_payload, dict):
-            continue
-        models = provider_payload.get("models")
-        if not isinstance(models, list):
-            continue
-        for model in models:
-            if isinstance(model, dict) and model.get("id"):
-                provider_models[provider].add(str(model.get("id")).strip().lower())
-    return provider_models
 
 
 def _catalog_cache_key() -> tuple[int | None, Any]:
@@ -50,9 +41,9 @@ def list_persisted_ai_models():
     availability: dict[tuple[str, str], bool] = {}
     if include_live:
         inventory = ai_service.list_available_models()
-        available_by_provider = _extract_available_model_ids(inventory)
+        available_by_provider = extract_available_model_ids(inventory)
         availability = {
-            (provider, model_id.lower()): True
+            (provider, normalize_model_id(model_id)): True
             for provider, model_ids in available_by_provider.items()
             for model_id in model_ids
         }
@@ -75,7 +66,7 @@ def list_persisted_ai_models():
         }
         if include_live:
             payload['available_live'] = availability.get(
-                (model.provider, model.model_id.lower()),
+                (model.provider, normalize_model_id(model.model_id)),
                 False
             )
         response.append(payload)
@@ -144,7 +135,7 @@ def get_ai_catalog():
             ordered_models.append({"provider": provider, **model_payload})
 
         available_by_provider: dict[str, set[str]] = {
-            provider: {str(model.get("id") or "").strip().lower() for model in models if str(model.get("id") or "").strip()}
+            provider: {normalize_model_id(str(model.get("id") or "")) for model in models if normalize_model_id(str(model.get("id") or ""))}
             for provider, models in provider_grouped.items()
         }
 
@@ -183,7 +174,12 @@ def get_ai_catalog():
 @api_v1_bp.post('/ai/selection')
 @login_required
 def set_ai_selection():
-    """Persist per-session AI model selection for the authenticated user."""
+    """Persist the caller's model selection in session state for this user/session only.
+
+    This endpoint does not mutate application config (`AI_PROVIDER`, `AI_MODEL_NAME`).
+    If the product needs a true global pointer mutation, add a separate admin-only route
+    rather than reusing `/api/v1/ai/selection`.
+    """
     payload = _read_json_object()
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
 
@@ -192,6 +188,7 @@ def set_ai_selection():
     except ModelSelectionError as exc:
         return jsonify(exc.payload), exc.status_code
 
+    # Store per-user/session override only; runtime config remains process-level and unchanged.
     session["ai_model_selection"] = {
         "user_id": int(current_user.id),
         "auth_session_id": session.get("auth_session_id"),

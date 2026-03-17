@@ -35,36 +35,47 @@ export const useChatStore = defineStore('chats', {
       this.chats = []
       this.actionStatus = {}
     },
-    async fetchModelCatalog({ includeHealth = false } = {}) {
+    async fetchModelCatalog() {
       this.modelCatalogLoading = true
       this.modelCatalogError = ''
       try {
-        const response = await api.get('/api/v1/ai/catalog', {
-          params: includeHealth ? { include_health: 1 } : {}
-        })
-        const families = Array.isArray(response?.data?.families) ? response.data.families : []
+        const response = await api.get('/api/v1/ai/models/available')
+        const payload = response?.data && typeof response.data === 'object' ? response.data : {}
+        const defaults = payload?.provider_defaults && typeof payload.provider_defaults === 'object'
+          ? payload.provider_defaults
+          : {}
+        const defaultProvider = String(defaults?.provider || '').trim().toLowerCase()
         const options = []
 
-        families.forEach((f) => {
-          const models = Array.isArray(f?.models) ? f.models : []
-          models.forEach((m) => {
-            if (!m?.available) return
-            const provider = String(m?.provider || '').trim().toLowerCase()
-            const modelId = String(m?.model_id || '').trim()
-            if (!provider || !modelId) return
+        const normalizeProvider = (bucketName) => {
+          const normalizedBucket = String(bucketName || '').trim().toLowerCase()
+          if (!normalizedBucket) return ''
+          if (normalizedBucket === 'local' || normalizedBucket === 'huggingface_local') {
+            return defaultProvider || 'huggingface'
+          }
+          return normalizedBucket
+        }
 
-            const familyLabel = String(f?.label || '').trim()
-            const displayName = String(m?.display_name || '').trim() || modelId
-            const prefix = familyLabel && familyLabel.toLowerCase() !== displayName.toLowerCase() ? `${familyLabel} - ` : ''
+        Object.entries(payload).forEach(([bucketName, bucketValue]) => {
+          if (!bucketValue || typeof bucketValue !== 'object') return
+          const models = Array.isArray(bucketValue?.models) ? bucketValue.models : []
+          if (!models.length) return
 
-            const suffix = familyLabel && familyLabel.toLowerCase() !== displayName.toLowerCase() ? ` - ${familyLabel}` : ''
+          const provider = normalizeProvider(bucketName)
+          if (!provider) return
+
+          models.forEach((model) => {
+            const modelId = String(model?.id || '').trim()
+            if (!modelId) return
+            const path = String(model?.path || '').trim()
+            const basename = path.includes('/') ? path.split('/').filter(Boolean).pop() : ''
+            const labelBase = basename && basename !== modelId ? `${modelId} (${basename})` : modelId
 
             options.push({
               value: `${provider}::${modelId}`,
               provider,
               modelId,
-              // label: `${prefix}${displayName} (${provider})`
-              label: `${displayName}${suffix} (${provider})`
+              label: `${labelBase} (${provider})`
             })
           })
         })
@@ -73,15 +84,16 @@ export const useChatStore = defineStore('chats', {
         const selectedProvider = String(response?.data?.selected?.provider || '').trim().toLowerCase()
         const selectedModelId = String(response?.data?.selected?.model_id || '').trim()
         const selectedValue = selectedProvider && selectedModelId ? `${selectedProvider}::${selectedModelId}` : ''
+        const preferredSelected = selectedValue || this.lastPersistedSelection
 
-        this.selectedModel = selectedValue && options.some(
-          (o) => o.value === selectedValue)
-          ? selectedValue : options[0]?.value || ''
+        this.selectedModel = preferredSelected && options.some(
+          (o) => o.value === preferredSelected)
+          ? preferredSelected : options[0]?.value || ''
         this.modelCatalogFetchedAt = Date.now()
-        this.lastPersistedSelection = selectedValue
+        this.lastPersistedSelection = selectedValue || this.lastPersistedSelection
 
       } catch (error) {
-        this.modelCatalogError = 'Unable to load model catalog. error: ' + (error?.message || 'unknown error')
+        this.modelCatalogError = 'Unable to load model inventory from /api/v1/ai/models/available. error: ' + (error?.message || 'unknown error')
         this.modelCatalog = []
         this.selectedModel = ''
         this.modelCatalogFetchedAt = 0

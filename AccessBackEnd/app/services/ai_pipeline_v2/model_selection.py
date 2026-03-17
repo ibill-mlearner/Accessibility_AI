@@ -15,6 +15,38 @@ class ModelSelectionError(Exception):
     status_code: int = 400
 
 
+def normalize_model_id(model_id: str) -> str:
+    """Return canonical model-id key used for selection/inventory matching."""
+    raw = str(model_id or "").strip().replace("\\", "/")
+    if not raw:
+        return ""
+
+    lowered = raw.lower().strip("/")
+
+    if "/snapshots/" in lowered:
+        lowered = lowered.split("/snapshots/", maxsplit=1)[0]
+    if "/blobs/" in lowered:
+        lowered = lowered.split("/blobs/", maxsplit=1)[0]
+
+    if "/models--" in lowered:
+        lowered = "models--" + lowered.rsplit("/models--", maxsplit=1)[-1]
+
+    if lowered.startswith("models--"):
+        return lowered[len("models--") :].replace("--", "/").strip("/")
+
+    if "--" in lowered and "/" not in lowered:
+        return lowered.replace("--", "/").strip("/")
+
+    slash_count = lowered.count("/")
+    if slash_count == 1 and not lowered.startswith("/"):
+        return lowered
+
+    if "/" in lowered:
+        return lowered.rsplit("/", maxsplit=1)[-1].strip("/")
+
+    return lowered
+
+
 def _invalid_selection_payload(*, message: str, provider: str = "", model_id: str = "", source: str, available_by_provider: dict[str, set[str]]) -> dict[str, Any]:
     return {
         "error": {
@@ -31,10 +63,10 @@ def _invalid_selection_payload(*, message: str, provider: str = "", model_id: st
     }
 
 
-def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
+def extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
     provider_models: dict[str, set[str]] = {"huggingface": set()}
 
-    for provider, top_key in (("huggingface", "huggingface_local"),):
+    for top_key in ("huggingface_local", "local"):
         provider_payload = payload.get(top_key)
         if not isinstance(provider_payload, dict):
             continue
@@ -44,9 +76,11 @@ def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]
         for model in models:
             if not isinstance(model, dict):
                 continue
-            model_id = str(model.get("id") or "").strip().lower()
-            if model_id:
-                provider_models[provider].add(model_id)
+            model_id = str(model.get("id") or "").strip()
+            normalized_model_id = normalize_model_id(model_id)
+            if normalized_model_id:
+                provider_models["huggingface"].add(normalized_model_id)
+
     return provider_models
 
 
@@ -108,11 +142,9 @@ def _resolve_candidate(payload: dict[str, Any], *, allow_session: bool, require_
     return _resolve_config_default(), "config_default"
 
 
-
-
 def is_valid_catalog_selection(candidate: dict[str, Any], available_by_provider: dict[str, set[str]]) -> bool:
     provider = str(candidate.get("provider") or "").strip().lower()
-    model_id = str(candidate.get("model_id") or "").strip().lower()
+    model_id = normalize_model_id(str(candidate.get("model_id") or ""))
     return bool(provider and model_id and model_id in available_by_provider.get(provider, set()))
 
 
@@ -144,7 +176,7 @@ def resolve_catalog_selection(
 
     normalized_provider = str(config_provider or "huggingface").strip().lower() or "huggingface"
     normalized_model_id = str(config_model_id or "").strip()
-    if normalized_model_id.lower() in available_by_provider.get(normalized_provider, set()):
+    if normalize_model_id(normalized_model_id) in available_by_provider.get(normalized_provider, set()):
         return {
             "provider": normalized_provider,
             "model_id": normalized_model_id,
@@ -165,6 +197,7 @@ def resolve_catalog_selection(
         "source": "none",
     }
 
+
 def resolve_provider_model_selection(
     payload: dict[str, Any],
     ai_service: AIPipelineServiceInterface,
@@ -173,7 +206,9 @@ def resolve_provider_model_selection(
     require_explicit: bool = False,
     inventory_payload: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    available_by_provider = _extract_available_model_ids(inventory_payload if isinstance(inventory_payload, dict) else ai_service.list_available_models())
+    available_by_provider = extract_available_model_ids(
+        inventory_payload if isinstance(inventory_payload, dict) else ai_service.list_available_models()
+    )
     provider = ""
     model_id = ""
     source = "unknown"
@@ -181,9 +216,10 @@ def resolve_provider_model_selection(
         candidate, source = _resolve_candidate(payload, allow_session=allow_session, require_explicit=require_explicit)
         provider = str(candidate.get("provider") or "").strip().lower()
         model_id = str(candidate.get("model_id") or "").strip()
+        normalized_model_id = normalize_model_id(model_id)
         if provider != "huggingface":
             raise ValueError("Unsupported provider: only huggingface is allowed")
-        if model_id.lower() not in available_by_provider.get(provider, set()):
+        if normalized_model_id not in available_by_provider.get(provider, set()):
             raise ValueError(f"Model not available for provider {provider}: {model_id}")
     except ValueError as exc:
         raise ModelSelectionError(

@@ -82,3 +82,46 @@ def test_ai_catalog_prefers_valid_session_selection_from_db_models(app, client):
         "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
         "source": "session_selection",
     }
+
+
+def test_ai_selection_accepts_model_id_from_models_available_payload(app, client):
+    from app.db import init_flask_database
+
+    class _InventoryService:
+        def list_available_models(self):
+            return {
+                "huggingface_local": {
+                    "models": [
+                        {
+                            "id": "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc",
+                        }
+                    ],
+                },
+                "local": {
+                    "models": [
+                        {
+                            "id": "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc",
+                        }
+                    ],
+                },
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, "catalog-selection-available@example.com")
+    app.extensions["ai_service"] = _InventoryService()
+
+    available_response = client.get("/api/v1/ai/models/available")
+    assert available_response.status_code == 200
+    available_payload = available_response.get_json()
+    model_id = available_payload["huggingface_local"]["models"][0]["id"]
+
+    selection_response = client.post(
+        "/api/v1/ai/selection",
+        json={"provider": "huggingface", "model_id": model_id},
+    )
+    assert selection_response.status_code == 200
+    selection_payload = selection_response.get_json()
+    assert selection_payload["provider"] == "huggingface"
+    assert selection_payload["model_id"] == model_id
