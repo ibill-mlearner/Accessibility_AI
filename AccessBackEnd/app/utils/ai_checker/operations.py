@@ -652,17 +652,14 @@ def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest,
     try:
         return ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
-        details = exc.details if isinstance(exc.details, dict) else {}
         runtime_selection = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
         provider = str(
             (runtime_selection or {}).get("provider")
-            or details.get("provider")
             or current_app.config.get("AI_PROVIDER")
             or ""
         )
         model_id = str(
             (runtime_selection or {}).get("model_id")
-            or details.get("model_id")
             or current_app.config.get("AI_MODEL_NAME")
             or ""
         )
