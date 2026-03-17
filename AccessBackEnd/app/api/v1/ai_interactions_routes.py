@@ -100,17 +100,13 @@ def _build_request_dto(payload: dict, prepared: dict, chat_id: int | None, initi
         chat_id=chat_id,
         initiated_by=initiated_by,
     )
-    runtime_selection = (
-        prepared.get("context_payload", {}).get("runtime_model_selection")
-        if isinstance(prepared.get("context_payload"), dict)
-        else {}
-    )
+    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
     selected_provider = (
-        (runtime_selection or {}).get("provider")
+        (selected_runtime or {}).get("provider")
         or current_app.config.get("AI_PROVIDER")
     )
     selected_model = (
-        (runtime_selection or {}).get("model_id")
+        (selected_runtime or {}).get("model_id")
         or current_app.config.get("AI_MODEL_NAME")
     )
     current_app.logger.debug(
@@ -131,18 +127,27 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
     if isinstance(result, tuple):
         return result, None
 
+    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+    selected_provider = (
+        (selected_runtime or {}).get("provider")
+        or current_app.config.get("AI_PROVIDER")
+    )
+    selected_model = (
+        (selected_runtime or {}).get("model_id")
+        or current_app.config.get("AI_MODEL_NAME")
+    )
+
     current_app.logger.debug(
         "api.ai_interactions.ai_service.run.end request_id=%s provider=%s model=%s response_text_len=%s notes_count=%s response_preview=%r",
         request_id,
-        current_app.config.get("AI_PROVIDER"),
-        current_app.config.get("AI_MODEL_NAME"),
+        selected_provider,
+        selected_model,
         len(str((result or {}).get("assistant_text") if isinstance(result, dict) else result or "")),
         len((result or {}).get("notes")) if isinstance(result, dict) and isinstance((result or {}).get("notes"), list) else 0,
         str(result)[:200],
     )
     normalized_result = _normalize_interaction_response(result)
     meta = normalized_result.get("meta") if isinstance(normalized_result.get("meta"), dict) else {}
-    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
     selected_provider = "huggingface"
     selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_MODEL_NAME") or "").strip()
     meta.setdefault("selected_provider", selected_provider)
