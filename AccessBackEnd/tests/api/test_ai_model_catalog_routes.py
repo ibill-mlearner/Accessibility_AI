@@ -1,6 +1,7 @@
 import os
 
-os.environ.setdefault("TEST_AI_PROVIDER", "ollama")
+os.environ["TEST_AI_PROVIDER"] = "ollama"
+os.environ["AI_PROVIDER"] = "ollama"
 
 
 def _register(client, email: str):
@@ -79,6 +80,102 @@ def test_ai_catalog_prefers_valid_session_selection_from_db_models(app, client):
     payload = response.get_json()
     assert payload["selected"] == {
         "provider": "huggingface",
+        "id": "Qwen/Qwen2.5-0.5B-Instruct",
         "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
         "source": "session_selection",
     }
+
+
+def test_ai_selection_accepts_model_id_from_models_available_payload(app, client):
+    from app.db import init_flask_database
+
+    class _InventoryService:
+        def list_available_models(self):
+            return {
+                "huggingface_local": {
+                    "models": [
+                        {
+                            "id": "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc",
+                        }
+                    ],
+                },
+                "local": {
+                    "models": [
+                        {
+                            "id": "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/123abc",
+                        }
+                    ],
+                },
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, "catalog-selection-available@example.com")
+    app.extensions["ai_service"] = _InventoryService()
+
+    available_response = client.get("/api/v1/ai/models/available")
+    assert available_response.status_code == 200
+    available_payload = available_response.get_json()
+    model_id = available_payload["local"]["models"][0]["id"]
+
+    selection_response = client.post(
+        "/api/v1/ai/selection",
+        json={"provider": "huggingface", "model_id": model_id},
+    )
+    assert selection_response.status_code == 200
+    selection_payload = selection_response.get_json()
+    assert selection_payload["provider"] == "huggingface"
+    assert selection_payload["id"] == model_id
+    assert selection_payload["model_id"] == model_id
+
+
+def test_models_available_public_shape_hides_internal_envelopes(app, client):
+    from app.db import init_flask_database
+
+    class _InventoryService:
+        def list_available_models(self):
+            return {
+                "model_defaults": {
+                    "model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+                    "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+                },
+                "local": {
+                    "models": [
+                        {
+                            "id": "Qwen/Qwen2.5-0.5B-Instruct",
+                            "path": "/tmp/models/qwen",
+                            "size": 123,
+                            "source": "huggingface_local",
+                        }
+                    ],
+                    "count": 1,
+                },
+                "meta": {
+                    "warnings": [{"source": "inventory", "message": "sample warning"}],
+                    "cache_hit": False,
+                },
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, "available-shape@example.com")
+    app.extensions["ai_service"] = _InventoryService()
+
+    response = client.get("/api/v1/ai/models/available")
+    assert response.status_code == 200
+
+    payload = response.get_json()
+    assert "model_defaults" in payload
+    assert "warnings" in payload
+    assert "local" in payload
+    assert "meta" not in payload
+    assert "huggingface_local" not in payload
+
+    models = payload["local"]["models"]
+    assert models
+    assert "id" in models[0]
+    assert "path" not in models[0]
+    assert "size" not in models[0]
+    assert "source" not in models[0]

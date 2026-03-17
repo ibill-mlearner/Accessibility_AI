@@ -19,6 +19,16 @@
    - provider payload normalization into `assistant_text`, `confidence`, `notes`, `meta`
 7. API route performs final normalization (`_normalize_interaction_response`), persists interaction, and returns JSON to the UI.
 
+## Model selection architecture note
+
+- `POST /api/v1/ai/selection` persists model selection as user/session state (`session["ai_model_selection"]`).
+- `POST /api/v1/ai/interactions` resolves runtime model with this precedence:
+  1. explicit request override (`provider`/`model_id`) when allowed,
+  2. persisted session selection,
+  3. app config default (`AI_PROVIDER` + `AI_MODEL_NAME`).
+- App config is process-level and is **not** mutated per user at runtime via `/api/v1/ai/selection`.
+- If true global pointer mutation is required, implement a separate admin-only endpoint and do not reuse `/api/v1/ai/selection`.
+
 ## Provider selection/invocation config keys
 
 The provider path uses the following config keys in `build_ai_service_from_config(...)` and provider factory wiring:

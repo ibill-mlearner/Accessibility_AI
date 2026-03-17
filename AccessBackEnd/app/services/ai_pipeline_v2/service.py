@@ -178,12 +178,16 @@ class AIPipelineService:
                 except Exception as exc:  # noqa: BLE001
                     warnings.append({"source": "inventory", "message": str(exc)})
 
+        local_bucket = {"models": models, "count": len(models)}
         payload = {
             "model_defaults": {
                 "model_name": self.config.model_name,
                 "model_id": self.config.huggingface_model_id,
             },
-            "local": {"models": models, "count": len(models)},
+            # Canonical inventory bucket consumed by model-selection paths.
+            "huggingface_local": local_bucket,
+            # Backward-compatible alias retained for existing clients.
+            "local": local_bucket,
             "meta": {
                 "pipeline": "app.services.ai_pipeline_v2",
                 "warnings": warnings,
