@@ -16,7 +16,7 @@ def _dummy_pipe_factory(_config):
 def _base_module_config(**overrides):
     config = AIPipelineV2ModuleConfig(
         provider="huggingface",
-        model_name="meta-llama/Llama-3.2-3B-Instruct",
+        model_name="Qwen/Qwen2.5-0.5B-Instruct",
         timeout_seconds=60,
         max_new_tokens=128,
         temperature=0.3,

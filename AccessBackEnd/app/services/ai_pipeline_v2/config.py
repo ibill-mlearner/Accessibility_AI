@@ -21,7 +21,7 @@ def _to_bool(value: object, default: bool = True) -> bool:
 @dataclass(slots=True)
 class AIPipelineV2ModuleConfig:
     provider: str = "huggingface"
-    model_name: str = "meta-llama/Llama-3.2-3B-Instruct"
+    model_name: str = "Qwen/Qwen2.5-0.5B-Instruct"
     timeout_seconds: int = 60
     max_new_tokens: int = 256
     temperature: float = 0.7
@@ -40,7 +40,7 @@ class AIPipelineV2ModuleConfig:
     def from_env(cls) -> "AIPipelineV2ModuleConfig":
         return cls(
             provider=str(parse_env("AI_PROVIDER", "huggingface")).strip().lower(),
-            model_name=str(parse_env("AI_MODEL_NAME", "meta-llama/Llama-3.2-3B-Instruct")).strip(),
+            model_name=str(parse_env("AI_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct")).strip(),
             timeout_seconds=int(parse_env("AI_TIMEOUT_SECONDS", 60)),
             max_new_tokens=int(parse_env("AI_MAX_NEW_TOKENS", 256)),
             temperature=float(parse_env("AI_TEMPERATURE", 0.7, float)),
