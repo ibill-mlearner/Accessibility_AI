@@ -108,6 +108,63 @@ def _resolve_candidate(payload: dict[str, Any], *, allow_session: bool, require_
     return _resolve_config_default(), "config_default"
 
 
+
+
+def is_valid_catalog_selection(candidate: dict[str, Any], available_by_provider: dict[str, set[str]]) -> bool:
+    provider = str(candidate.get("provider") or "").strip().lower()
+    model_id = str(candidate.get("model_id") or "").strip().lower()
+    return bool(provider and model_id and model_id in available_by_provider.get(provider, set()))
+
+
+def resolve_catalog_selection(
+    *,
+    persisted_selection: dict[str, Any] | None,
+    active_user_id: int | None,
+    active_session_id: int | None,
+    config_provider: str,
+    config_model_id: str,
+    available_by_provider: dict[str, set[str]],
+    ordered_models: list[dict[str, Any]],
+) -> dict[str, str]:
+    if isinstance(persisted_selection, dict):
+        persisted_user_id = persisted_selection.get("user_id")
+        persisted_session_id = persisted_selection.get("auth_session_id")
+        if (
+            persisted_user_id is not None
+            and active_user_id is not None
+            and int(persisted_user_id) == int(active_user_id)
+            and (not persisted_session_id or not active_session_id or int(persisted_session_id) == int(active_session_id))
+            and is_valid_catalog_selection(persisted_selection, available_by_provider)
+        ):
+            return {
+                "provider": str(persisted_selection.get("provider") or "").strip().lower(),
+                "model_id": str(persisted_selection.get("model_id") or "").strip(),
+                "source": "session_selection",
+            }
+
+    normalized_provider = str(config_provider or "huggingface").strip().lower() or "huggingface"
+    normalized_model_id = str(config_model_id or "").strip()
+    if normalized_model_id.lower() in available_by_provider.get(normalized_provider, set()):
+        return {
+            "provider": normalized_provider,
+            "model_id": normalized_model_id,
+            "source": "config_default",
+        }
+
+    if ordered_models:
+        fallback = ordered_models[0]
+        return {
+            "provider": str(fallback.get("provider") or "").strip().lower(),
+            "model_id": str(fallback.get("id") or "").strip(),
+            "source": "db_first_available",
+        }
+
+    return {
+        "provider": "",
+        "model_id": "",
+        "source": "none",
+    }
+
 def resolve_provider_model_selection(
     payload: dict[str, Any],
     ai_service: AIPipelineServiceInterface,

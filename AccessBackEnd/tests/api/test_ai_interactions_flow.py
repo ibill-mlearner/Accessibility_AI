@@ -11,8 +11,7 @@ from app.services.ai_pipeline_v2.types import AIPipelineUpstreamError
 class _FakeService:
     def list_available_models(self):
         return {
-            "ollama": {"models": [{"id": "llama3.2:3b"}]},
-            "huggingface_local": {"models": []},
+            "huggingface_local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
         }
 
 
@@ -22,7 +21,7 @@ def test_resolve_model_override_uses_session_selection_when_payload_has_no_overr
 
     monkeypatch.setattr(
         "app.services.ai_pipeline_v2.model_selection._resolve_session_model_selection",
-        lambda: {"provider": "ollama", "model_id": "llama3.2:3b"},
+        lambda: {"provider": "huggingface", "model_id": "Qwen/Qwen2.5-0.5B-Instruct"},
     )
 
     app = Flask(__name__)
@@ -30,14 +29,14 @@ def test_resolve_model_override_uses_session_selection_when_payload_has_no_overr
         flow.resolve_model_override(payload, _FakeService(), context_payload, "req-1")
 
     assert context_payload["runtime_model_selection"] == {
-        "provider": "ollama",
-        "model_id": "llama3.2:3b",
+        "provider": "huggingface",
+        "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
         "source": "session_selection",
     }
 
 
 def test_resolve_model_override_prioritizes_request_override_over_session():
-    payload = {"provider": "ollama", "model_id": "llama3.2:3b"}
+    payload = {"provider": "huggingface", "model_id": "Qwen/Qwen2.5-0.5B-Instruct"}
     context_payload = {}
 
     app = Flask(__name__)

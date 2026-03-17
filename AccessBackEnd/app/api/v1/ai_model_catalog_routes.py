@@ -6,13 +6,12 @@ from flask_login import current_user, login_required
 from .routes import _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
 from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_provider_model_selection
+from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_catalog_selection, resolve_provider_model_selection
 from ...models import AIModel
 from ...extensions import db
 
 AI_CATALOG_TTL_SECONDS = 30
 _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
-
 
 
 def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
@@ -101,7 +100,7 @@ def list_available_ai_models():
 @api_v1_bp.get("/ai/catalog")
 @login_required
 def get_ai_catalog():
-    """Return discoverable models grouped by provider, with temporary legacy fields."""
+    """Return persisted AI model catalog grouped by provider."""
     include_health = str(request.args.get('include_health') or '').strip().lower() in {'1', 'true', 'yes'}
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
 
@@ -116,28 +115,53 @@ def get_ai_catalog():
         span["cache_hit"] = True
         response_payload = cached["payload"]
     else:
-        inventory_start = time.perf_counter()
-        inventory = ai_service.list_available_models()
-        span["inventory_ms"] = round((time.perf_counter() - inventory_start) * 1000, 2)
+        query_start = time.perf_counter()
+        records = (
+            db.session.query(AIModel)
+            .filter(AIModel.active.is_(True))
+            .order_by(AIModel.provider.asc(), AIModel.model_id.asc())
+            .all()
+        )
+        if not records:
+            records = (
+                db.session.query(AIModel)
+                .order_by(AIModel.provider.asc(), AIModel.model_id.asc())
+                .all()
+            )
+        span["query_ms"] = round((time.perf_counter() - query_start) * 1000, 2)
 
-        provider_grouped = {
-            "huggingface": sorted([m for m in inventory.get("huggingface_local", {}).get("models", []) if isinstance(m, dict)], key=lambda item: str(item.get("id") or "")),
-        }
-        flat_models = [
-            {"provider": provider, **model}
+        provider_grouped: dict[str, list[dict[str, Any]]] = {}
+        ordered_models: list[dict[str, Any]] = []
+        for record in records:
+            provider = str(record.provider or "").strip().lower()
+            model_payload = {
+                "id": record.model_id,
+                "source": record.source,
+                "path": record.path,
+                "active": bool(record.active),
+            }
+            provider_grouped.setdefault(provider, []).append(model_payload)
+            ordered_models.append({"provider": provider, **model_payload})
+
+        available_by_provider: dict[str, set[str]] = {
+            provider: {str(model.get("id") or "").strip().lower() for model in models if str(model.get("id") or "").strip()}
             for provider, models in provider_grouped.items()
-            for model in models
-        ]
+        }
 
-        try:
-            selected = resolve_provider_model_selection({}, ai_service, inventory_payload=inventory)
-        except ModelSelectionError as exc:
-            return jsonify(exc.payload), exc.status_code
+        selected = resolve_catalog_selection(
+            persisted_selection=session.get("ai_model_selection") if isinstance(session.get("ai_model_selection"), dict) else None,
+            active_user_id=int(current_user.id) if getattr(current_user, "is_authenticated", False) else None,
+            active_session_id=session.get("auth_session_id"),
+            config_provider=str(current_app.config.get("AI_PROVIDER") or "huggingface"),
+            config_model_id=str(current_app.config.get("AI_MODEL_NAME") or ""),
+            available_by_provider=available_by_provider,
+            ordered_models=ordered_models,
+        )
 
         response_payload = {
             "selected": selected,
             "models_by_provider": provider_grouped,
-            "models": flat_models,
+            "models": ordered_models,
             # Temporary legacy field retained for frontend compatibility.
             "families": [],
         }

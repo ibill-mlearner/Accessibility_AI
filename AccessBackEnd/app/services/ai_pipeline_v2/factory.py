@@ -37,6 +37,8 @@ def _validate_huggingface_cache_dir_writable(config: AIPipelineV2ModuleConfig) -
 
 
 def _validate_huggingface_local_only_config(config: AIPipelineV2ModuleConfig) -> None:
+    if str(config.provider).strip().lower() != "huggingface":
+        return
     if config.huggingface_allow_download:
         return
     model_name = str(config.model_name).strip()

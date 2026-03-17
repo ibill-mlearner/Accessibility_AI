@@ -33,8 +33,13 @@ class AIPipelineV2ModuleConfig:
     def from_env(cls) -> "AIPipelineV2ModuleConfig":
         model_name = parse_env("AI_MODEL_NAME", default_ai_model_name())
         ollama_endpoint = parse_env("AI_OLLAMA_ENDPOINT", "http://localhost:11434/api/chat")
+        provider = str(parse_env("AI_PROVIDER", "huggingface") or "huggingface").strip().lower()
+        if not provider:
+            provider = "huggingface"
+        enable_ollama_fallback = parse_env("AI_ENABLE_OLLAMA_FALLBACK", False, bool)
+
         return cls(
-            provider="huggingface",
+            provider=provider,
             model_name=model_name,
             ollama_endpoint="",
             live_endpoint="",
@@ -44,7 +49,7 @@ class AIPipelineV2ModuleConfig:
             huggingface_model_id=model_name,
             huggingface_cache_dir=parse_env("AI_HUGGINGFACE_CACHE_DIR"),
             huggingface_allow_download=parse_env("AI_HUGGINGFACE_ALLOW_DOWNLOAD", False, bool),
-            enable_ollama_fallback=False,
+            enable_ollama_fallback=enable_ollama_fallback,
             inventory_cache_ttl_seconds=parse_positive_int("AI_INVENTORY_CACHE_TTL_SECONDS", 30),
         )
 
