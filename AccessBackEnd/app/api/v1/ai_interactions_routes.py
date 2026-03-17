@@ -210,7 +210,15 @@ def _authorize_chat_access(payload: dict) -> int | None | tuple:
 @api_v1_bp.post("/ai/interactions")
 @login_required
 def create_ai_interaction():
-    """Run a single AI interaction."""
+    """Run a single AI interaction.
+
+    Runtime model resolution order is:
+    1) explicit request override (`provider`/`model_id`) when allowed/valid,
+    2) persisted session selection (`/api/v1/ai/selection`),
+    3) app config default (`AI_PROVIDER` + `AI_MODEL_NAME`).
+
+    Per-request/per-session resolution does not mutate app config at runtime.
+    """
     raw, payload = _validate_interaction_payload()
     _log_payload(raw, payload)
     _log_request(payload)
@@ -223,6 +231,8 @@ def create_ai_interaction():
         return chat_state
 
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
+    # Resolve runtime selection from request/session/config precedence without mutating
+    # process-wide app config values for individual users.
     selection_input = {
         "provider": payload.get("provider"),
         "model_id": payload.get("model_id"),

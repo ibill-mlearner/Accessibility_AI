@@ -1,3 +1,4 @@
+import pytest
 from flask import Flask
 
 from app.services.ai_interactions.model_resolution import AIInteractionModelResolver
@@ -45,7 +46,8 @@ def test_model_resolution_returns_invalid_model_selection_when_default_unavailab
     assert body["error"]["details"]["available_models"] == []
 
 
-def test_model_resolution_applies_config_default_when_available():
+@pytest.mark.parametrize("inventory_key", ["local", "huggingface_local"])
+def test_model_resolution_applies_config_default_when_available(inventory_key):
     resolver = AIInteractionModelResolver()
     payload = {"prompt": "hello"}
     context_payload = {}
@@ -59,7 +61,7 @@ def test_model_resolution_applies_config_default_when_available():
 
     service = _FakeService(
         {
-            "huggingface_local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
+            inventory_key: {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
         }
     )
 

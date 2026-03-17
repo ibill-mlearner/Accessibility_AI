@@ -6,7 +6,13 @@ from flask_login import current_user, login_required
 from .routes import _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
 from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_catalog_selection, resolve_provider_model_selection
+from ...services.ai_pipeline_v2.model_selection import (
+    ModelSelectionError,
+    normalize_model_id,
+    resolve_catalog_selection,
+    resolve_provider_model_selection,
+)
+from ...services.ai_pipeline_v2.inventory_extractors import extract_huggingface_model_id_map
 from ...models import AIModel
 from ...extensions import db
 
@@ -15,18 +21,61 @@ _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
 
 
 def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    provider_models: dict[str, set[str]] = {"huggingface": set()}
-    for provider, top_key in (("huggingface", "huggingface_local"),):
-        provider_payload = payload.get(top_key)
-        if not isinstance(provider_payload, dict):
+    return extract_huggingface_model_id_map(payload, normalize=normalize_model_id)
+
+
+def _serialize_available_models_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """
+    Expose a stable public inventory contract for clients.
+    Keep only fields needed by UI model pickers and hide backend internals
+    (meta envelopes, runtime diagnostics, and provider-specific artifacts).
+    During migration, map either local or legacy huggingface_local buckets.
+    """
+    model_defaults = payload.get("model_defaults") if isinstance(payload.get("model_defaults"), dict) else {}
+    local_bucket = payload.get("local") if isinstance(payload.get("local"), dict) else {}
+    legacy_bucket = payload.get("huggingface_local") if isinstance(payload.get("huggingface_local"), dict) else {}
+    models_raw = local_bucket.get("models") if isinstance(local_bucket.get("models"), list) else legacy_bucket.get("models") if isinstance(legacy_bucket.get("models"), list) else []
+
+    models = []
+    for model in models_raw:
+        if not isinstance(model, dict):
             continue
-        models = provider_payload.get("models")
-        if not isinstance(models, list):
+        model_id = str(model.get("id") or "").strip()
+        if not model_id:
             continue
-        for model in models:
-            if isinstance(model, dict) and model.get("id"):
-                provider_models[provider].add(str(model.get("id")).strip().lower())
-    return provider_models
+        models.append({"id": model_id})
+
+    warnings = []
+    meta = payload.get("meta") if isinstance(payload.get("meta"), dict) else {}
+    if isinstance(meta.get("warnings"), list):
+        warnings = meta.get("warnings")
+
+    return {
+        "model_defaults": model_defaults,
+        "local": {
+            "models": models,
+            "count": len(models),
+        },
+        "warnings": warnings,
+    }
+
+
+def _serialize_selected_selection(selected: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize selected-model payloads to one client-facing shape.
+    Canonical key is `id`; `model_id` is emitted as a temporary alias
+    so older clients keep working during the rollout window.
+    """
+    selected_provider = str((selected or {}).get("provider") or "").strip().lower()
+    selected_id = str((selected or {}).get("id") or (selected or {}).get("model_id") or "").strip()
+    source = str((selected or {}).get("source") or "").strip()
+    return {
+        "provider": selected_provider,
+        "id": selected_id,
+        # Deprecated alias kept during transition; remove in follow-up.
+        "model_id": selected_id,
+        "source": source,
+    }
 
 
 def _catalog_cache_key() -> tuple[int | None, Any]:
@@ -52,7 +101,7 @@ def list_persisted_ai_models():
         inventory = ai_service.list_available_models()
         available_by_provider = _extract_available_model_ids(inventory)
         availability = {
-            (provider, model_id.lower()): True
+            (provider, normalize_model_id(model_id)): True
             for provider, model_ids in available_by_provider.items()
             for model_id in model_ids
         }
@@ -75,7 +124,7 @@ def list_persisted_ai_models():
         }
         if include_live:
             payload['available_live'] = availability.get(
-                (model.provider, model.model_id.lower()),
+                (model.provider, normalize_model_id(model.model_id)),
                 False
             )
         response.append(payload)
@@ -94,7 +143,7 @@ def list_available_ai_models():
     """Return read-only inventory of currently discoverable AI models."""
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
     payload = ai_service.list_available_models()
-    return jsonify(payload), 200
+    return jsonify(_serialize_available_models_payload(payload)), 200
 
 
 @api_v1_bp.get("/ai/catalog")
@@ -144,7 +193,7 @@ def get_ai_catalog():
             ordered_models.append({"provider": provider, **model_payload})
 
         available_by_provider: dict[str, set[str]] = {
-            provider: {str(model.get("id") or "").strip().lower() for model in models if str(model.get("id") or "").strip()}
+            provider: {normalize_model_id(str(model.get("id") or "")) for model in models if normalize_model_id(str(model.get("id") or ""))}
             for provider, models in provider_grouped.items()
         }
 
@@ -159,7 +208,7 @@ def get_ai_catalog():
         )
 
         response_payload = {
-            "selected": selected,
+            "selected": _serialize_selected_selection(selected),
             "models_by_provider": provider_grouped,
             "models": ordered_models,
             # Temporary legacy field retained for frontend compatibility.
@@ -174,6 +223,8 @@ def get_ai_catalog():
         provider_health = ai_service.provider_health() if hasattr(ai_service, 'provider_health') else {}
         response_payload['provider_health'] = provider_health
 
+    response_payload["selected"] = _serialize_selected_selection(response_payload.get("selected") if isinstance(response_payload.get("selected"), dict) else {})
+
     span["total_ms"] = round((time.perf_counter() - span_start) * 1000, 2)
     response_payload.setdefault("meta", {})["timings_ms"] = span
 
@@ -183,7 +234,12 @@ def get_ai_catalog():
 @api_v1_bp.post('/ai/selection')
 @login_required
 def set_ai_selection():
-    """Persist per-session AI model selection for the authenticated user."""
+    """Persist the caller's model selection in session state for this user/session only.
+
+    This endpoint does not mutate application config (`AI_PROVIDER`, `AI_MODEL_NAME`).
+    If the product needs a true global pointer mutation, add a separate admin-only route
+    rather than reusing `/api/v1/ai/selection`.
+    """
     payload = _read_json_object()
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
 
@@ -192,6 +248,7 @@ def set_ai_selection():
     except ModelSelectionError as exc:
         return jsonify(exc.payload), exc.status_code
 
+    # Store per-user/session override only; runtime config remains process-level and unchanged.
     session["ai_model_selection"] = {
         "user_id": int(current_user.id),
         "auth_session_id": session.get("auth_session_id"),
@@ -203,6 +260,8 @@ def set_ai_selection():
     return jsonify(
         {
             "provider": selected["provider"],
+            "id": selected["model_id"],
+            # Deprecated alias kept during transition; remove in follow-up.
             "model_id": selected["model_id"],
             "source": selected["source"],
         }

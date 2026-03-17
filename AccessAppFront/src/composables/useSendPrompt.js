@@ -42,16 +42,11 @@ export function useSendPrompt({
     const selectedModelValue = String(chatStore.selectedModel || '').trim()
     const [selectedProvider = '', ...modelParts] = selectedModelValue.split('::')
     const selectedModelId = modelParts.join('::').trim()
-    const hasValidModelSelection = Boolean(selectedModelValue && selectedProvider.trim() && selectedModelId)
 
-    if (!hasValidModelSelection) {
-      interactionError.value = 'Please select a model before sending your prompt.'
-      return null
-    }
-    return { 
-      selectedModelValue, 
-      selectedProvider: selectedProvider.trim(), 
-      selectedModelId 
+    return {
+      selectedModelValue,
+      selectedProvider: selectedProvider.trim(),
+      selectedModelId
     }
   }
 
@@ -96,17 +91,13 @@ export function useSendPrompt({
   function buildAiRequestPayload({ 
     cleanPrompt, 
     chatId, 
-    classIdForChat,
-    selectedProvider, 
-    selectedModelId 
+    classIdForChat
   }) {
     const selectedAccessibilityLinkIds = featureStore.selectedLinkIds
 
     return {
       prompt: cleanPrompt,
       chat_id: chatId,
-      provider: selectedProvider || undefined,
-      model_id: selectedModelId || undefined,
       selected_accessibility_link_ids: selectedAccessibilityLinkIds,
       selected_accommodations_id_system_prompts_ids: selectedAccessibilityLinkIds,
       use_user_feature_preferences: true,
@@ -165,17 +156,13 @@ export function useSendPrompt({
     cleanPrompt, 
     chatId, 
     classIdForChat, 
-    selectedProvider, 
-    selectedModelId, 
     draftPrompt 
   }) {
     
     const payload = buildAiRequestPayload({ 
       cleanPrompt, 
       chatId, 
-      classIdForChat, 
-      selectedProvider, 
-      selectedModelId 
+      classIdForChat 
     })
 
     try {
@@ -273,7 +260,6 @@ async function saveAssistantMessage({
     if (!classIdForChat) return null
 
     const modelSelection = resolveModelSelection()
-    if (!modelSelection) return null
 
     return { 
       draftPrompt, 
@@ -368,8 +354,6 @@ async function saveAssistantMessage({
       cleanPrompt,
       chatId: ensuredChat.id,
       classIdForChat,
-      selectedProvider: modelSelection.selectedProvider,
-      selectedModelId: modelSelection.selectedModelId,
       draftPrompt
     })
 
