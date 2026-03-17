@@ -24,7 +24,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 from .auth import AuthModuleConfig
 from .db.configs import DBModuleConfig
-from .services.ai_pipeline_v2.config import AIPipelineV2ModuleConfig
+from .services.ai_pipeline_slim.configs import AIPipelineSlimModuleConfig
 from .services.logging.module_config import LoggingModuleConfig
 
 
@@ -38,25 +38,20 @@ login_manager.login_view = "auth.login"
 
 def load_module_configs(app: Flask) -> dict[str, object]:
     module_configs = {
-        "ai_pipeline_v2": AIPipelineV2ModuleConfig.from_env(),
+        "ai_pipeline_slim": AIPipelineSlimModuleConfig.from_env(),
         "auth": AuthModuleConfig.from_env(),
         "logging": LoggingModuleConfig.from_env(),
         "db": DBModuleConfig.from_env(),
     }
     app.extensions["module_configs"] = module_configs
-    app.config["AI_PIPELINE_V2_CONFIG"] = module_configs["ai_pipeline_v2"]
+    app.config["AI_PIPELINE_SLIM_CONFIG"] = module_configs["ai_pipeline_slim"]
     app.config["AUTH_CONFIG"] = module_configs["auth"]
     app.config["LOGGING_CONFIG"] = module_configs["logging"]
     app.config["DB_CONFIG"] = module_configs["db"]
 
-    # Transitional adapter for legacy config keys.
-    ai_cfg = module_configs["ai_pipeline_v2"]
+    ai_cfg = module_configs["ai_pipeline_slim"]
     app.config["AI_PROVIDER"] = ai_cfg.provider
     app.config["AI_MODEL_NAME"] = ai_cfg.model_name
-    app.config["AI_OLLAMA_ENDPOINT"] = ai_cfg.ollama_endpoint
-    app.config["AI_LIVE_ENDPOINT"] = ai_cfg.live_endpoint
-    app.config["AI_OLLAMA_MODEL"] = ai_cfg.ollama_model_id
-    app.config["AI_OLLAMA_OPTIONS"] = ai_cfg.ollama_options
     app.config["AI_TIMEOUT_SECONDS"] = ai_cfg.timeout_seconds
     app.config["AI_HUGGINGFACE_CACHE_DIR"] = ai_cfg.huggingface_cache_dir
     app.config["AI_ENABLE_OLLAMA_FALLBACK"] = ai_cfg.enable_ollama_fallback
