@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 from typing import Any, Callable
 
 Cast = Callable[[Any], Any]
@@ -37,14 +36,3 @@ def parse_json_object(key: str, default: dict[str, Any] | None = None) -> dict[s
 
 def parse_csv_words(value: str) -> list[str]:
     return str(value).split()
-
-
-def normalize_backend_relative_dir(path_value: str | None) -> str | None:
-    raw = str(path_value or "").strip()
-    if not raw:
-        return None
-    path = Path(raw).expanduser()
-    if path.is_absolute():
-        return str(path)
-    backend_root = Path(__file__).resolve().parents[2]
-    return str((backend_root / path).resolve())

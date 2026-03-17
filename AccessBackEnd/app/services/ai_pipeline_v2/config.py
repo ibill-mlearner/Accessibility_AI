@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.utils.env_config import normalize_backend_relative_dir, parse_env, parse_positive_int
+from app.utils.env_config import parse_env, parse_positive_int
 
 
 def default_ai_model_name() -> str:
-    local_default = Path("instance") / "models" / "Qwen2.5-0.5B-Instruct"
+    instance_dir = Path(__file__).resolve().parents[3] / "instance"
+    local_default = instance_dir / "models" / "Qwen2.5-0.5B-Instruct"
     return str(local_default)
 
 
@@ -27,7 +28,7 @@ class AIPipelineV2ModuleConfig:
 
     @classmethod
     def from_env(cls) -> "AIPipelineV2ModuleConfig":
-        model_name = normalize_backend_relative_dir(parse_env("AI_MODEL_NAME", default_ai_model_name())) or ""
+        model_name = parse_env("AI_MODEL_NAME", default_ai_model_name())
         ollama_endpoint = parse_env("AI_OLLAMA_ENDPOINT", "http://localhost:11434/api/chat")
         provider = str(parse_env("AI_PROVIDER", "huggingface") or "huggingface").strip().lower()
         if not provider:

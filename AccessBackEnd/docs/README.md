@@ -57,10 +57,3 @@ Application settings are now owned by module-scoped config dataclasses colocated
 
 During migration, Flask bootstrap loads these into `app.extensions["module_configs"]` and mirrors legacy keys (for example `AI_PROVIDER`, `AI_MODEL_NAME`) into `app.config` for backward compatibility.
 Prefer reading module config objects (`app.config["AI_PIPELINE_V2_CONFIG"]`, etc.) for new code.
-
-## AI model directory policy (local deployments)
-
-- Canonical model storage location: `AccessBackEnd/instance/models`.
-- Do **not** use ad-hoc model folders under test directories (for example `AccessBackEnd/tests/ai/AccessBackEnd/...`) or other working-directory-relative paths.
-- Runtime config normalizes relative `AI_MODEL_NAME` values against the backend root (`AccessBackEnd`) so model paths stay deterministic regardless of the shell current working directory.
-- For test fixtures, use temporary directories via pytest `tmp_path` or explicit absolute paths; do not create persistent model artifacts outside `AccessBackEnd/instance/models`.
