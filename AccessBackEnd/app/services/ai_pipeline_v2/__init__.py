@@ -1,4 +1,10 @@
-from .interfaces import AIProviderFactoryInterface, AIProviderInterface, AIPipelineServiceInterface
+from .interfaces import (
+    AIProviderFactoryInterface,
+    AIProviderInterface,
+    AIPipelineServiceInterface,
+    CatalogModelSelectionResolverInterface,
+    ProviderModelSelectionResolverInterface,
+)
 from .service import AIPipeline, AIPipelineService
 from .types import AIPipelineConfig, AIPipelineRequest, AIPipelineUpstreamError
 
@@ -11,4 +17,6 @@ __all__ = [
     "AIProviderInterface",
     "AIProviderFactoryInterface",
     "AIPipelineServiceInterface",
+    "ProviderModelSelectionResolverInterface",
+    "CatalogModelSelectionResolverInterface",
 ]
