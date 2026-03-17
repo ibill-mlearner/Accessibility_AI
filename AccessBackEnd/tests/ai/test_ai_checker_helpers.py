@@ -38,7 +38,7 @@ def test_monolith_validate_and_mutate():
     assert updated.meta["x"] == 1
 
 
-def test_ai_checker_cleans_model_id_for_provider_errors():
+def test_ai_checker_preserves_raw_model_id_for_provider_errors():
     platform_agnostic_windows_path = r"AccessBackEnd\\instance\\models\\Qwen2.5-0.5B-Instruct"
     exc = AIPipelineUpstreamError(
         message="connection refused",
@@ -52,9 +52,10 @@ def test_ai_checker_cleans_model_id_for_provider_errors():
         request_id="n/a",
     )
 
-    assert details["model_id"] == "Qwen2.5-0.5B-Instruct"
+    assert details["model_id"] == platform_agnostic_windows_path
+    assert details["model_id_normalized"] == "AccessBackEnd//instance//models//Qwen2.5-0.5B-Instruct"
 
 
 def test_ai_checker_normalizes_cached_model_aliases():
     assert AIInteractionValidator.to_clean_model_id("models--Qwen--Qwen2.5-0.5B-Instruct") == "Qwen/Qwen2.5-0.5B-Instruct"
-    assert AIInteractionValidator.to_clean_model_id(r"C:\models\qwen2.5:0.5b") == "qwen2.5:0.5b"
+    assert AIInteractionValidator.to_clean_model_id(r"C:\models\qwen2.5:0.5b") == "C:/models/qwen2.5:0.5b"
