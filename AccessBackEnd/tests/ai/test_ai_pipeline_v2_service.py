@@ -7,34 +7,24 @@ import pytest
 sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "app" / "services")))
 sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "app")))
 sys.path.insert(0, str((Path(__file__).resolve().parents[2] / "app" / "utils" / "ai_checker")))
-from ai_pipeline_v2.service import AIPipeline, AIPipelineService
+from ai_pipeline_v2.service import AIPipelineService
 from ai_pipeline_v2.types import AIPipelineConfig, AIPipelineRequest, AIPipelineUpstreamError
-from model_artifacts import (
-    has_valid_model_artifacts,
-    local_model_dir,
-    model_artifact_diagnostics,
-)
+from model_artifacts import has_valid_model_artifacts, local_model_dir, model_artifact_diagnostics
 
 
+def test_run_uses_chat_messages_and_system_prompt():
+    captured = {}
 
-def test_run_normalizes_payload_and_context():
-    calls = []
+    class FakePipe:
+        def __call__(self, messages, max_new_tokens=256):
+            captured["messages"] = messages
+            captured["max_new_tokens"] = max_new_tokens
+            return [{"generated_text": [*messages, {"role": "assistant", "content": "answer"}]}]
 
-    class RuntimeClient:
-        def invoke(self, prompt, context):
-            calls.append({"prompt": prompt, "context": context})
-            return {"response": "answer", "confidence": 0.8, "notes": "single", "meta": {"trace": "x"}}
-
-        def health(self):
-            return {"ok": True}
-
-        def inventory(self):
-            return []
-
-        def name(self):
-            return "local"
-
-    service = AIPipelineService(AIPipelineConfig(model_name="m"), runtime_client=RuntimeClient())
+    service = AIPipelineService(
+        AIPipelineConfig(model_id="m", max_new_tokens=77),
+        runtime_client_factory=lambda _cfg: FakePipe(),
+    )
 
     result = service.run(
         AIPipelineRequest(
@@ -46,132 +36,33 @@ def test_run_normalizes_payload_and_context():
         )
     )
 
-    assert calls[0]["prompt"] == "Hi"
-    assert calls[0]["context"]["request_id"] == "req-1"
-    assert calls[0]["context"]["system_instructions"] == "Be concise"
+    assert captured["messages"][0]["role"] == "system"
+    assert captured["messages"][0]["content"] == "Be concise"
+    assert captured["messages"][1]["content"] == "Hi"
+    assert captured["max_new_tokens"] == 77
     assert result["assistant_text"] == "answer"
-    assert result["notes"] == ["single"]
-    assert result["meta"]["pipeline"] == "app.services.ai_pipeline_v2"
+    assert result["meta"]["selected_provider"] == "huggingface"
 
-
-
-
-def test_minimal_pipeline_object_usage_contract(monkeypatch):
-    class RuntimeClient:
-        def invoke(self, prompt, context):
-            return {"assistant_text": f"ok:{prompt}"}
-
-        def health(self):
-            return {"ok": True}
-
-        def inventory(self):
-            return []
-
-        def name(self):
-            return "local"
-
-    ai_object = AIPipeline()
-    monkeypatch.setattr(ai_object, "_get_runtime_client", lambda _model_id: RuntimeClient())
-
-    response = ai_object.AIPipelineRequest("hello", {})
-
-    assert response["assistant_text"] == "ok:hello"
 
 def test_pipeline_can_send_prompt_after_instantiation():
-    class RuntimeClient:
-        def invoke(self, prompt, context):
-            return {"assistant_text": f"echo:{prompt}"}
+    class FakePipe:
+        def __call__(self, messages, max_new_tokens=256):
+            user_msg = messages[-1]["content"]
+            return [{"generated_text": [*messages, {"role": "assistant", "content": f"echo:{user_msg}"}]}]
 
-        def health(self):
-            return {"ok": True}
-
-        def inventory(self):
-            return []
-
-        def name(self):
-            return "local"
-
-    service = AIPipelineService(AIPipelineConfig(model_name="m"), runtime_client=RuntimeClient())
+    service = AIPipelineService(AIPipelineConfig(model_id="m"), runtime_client_factory=lambda _cfg: FakePipe())
     result = service.run_interaction("hello world")
     assert result["assistant_text"] == "echo:hello world"
 
 
-def test_runtime_selection_caches_client_by_model():
-    created = []
-
-    class RuntimeClient:
-        def __init__(self, model):
-            self.model = model
-
-        def invoke(self, prompt, context):
-            return {"assistant_text": f"{self.model}:{prompt}"}
-
-        def health(self):
-            return {"ok": True}
-
-        def inventory(self):
-            return []
-
-        def name(self):
-            return "local"
-
-    def runtime_factory(config, *, model_id):
-        created.append(model_id)
-        return RuntimeClient(model_id)
-
-    service = AIPipelineService(AIPipelineConfig(model_name="default"), runtime_client_factory=runtime_factory)
-
-    request = AIPipelineRequest(prompt="hello", context={"runtime_model_selection": {"model_id": "model-A"}})
-    first = service.run(request)
-    second = service.run(request)
-
-    assert first["assistant_text"] == "model-A:hello"
-    assert second["assistant_text"] == "model-A:hello"
-    assert len(created) == 1
-    assert created[0] == "model-A"
-
-
-def test_runtime_error_returns_runtime_unavailable():
-    class RuntimeClient:
-        def invoke(self, prompt, context):
-            raise RuntimeError("local runtime bootstrap failed")
-
-        def health(self):
-            return {"ok": False}
-
-        def inventory(self):
-            return []
-
-        def name(self):
-            return "local"
-
-    service = AIPipelineService(AIPipelineConfig(model_name="model-x"), runtime_client=RuntimeClient())
-
-    with pytest.raises(AIPipelineUpstreamError) as exc_info:
-        service.run(AIPipelineRequest(prompt="help"))
-
-    details = exc_info.value.details if isinstance(exc_info.value.details, dict) else {}
-    assert details.get("error_code") == "runtime_unavailable"
-    assert details.get("model_id") == "model-x"
-
-
-def test_non_fallback_error_raises_upstream_error():
-    class RuntimeClient:
-        def invoke(self, prompt, context):
+def test_runtime_error_raises_upstream_error():
+    class FakePipe:
+        def __call__(self, messages, max_new_tokens=256):
             raise RuntimeError("upstream auth failed")
 
-        def health(self):
-            return {"ok": False}
+    service = AIPipelineService(AIPipelineConfig(model_id="m"), runtime_client_factory=lambda _cfg: FakePipe())
 
-        def inventory(self):
-            return []
-
-        def name(self):
-            return "local"
-
-    service = AIPipelineService(AIPipelineConfig(model_name="m"), runtime_client=RuntimeClient())
-
-    with pytest.raises(AIPipelineUpstreamError, match=r"There was a problem with the model contact the administrator\."):
+    with pytest.raises(AIPipelineUpstreamError, match="Model invocation failed"):
         service.run(AIPipelineRequest(prompt="hello"))
 
 
@@ -239,11 +130,9 @@ def test_pipeline_with_local_small_models_returns_response(model_id: str):
 
     service = AIPipelineService(
         AIPipelineConfig(
-            model_name=str(model_dir),
-            timeout_seconds=120,
+            model_id=str(model_dir),
             max_new_tokens=64,
-        ),
-
+        )
     )
 
     result = service.run_interaction(_MODEL_TEST_PROMPT)
