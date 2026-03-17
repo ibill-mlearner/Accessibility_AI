@@ -1,58 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from app.utils.env_config import parse_env, parse_positive_int
 
 
-def default_ai_model_name() -> str:
-    instance_dir = Path(__file__).resolve().parents[3] / "instance"
-    local_default = instance_dir / "models" / "Qwen2.5-0.5B-Instruct"
-    return str(local_default)
-
-
 @dataclass(slots=True)
 class AIPipelineV2ModuleConfig:
-    provider: str = "huggingface"
-    model_name: str = ""
-    ollama_endpoint: str = "http://localhost:11434/api/chat"
-    live_endpoint: str = "http://localhost:11434/api/chat"
-    ollama_model_id: str = ""
-    ollama_options: dict | None = None
-    timeout_seconds: int = 60
-    huggingface_model_id: str = ""
-    huggingface_cache_dir: str | None = None
-    enable_ollama_fallback: bool = False
-    inventory_cache_ttl_seconds: int = 30
+    model_id: str = "meta-llama/Llama-3.2-3B-Instruct"
+    max_new_tokens: int = 256
+    temperature: float = 0.7
+    config_log_path: str = "ai_pipeline_v2_model_config.txt"
 
     @classmethod
     def from_env(cls) -> "AIPipelineV2ModuleConfig":
-        model_name = parse_env("AI_MODEL_NAME", default_ai_model_name())
-        ollama_endpoint = parse_env("AI_OLLAMA_ENDPOINT", "http://localhost:11434/api/chat")
-        provider = str(parse_env("AI_PROVIDER", "huggingface") or "huggingface").strip().lower()
-        if not provider:
-            provider = "huggingface"
-        enable_ollama_fallback = parse_env("AI_ENABLE_OLLAMA_FALLBACK", False, bool)
-
         return cls(
-            provider=provider,
-            model_name=model_name,
-            ollama_endpoint="",
-            live_endpoint="",
-            ollama_model_id="",
-            ollama_options={},
-            timeout_seconds=parse_positive_int("AI_TIMEOUT_SECONDS", 60),
-            huggingface_model_id=model_name,
-            huggingface_cache_dir=parse_env("AI_HUGGINGFACE_CACHE_DIR"),
-            enable_ollama_fallback=enable_ollama_fallback,
-            inventory_cache_ttl_seconds=parse_positive_int("AI_INVENTORY_CACHE_TTL_SECONDS", 30),
+            model_id=str(parse_env("AI_MODEL_NAME", "meta-llama/Llama-3.2-3B-Instruct")),
+            max_new_tokens=parse_positive_int("AI_MAX_NEW_TOKENS", 256),
+            temperature=float(parse_env("AI_TEMPERATURE", 0.7, float)),
+            config_log_path=str(parse_env("AI_CONFIG_LOG_PATH", "ai_pipeline_v2_model_config.txt")),
         )
 
     def summary(self) -> dict[str, object]:
-        return {
-            "section": "ai_pipeline_v2",
-            "provider": self.provider,
-            "has_model": bool(self.model_name),
-            "hf_cache_dir": self.huggingface_cache_dir,
-        }
+        return {"section": "ai_pipeline_v2", "model_id": self.model_id}

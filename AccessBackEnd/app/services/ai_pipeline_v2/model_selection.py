@@ -1,145 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
-from flask import current_app, has_request_context, session
-from flask_login import current_user
 
-from .interfaces import AIPipelineServiceInterface
-from .inventory_extractors import extract_huggingface_model_id_map
-
-
-@dataclass(slots=True)
-class ModelSelectionError(Exception):
-    payload: dict[str, Any]
-    status_code: int = 400
+class ModelSelectionError(ValueError):
+    pass
 
 
 def normalize_model_id(model_id: str) -> str:
-    """Return canonical model-id key used for selection/inventory matching."""
-    raw = str(model_id or "").strip().replace("\\", "/")
-    if not raw:
-        return ""
-
-    lowered = raw.lower().strip("/")
-
-    if "/snapshots/" in lowered:
-        lowered = lowered.split("/snapshots/", maxsplit=1)[0]
-    if "/blobs/" in lowered:
-        lowered = lowered.split("/blobs/", maxsplit=1)[0]
-
-    if "/models--" in lowered:
-        lowered = "models--" + lowered.rsplit("/models--", maxsplit=1)[-1]
-
-    if lowered.startswith("models--"):
-        return lowered[len("models--") :].replace("--", "/").strip("/")
-
-    if "--" in lowered and "/" not in lowered:
-        return lowered.replace("--", "/").strip("/")
-
-    slash_count = lowered.count("/")
-    if slash_count == 1 and not lowered.startswith("/"):
-        return lowered
-
-    if "/" in lowered:
-        return lowered.rsplit("/", maxsplit=1)[-1].strip("/")
-
-    return lowered
+    return str(model_id or "").strip()
 
 
-def _invalid_selection_payload(*, message: str, provider: str = "", model_id: str = "", source: str, available_by_provider: dict[str, set[str]]) -> dict[str, Any]:
-    return {
-        "error": {
-            "code": "invalid_model_selection",
-            "message": message,
-            "details": {
-                "provider": provider,
-                "model_id": model_id,
-                "source": source,
-                "available_models": sorted(available_by_provider.get(provider, set())) if provider else [],
-                "available_by_provider": {key: sorted(value) for key, value in available_by_provider.items()},
-            },
-        }
-    }
-
-
-def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    """
-    Single extractor entry-point for selection paths.
-    Delegates to shared inventory helpers so route-level and selection-level
-    parsing stay in sync as payload shape migrates between bucket names.
-    """
-    return extract_huggingface_model_id_map(payload, normalize=normalize_model_id)
-
-
-def extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    """Public wrapper retained for existing callers/tests."""
-    return _extract_available_model_ids(payload)
-
-
-def _resolve_session_model_selection() -> dict[str, str] | None:
-    if not has_request_context():
-        return None
-    persisted = session.get("ai_model_selection")
-    if not isinstance(persisted, dict):
-        return None
-
-    persisted_user_id = persisted.get("user_id")
-    active_user_id = getattr(current_user, "id", None)
-    if persisted_user_id is None or active_user_id is None:
-        return None
-    if int(persisted_user_id) != int(active_user_id):
-        return None
-
-    persisted_session_id = persisted.get("auth_session_id")
-    active_session_id = session.get("auth_session_id")
-    if persisted_session_id and active_session_id and int(persisted_session_id) != int(active_session_id):
-        return None
-
-    provider = str(persisted.get("provider") or "").strip().lower()
-    model_id = str(persisted.get("model_id") or "").strip()
-    if not provider or not model_id:
-        return None
-    return {"provider": provider, "model_id": model_id}
-
-
-def _resolve_config_default() -> dict[str, str]:
-    model_id = str(current_app.config.get("AI_MODEL_NAME") or "").strip()
-    return {"provider": "huggingface", "model_id": model_id}
-
-
-def _resolve_candidate(payload: dict[str, Any], *, allow_session: bool, require_explicit: bool) -> tuple[dict[str, str], str]:
-    override_provider = str(payload.get("provider") or "").strip().lower()
-    override_model_id = str(payload.get("model_id") or "").strip()
-    deprecated_family_id = str(payload.get("family_id") or "").strip()
-    deprecated_provider_preference = str(payload.get("provider_preference") or "").strip()
-
-    if deprecated_family_id or deprecated_provider_preference:
-        raise ValueError("family_id/provider_preference overrides are deprecated; provide provider and model_id")
-
-    has_direct_override = bool(override_provider or override_model_id)
-    if bool(override_provider) != bool(override_model_id):
-        raise ValueError("provider and model_id must be supplied together")
-
-    if has_direct_override:
-        return {"provider": override_provider, "model_id": override_model_id}, "request_override"
-
-    if require_explicit:
-        raise ValueError("Provide provider and model_id")
-
-    if allow_session:
-        session_selection = _resolve_session_model_selection()
-        if session_selection is not None:
-            return session_selection, "session_selection"
-
-    return _resolve_config_default(), "config_default"
-
-
-def is_valid_catalog_selection(candidate: dict[str, Any], available_by_provider: dict[str, set[str]]) -> bool:
-    provider = str(candidate.get("provider") or "").strip().lower()
-    model_id = normalize_model_id(str(candidate.get("model_id") or ""))
-    return bool(provider and model_id and model_id in available_by_provider.get(provider, set()))
+def resolve_provider_model_selection(
+    payload: dict[str, Any],
+    ai_service: Any,
+    *,
+    allow_session: bool = True,
+    require_explicit: bool = False,
+    inventory_payload: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    _ = ai_service, allow_session, require_explicit, inventory_payload
+    model_id = normalize_model_id(payload.get("model_id") or payload.get("model") or "")
+    if not model_id:
+        raise ModelSelectionError("model_id is required")
+    return {"provider": "huggingface", "model_id": model_id, "source": "request_override"}
 
 
 def resolve_catalog_selection(
@@ -152,82 +36,9 @@ def resolve_catalog_selection(
     available_by_provider: dict[str, set[str]],
     ordered_models: list[dict[str, Any]],
 ) -> dict[str, str]:
-    if isinstance(persisted_selection, dict):
-        persisted_user_id = persisted_selection.get("user_id")
-        persisted_session_id = persisted_selection.get("auth_session_id")
-        if (
-            persisted_user_id is not None
-            and active_user_id is not None
-            and int(persisted_user_id) == int(active_user_id)
-            and (not persisted_session_id or not active_session_id or int(persisted_session_id) == int(active_session_id))
-            and is_valid_catalog_selection(persisted_selection, available_by_provider)
-        ):
-            return {
-                "provider": str(persisted_selection.get("provider") or "").strip().lower(),
-                "model_id": str(persisted_selection.get("model_id") or "").strip(),
-                "source": "session_selection",
-            }
-
-    normalized_provider = str(config_provider or "huggingface").strip().lower() or "huggingface"
-    normalized_model_id = str(config_model_id or "").strip()
-    if normalize_model_id(normalized_model_id) in available_by_provider.get(normalized_provider, set()):
-        return {
-            "provider": normalized_provider,
-            "model_id": normalized_model_id,
-            "source": "config_default",
-        }
-
-    if ordered_models:
-        fallback = ordered_models[0]
-        return {
-            "provider": str(fallback.get("provider") or "").strip().lower(),
-            "model_id": str(fallback.get("id") or "").strip(),
-            "source": "db_first_available",
-        }
-
+    _ = persisted_selection, active_user_id, active_session_id, available_by_provider, ordered_models
     return {
-        "provider": "",
-        "model_id": "",
-        "source": "none",
-    }
-
-
-def resolve_provider_model_selection(
-    payload: dict[str, Any],
-    ai_service: AIPipelineServiceInterface,
-    *,
-    allow_session: bool = True,
-    require_explicit: bool = False,
-    inventory_payload: dict[str, Any] | None = None,
-) -> dict[str, str]:
-    available_by_provider = _extract_available_model_ids(
-        inventory_payload if isinstance(inventory_payload, dict) else ai_service.list_available_models()
-    )
-    provider = ""
-    model_id = ""
-    source = "unknown"
-    try:
-        candidate, source = _resolve_candidate(payload, allow_session=allow_session, require_explicit=require_explicit)
-        provider = str(candidate.get("provider") or "").strip().lower()
-        model_id = str(candidate.get("model_id") or "").strip()
-        normalized_model_id = normalize_model_id(model_id)
-        if provider != "huggingface":
-            raise ValueError("Unsupported provider: only huggingface is allowed")
-        if normalized_model_id not in available_by_provider.get(provider, set()):
-            raise ValueError(f"Model not available for provider {provider}: {model_id}")
-    except ValueError as exc:
-        raise ModelSelectionError(
-            _invalid_selection_payload(
-                message=str(exc),
-                provider=provider,
-                model_id=model_id,
-                source=source,
-                available_by_provider=available_by_provider,
-            )
-        ) from exc
-
-    return {
-        "provider": provider,
-        "model_id": model_id,
-        "source": source,
+        "provider": str(config_provider or "huggingface"),
+        "model_id": normalize_model_id(config_model_id),
+        "source": "config_default",
     }
