@@ -8,16 +8,20 @@ from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationSe
 from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
 from ...services.ai_pipeline_v2.model_selection import (
     ModelSelectionError,
-    extract_available_model_ids,
     normalize_model_id,
     resolve_catalog_selection,
     resolve_provider_model_selection,
 )
+from ...services.ai_pipeline_v2.inventory_extractors import extract_huggingface_model_id_map
 from ...models import AIModel
 from ...extensions import db
 
 AI_CATALOG_TTL_SECONDS = 30
 _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
+
+
+def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
+    return extract_huggingface_model_id_map(payload, normalize=normalize_model_id)
 
 
 def _catalog_cache_key() -> tuple[int | None, Any]:
@@ -41,7 +45,7 @@ def list_persisted_ai_models():
     availability: dict[tuple[str, str], bool] = {}
     if include_live:
         inventory = ai_service.list_available_models()
-        available_by_provider = extract_available_model_ids(inventory)
+        available_by_provider = _extract_available_model_ids(inventory)
         availability = {
             (provider, normalize_model_id(model_id)): True
             for provider, model_ids in available_by_provider.items()

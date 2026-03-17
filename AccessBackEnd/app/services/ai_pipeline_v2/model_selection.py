@@ -7,6 +7,7 @@ from flask import current_app, has_request_context, session
 from flask_login import current_user
 
 from .interfaces import AIPipelineServiceInterface
+from .inventory_extractors import extract_huggingface_model_id_map
 
 
 @dataclass(slots=True)
@@ -63,25 +64,13 @@ def _invalid_selection_payload(*, message: str, provider: str = "", model_id: st
     }
 
 
+def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
+    return extract_huggingface_model_id_map(payload, normalize=normalize_model_id)
+
+
 def extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    provider_models: dict[str, set[str]] = {"huggingface": set()}
-
-    for top_key in ("huggingface_local", "local"):
-        provider_payload = payload.get(top_key)
-        if not isinstance(provider_payload, dict):
-            continue
-        models = provider_payload.get("models")
-        if not isinstance(models, list):
-            continue
-        for model in models:
-            if not isinstance(model, dict):
-                continue
-            model_id = str(model.get("id") or "").strip()
-            normalized_model_id = normalize_model_id(model_id)
-            if normalized_model_id:
-                provider_models["huggingface"].add(normalized_model_id)
-
-    return provider_models
+    """Public wrapper retained for existing callers/tests."""
+    return _extract_available_model_ids(payload)
 
 
 def _resolve_session_model_selection() -> dict[str, str] | None:
@@ -206,7 +195,7 @@ def resolve_provider_model_selection(
     require_explicit: bool = False,
     inventory_payload: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    available_by_provider = extract_available_model_ids(
+    available_by_provider = _extract_available_model_ids(
         inventory_payload if isinstance(inventory_payload, dict) else ai_service.list_available_models()
     )
     provider = ""
