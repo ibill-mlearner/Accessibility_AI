@@ -24,6 +24,19 @@ def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]
     return extract_huggingface_model_id_map(payload, normalize=normalize_model_id)
 
 
+def _serialize_selected_selection(selected: dict[str, Any]) -> dict[str, Any]:
+    selected_provider = str((selected or {}).get("provider") or "").strip().lower()
+    selected_id = str((selected or {}).get("id") or (selected or {}).get("model_id") or "").strip()
+    source = str((selected or {}).get("source") or "").strip()
+    return {
+        "provider": selected_provider,
+        "id": selected_id,
+        # Deprecated alias kept during transition; remove in follow-up.
+        "model_id": selected_id,
+        "source": source,
+    }
+
+
 def _catalog_cache_key() -> tuple[int | None, Any]:
     user_id = int(current_user.id) if getattr(current_user, 'is_authenticated', False) else None
     return user_id, session.get('auth_session_id')
@@ -154,7 +167,7 @@ def get_ai_catalog():
         )
 
         response_payload = {
-            "selected": selected,
+            "selected": _serialize_selected_selection(selected),
             "models_by_provider": provider_grouped,
             "models": ordered_models,
             # Temporary legacy field retained for frontend compatibility.
@@ -168,6 +181,8 @@ def get_ai_catalog():
     if include_health:
         provider_health = ai_service.provider_health() if hasattr(ai_service, 'provider_health') else {}
         response_payload['provider_health'] = provider_health
+
+    response_payload["selected"] = _serialize_selected_selection(response_payload.get("selected") if isinstance(response_payload.get("selected"), dict) else {})
 
     span["total_ms"] = round((time.perf_counter() - span_start) * 1000, 2)
     response_payload.setdefault("meta", {})["timings_ms"] = span
@@ -204,6 +219,8 @@ def set_ai_selection():
     return jsonify(
         {
             "provider": selected["provider"],
+            "id": selected["model_id"],
+            # Deprecated alias kept during transition; remove in follow-up.
             "model_id": selected["model_id"],
             "source": selected["source"],
         }

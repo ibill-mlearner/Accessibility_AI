@@ -80,6 +80,7 @@ def test_ai_catalog_prefers_valid_session_selection_from_db_models(app, client):
     payload = response.get_json()
     assert payload["selected"] == {
         "provider": "huggingface",
+        "id": "Qwen/Qwen2.5-0.5B-Instruct",
         "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
         "source": "session_selection",
     }
@@ -125,4 +126,5 @@ def test_ai_selection_accepts_model_id_from_models_available_payload(app, client
     assert selection_response.status_code == 200
     selection_payload = selection_response.get_json()
     assert selection_payload["provider"] == "huggingface"
+    assert selection_payload["id"] == model_id
     assert selection_payload["model_id"] == model_id

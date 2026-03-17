@@ -82,7 +82,7 @@ export const useChatStore = defineStore('chats', {
 
         this.modelCatalog = options
         const selectedProvider = String(response?.data?.selected?.provider || '').trim().toLowerCase()
-        const selectedModelId = String(response?.data?.selected?.model_id || '').trim()
+        const selectedModelId = String(response?.data?.selected?.id || response?.data?.selected?.model_id || '').trim()
         const selectedValue = selectedProvider && selectedModelId ? `${selectedProvider}::${selectedModelId}` : ''
         const preferredSelected = selectedValue || this.lastPersistedSelection
 
@@ -115,7 +115,7 @@ export const useChatStore = defineStore('chats', {
           model_id: modelId
         })
         const persistedProvider = String(response?.data?.provider || provider).trim().toLowerCase()
-        const persistedModelId = String(response?.data?.model_id || modelId).trim()
+        const persistedModelId = String(response?.data?.id || response?.data?.model_id || modelId).trim()
         this.selectedModel = `${persistedProvider}::${persistedModelId}`
         this.lastPersistedSelection = this.selectedModel
       } catch {
