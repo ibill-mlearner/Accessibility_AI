@@ -513,10 +513,17 @@ def validate_runtime_model_selection(payload: dict[str, Any], ai_service: AIPipe
         return exc.payload, exc.status_code
     return None
 
-def classify_upstream_error(exc: AIPipelineUpstreamError, *, provider: str, model_id: str, request_id: str) -> tuple[str, int, dict[str, Any]]:
+def classify_upstream_error(
+    exc: AIPipelineUpstreamError,
+    *,
+    runtime_model_selection: dict[str, Any],
+    request_id: str,
+) -> tuple[str, int, dict[str, Any]]:
     details = exc.details if isinstance(exc.details, dict) else {}
+    runtime_selection = runtime_model_selection if isinstance(runtime_model_selection, dict) else {}
     upstream_status = details.get("upstream_status")
-    source = str(details.get("source") or "provider_runtime")
+    selected_source = AIInteractionOps._validator.to_clean_text(runtime_selection.get("source"))
+    source = str(details.get("source") or selected_source or "provider_runtime")
     message_lower = str(exc).lower()
     error_code = str(details.get("error_code") or "upstream_error")
     status_code = 502
@@ -534,13 +541,16 @@ def classify_upstream_error(exc: AIPipelineUpstreamError, *, provider: str, mode
             error_code = "provider_auth_failed"
         elif any(token in message_lower for token in ("not found", "no such model", "404")):
             error_code = "provider_model_not_found"
-    raw_model_id = AIInteractionOps._validator.to_clean_text(model_id or details.get("model_id") or "")
+    selected_model_id = AIInteractionOps._validator.to_clean_text(runtime_selection.get("model_id"))
+    raw_model_id = AIInteractionOps._validator.to_clean_text(selected_model_id or details.get("model_id") or "")
     normalized_model_id = AIInteractionOps._validator.to_clean_model_id(raw_model_id) or "unknown"
 
     normalized_details = {
         **details,
         "source": source,
-        "provider": provider or details.get("provider") or "unknown",
+        "provider": AIInteractionOps._validator.to_clean_text(runtime_selection.get("provider"), lower=True)
+        or details.get("provider")
+        or "unknown",
         "model_id": raw_model_id or "unknown",
         "model_id_normalized": normalized_model_id,
         "upstream_status": upstream_status,
@@ -668,17 +678,20 @@ def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest,
         if provider == "ollama"
         else current_app.config.get("AI_MODEL_NAME")
     )
-    model_id = AIInteractionOps._validator.to_clean_text(runtime_selection.get("model_id")) or AIInteractionOps._validator.to_clean_text(
-        default_model_from_config or ""
-    )
+    resolved_runtime_selection = {
+        **runtime_selection,
+        "provider": provider or runtime_selection.get("provider"),
+        "model_id": AIInteractionOps._validator.to_clean_text(runtime_selection.get("model_id"))
+        or AIInteractionOps._validator.to_clean_text(default_model_from_config or ""),
+        "source": AIInteractionOps._validator.to_clean_text(runtime_selection.get("source")) or runtime_selection.get("source"),
+    }
 
     try:
         return ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
         error_code, status_code, normalized_details = classify_upstream_error(
             exc,
-            provider=provider,
-            model_id=model_id,
+            runtime_model_selection=resolved_runtime_selection,
             request_id=request_id,
         )
         current_app.logger.error(
