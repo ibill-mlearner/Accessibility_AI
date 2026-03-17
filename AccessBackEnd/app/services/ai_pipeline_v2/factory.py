@@ -4,8 +4,6 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from app.utils.env_config import normalize_backend_relative_dir
-
 from .config import AIPipelineV2ModuleConfig
 from .interfaces import AIProviderFactoryInterface
 from .providers import HuggingFaceBackend
@@ -51,7 +49,7 @@ def _validate_huggingface_local_only_config(config: AIPipelineV2ModuleConfig) ->
 
 
 def _module_config_from_mapping(config: Mapping[str, Any]) -> AIPipelineV2ModuleConfig:
-    model_name = normalize_backend_relative_dir(str(config.get("AI_MODEL_NAME") or "").strip()) or ""
+    model_name = str(config.get("AI_MODEL_NAME") or "").strip()
     provider = str(config.get("AI_PROVIDER") or "huggingface").strip().lower() or "huggingface"
     return AIPipelineV2ModuleConfig(
         provider=provider,
