@@ -414,3 +414,62 @@ def test_ai_interaction_upstream_error_details_prefer_runtime_selection_over_con
     payload = response.get_json()
     assert payload["error"]["details"]["provider"] == "huggingface"
     assert payload["error"]["details"]["model_id"] == "qwen/qwen2.5-0.5b-instruct"
+
+
+def test_ai_interaction_upstream_error_preserves_namespaced_runtime_model_id(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import Chat, CourseClass, DBUser
+
+    namespaced_model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+
+    class _FailingService:
+        def list_available_models(self):
+            return {
+                "huggingface_local": {"models": [{"id": namespaced_model_id}]},
+            }
+
+        def run(self, request):
+            raise AIPipelineUpstreamError(
+                "Model invocation failed",
+                details={
+                    "error_code": "provider_model_not_found",
+                    "provider": "huggingface",
+                    "model_id": "truncated-upstream-id",
+                },
+            )
+
+    with app.app_context():
+        init_flask_database(app)
+        app.config.update(AI_PROVIDER="ollama", AI_MODEL_NAME="llama3.2:3b")
+
+    _register(client, "namespaced-runtime-model-error@example.com")
+
+    with app.app_context():
+        user = db.session.query(DBUser).filter(DBUser.email == "namespaced-runtime-model-error@example.com").one()
+        class_record = CourseClass(name="Class G", description="desc", instructor_id=int(user.id), active=True)
+        db.session.add(class_record)
+        db.session.flush()
+        chat = Chat(title="Chat G", model="hf", class_id=int(class_record.id), user_id=int(user.id))
+        db.session.add(chat)
+        db.session.commit()
+        chat_id = int(chat.id)
+
+    app.extensions["ai_service"] = _FailingService()
+
+    response = client.post(
+        "/api/v1/ai/interactions",
+        json={
+            "prompt": "hello",
+            "chat_id": chat_id,
+            "messages": [{"role": "user", "content": "hello"}],
+            "provider": "huggingface",
+            "model_id": namespaced_model_id,
+        },
+    )
+
+    assert response.status_code == 502
+    payload = response.get_json()
+    assert payload["error"]["details"]["provider"] == "huggingface"
+    assert payload["error"]["details"]["model_id"] == "qwen/qwen2.5-0.5b-instruct"
+    assert payload["error"]["details"]["model_id"] != "truncated-upstream-id"

@@ -5,6 +5,7 @@ from AccessBackEnd.app.utils.ai_checker import (
     AIInteractionValidator,
     classify_upstream_error,
 )
+from flask import Flask
 
 def test_monolith_normalize_and_check_compact_payload():
     monolith = AIInteractionMonolith()
@@ -47,8 +48,10 @@ def test_ai_checker_preserves_raw_model_id_for_provider_errors():
 
     _code, _status, details = classify_upstream_error(
         exc,
-        provider="ollama",
-        model_id=platform_agnostic_windows_path,
+        runtime_model_selection={
+            "provider": "ollama",
+            "model_id": platform_agnostic_windows_path,
+        },
         request_id="n/a",
     )
 
@@ -59,3 +62,58 @@ def test_ai_checker_preserves_raw_model_id_for_provider_errors():
 def test_ai_checker_normalizes_cached_model_aliases():
     assert AIInteractionValidator.to_clean_model_id("models--Qwen--Qwen2.5-0.5B-Instruct") == "Qwen/Qwen2.5-0.5B-Instruct"
     assert AIInteractionValidator.to_clean_model_id(r"C:\models\qwen2.5:0.5b") == "C:/models/qwen2.5:0.5b"
+
+
+def test_classify_upstream_error_uses_runtime_model_id_over_upstream_details():
+    app = Flask(__name__)
+    runtime_model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+    exc = AIPipelineUpstreamError(
+        "model missing",
+        details={
+            "error_code": "provider_model_not_found",
+            "provider": "ollama",
+            "model_id": "llama3.2:3b",
+        },
+    )
+
+    with app.app_context():
+        _code, _status, details = classify_upstream_error(
+            exc,
+            runtime_model_selection={
+                "provider": "huggingface",
+                "model_id": runtime_model_id,
+                "source": "request_override",
+            },
+            request_id="req-runtime-wins",
+        )
+
+    assert details["provider"] == "huggingface"
+    assert details["model_id"] == runtime_model_id
+    assert details["model_id_normalized"] == "Qwen/Qwen2.5-0.5B-Instruct"
+
+
+def test_classify_upstream_error_preserves_namespaced_model_id():
+    app = Flask(__name__)
+    namespaced_model_id = "Qwen/Qwen2.5-0.5B-Instruct"
+    exc = AIPipelineUpstreamError(
+        "no such model",
+        details={
+            "error_code": "provider_model_not_found",
+            "provider": "huggingface",
+            "model_id": "qwen2.5-0.5b-instruct",
+        },
+    )
+
+    with app.app_context():
+        _code, _status, details = classify_upstream_error(
+            exc,
+            runtime_model_selection={
+                "provider": "huggingface",
+                "model_id": namespaced_model_id,
+                "source": "session_selection",
+            },
+            request_id="req-preserve-namespace",
+        )
+
+    assert details["model_id"] == namespaced_model_id
+    assert details["model_id_normalized"] == "Qwen/Qwen2.5-0.5B-Instruct"
