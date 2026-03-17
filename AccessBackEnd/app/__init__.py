@@ -29,7 +29,7 @@ def _register_cli_commands(app: Flask) -> None:
 
 
 def build_ai_service(app: Flask) -> AIPipelineServiceInterface:
-    module_config = app.config.get("AI_PIPELINE_V2_CONFIG")
+    module_config = app.config.get("AI_PIPELINE_SLIM_CONFIG")
     return build_ai_service_from_config(module_config, config=app.config)
 
 

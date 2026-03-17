@@ -13,8 +13,8 @@ def test_module_configs_loaded_at_startup(monkeypatch, tmp_path):
 
     module_configs = app.extensions.get("module_configs")
     assert module_configs is not None
-    assert "ai_pipeline_v2" in module_configs
-    assert app.config["AI_PIPELINE_V2_CONFIG"].timeout_seconds == 45
+    assert "ai_pipeline_slim" in module_configs
+    assert app.config["AI_PIPELINE_SLIM_CONFIG"].timeout_seconds == 45
 
 
 def test_ai_service_uses_module_config_contract(monkeypatch, tmp_path):
