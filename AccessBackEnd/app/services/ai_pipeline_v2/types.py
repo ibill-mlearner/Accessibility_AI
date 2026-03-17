@@ -11,6 +11,11 @@ class AIPipelineRequest:
     system_prompt: str | None = None
     context: dict[str, Any] = field(default_factory=dict)
     request_id: str | None = None
+    chat_id: int | None = None
+    initiated_by: str | None = None
+    class_id: int | None = None
+    user_id: int | str | None = None
+    rag: dict[str, Any] | None = None
 
 
 @dataclass(slots=True)

@@ -19,13 +19,13 @@ def test_module_configs_loaded_at_startup(monkeypatch, tmp_path):
 
 def test_ai_service_uses_module_config_contract(monkeypatch, tmp_path):
     monkeypatch.setenv("AI_PROVIDER", "huggingface")
-    monkeypatch.setenv("AI_MODEL_NAME", tmp_path.as_posix())
-    monkeypatch.setenv("AI_ENABLE_OLLAMA_FALLBACK", "true")
+    monkeypatch.setenv("AI_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct")
+    monkeypatch.setenv("AI_MAX_NEW_TOKENS", "111")
     monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
 
     app = create_app("testing")
     service = app.extensions["ai_service"]
 
     wrapped = getattr(service, "_wrapped", service)
-    assert wrapped.config.provider == "huggingface"
-    assert wrapped.config.enable_ollama_fallback_on_hf_local_only_error is True
+    assert wrapped.config.model_id == "Qwen/Qwen2.5-0.5B-Instruct"
+    assert wrapped.config.max_new_tokens == 111

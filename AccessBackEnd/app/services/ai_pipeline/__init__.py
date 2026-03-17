@@ -3,7 +3,6 @@ from .model_inventory import ModelInventoryConfig, ModelInventoryService
 from .pipeline import AIPipelineConfig, AIPipelineService
 from .factory import build_ai_service_from_config
 from .providers import create_provider
-from .model_reconciliation import AIModelReconciliationService
 from .interfaces import (
     AIProviderFactoryInterface,
     AIProviderInterface,
@@ -12,6 +11,7 @@ from .interfaces import (
     ModelInventoryServiceInterface,
     ModelReconciliationServiceInterface,
 )
+
 __all__ = [
     "AIPipelineConfig",
     "AIPipelineService",
@@ -22,11 +22,10 @@ __all__ = [
     "create_provider",
     "ModelInventoryConfig",
     "ModelInventoryService",
-    "AIModelReconciliationService",
     "AIPipelineServiceInterface",
     "AIProviderInterface",
     "AIProviderFactoryInterface",
     "ModelInventoryServiceInterface",
     "ModelInventoryServiceFactoryInterface",
-    "ModelReconciliationServiceInterface"
+    "ModelReconciliationServiceInterface",
 ]
