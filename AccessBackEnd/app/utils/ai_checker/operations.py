@@ -649,20 +649,30 @@ def create_pipeline_request(
 
 
 def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest, request_id: str, prompt: str) -> Any:
+    _ = prompt
+
+    runtime_selection = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+    if not isinstance(runtime_selection, dict):
+        runtime_selection = {}
+
+    configured_provider = AIInteractionOps._validator.to_clean_text(
+        current_app.config.get("AI_PROVIDER") or "",
+        lower=True,
+    )
+    provider = AIInteractionOps._validator.to_clean_text(runtime_selection.get("provider"), lower=True) or configured_provider
+
+    default_model_from_config = (
+        current_app.config.get("AI_OLLAMA_MODEL")
+        if provider == "ollama"
+        else current_app.config.get("AI_MODEL_NAME")
+    )
+    model_id = AIInteractionOps._validator.to_clean_text(runtime_selection.get("model_id")) or AIInteractionOps._validator.to_clean_text(
+        default_model_from_config or ""
+    )
+
     try:
         return ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
-        runtime_selection = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
-        provider = str(
-            (runtime_selection or {}).get("provider")
-            or current_app.config.get("AI_PROVIDER")
-            or ""
-        )
-        model_id = str(
-            (runtime_selection or {}).get("model_id")
-            or current_app.config.get("AI_MODEL_NAME")
-            or ""
-        )
         error_code, status_code, normalized_details = classify_upstream_error(
             exc,
             provider=provider,
@@ -704,4 +714,3 @@ _build_interaction_persistence_payload = AIInteractionOps._build_interaction_per
 _sync_chat_latest_interaction = AIInteractionOps._sync_chat_latest_interaction
 _resolve_session_model_selection = AIInteractionOps._resolve_session_model_selection
 _persist_ai_interaction = AIInteractionOps._persist_ai_interaction
-
