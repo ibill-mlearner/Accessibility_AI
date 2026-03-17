@@ -100,3 +100,7 @@ def test_resolve_provider_model_selection_normalizes_session_selection_model_id(
         "model_id": "qwen/qwen2.5-0.5b-instruct",
         "source": "session_selection",
     }
+
+
+def test_normalize_model_id_converts_huggingface_cache_style_delimiter_to_repo_id():
+    assert normalize_model_id("huggingfacetb--smollm-135m-instruct") == "huggingfacetb/smollm-135m-instruct"

@@ -22,6 +22,10 @@ def normalize_model_id(model_id: str) -> str:
     candidate = str(model_id or "").strip().lower()
     if not candidate:
         return ""
+    if "--" in candidate and "/" not in candidate and ":" not in candidate and ".." not in candidate:
+        parts = [part for part in candidate.split("--") if part]
+        if len(parts) == 2:
+            return f"{parts[0]}/{parts[1]}"
 
     marker = "models--"
     if marker in candidate:
