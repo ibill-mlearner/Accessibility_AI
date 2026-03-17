@@ -428,7 +428,7 @@ from pathlib import Path
 from flask import Flask
 from ...services.ai_pipeline_v2.providers import normalize_provider_name
 from ...services.ai_pipeline_v2.types import AIPipelineUpstreamError
-from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_slim import AIPipelineServiceInterface
 from ...services.ai_pipeline_v2.types import AIPipelineRequest
 
 

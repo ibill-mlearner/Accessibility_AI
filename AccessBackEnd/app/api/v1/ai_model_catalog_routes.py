@@ -5,7 +5,7 @@ from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
 from .routes import _read_json_object, api_v1_bp
 from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
-from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
+from ...services.ai_pipeline_slim import AIPipelineServiceInterface
 from ...services.ai_pipeline_v2.model_selection import (
     ModelSelectionError,
     normalize_model_id,
