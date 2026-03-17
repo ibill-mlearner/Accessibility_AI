@@ -70,7 +70,7 @@ def _resolve_session_model_selection() -> dict[str, str] | None:
     if not isinstance(selection, dict):
         return None
     provider = str(selection.get("provider") or "").strip().lower()
-    model_id = str(selection.get("model_id") or "").strip()
+    model_id = normalize_model_id(str(selection.get("model_id") or "").strip())
     if not provider or not model_id:
         return None
     return {"provider": provider, "model_id": model_id}
@@ -105,7 +105,7 @@ def resolve_provider_model_selection(
                 "Requested model is not available for the selected provider",
                 details={"provider": selected_provider, "model_id": model_id, "available_models": sorted(allowed)},
             )
-        return {"provider": selected_provider, "model_id": model_id, "source": "request_override"}
+        return {"provider": selected_provider, "model_id": normalized_request, "source": "request_override"}
 
     if allow_session:
         session_selection = _resolve_session_model_selection()
@@ -113,7 +113,7 @@ def resolve_provider_model_selection(
             return {**session_selection, "source": "session_selection"}
 
     config_provider = str(current_app.config.get("AI_PROVIDER") or "huggingface").strip().lower()
-    config_model = str(current_app.config.get("AI_MODEL_NAME") or "").strip()
+    config_model = normalize_model_id(str(current_app.config.get("AI_MODEL_NAME") or "").strip())
 
     if require_explicit and not config_model:
         raise ModelSelectionError("model_id is required", details={"provider": config_provider, "available_models": []})
@@ -141,7 +141,7 @@ def resolve_catalog_selection(
 ) -> dict[str, str]:
     if isinstance(persisted_selection, dict):
         persisted_provider = str(persisted_selection.get("provider") or "").strip().lower()
-        persisted_model_id = str(persisted_selection.get("model_id") or "").strip()
+        persisted_model_id = normalize_model_id(str(persisted_selection.get("model_id") or "").strip())
         persisted_user_id = persisted_selection.get("user_id")
         persisted_session_id = persisted_selection.get("auth_session_id")
         if (
@@ -154,14 +154,14 @@ def resolve_catalog_selection(
             return {"provider": persisted_provider, "model_id": persisted_model_id, "source": "session_selection"}
 
     normalized_provider = str(config_provider or "huggingface").strip().lower()
-    normalized_config_model = str(config_model_id or "").strip()
+    normalized_config_model = normalize_model_id(str(config_model_id or "").strip())
 
     if normalize_model_id(normalized_config_model) in available_by_provider.get(normalized_provider, set()):
         return {"provider": normalized_provider, "model_id": normalized_config_model, "source": "config_default"}
 
     for model in ordered_models:
         provider = str(model.get("provider") or "").strip().lower()
-        model_id = str(model.get("id") or "").strip()
+        model_id = normalize_model_id(str(model.get("id") or "").strip())
         if provider and model_id:
             return {"provider": provider, "model_id": model_id, "source": "db_first_available"}
 

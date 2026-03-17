@@ -36,18 +36,19 @@ class AIInteractionValidator:
             return ""
         normalized = text.replace("\\", "/")
         compact = normalized.rstrip("/")
-        if compact.lower().startswith("models--"):
-            return compact[len("models--"):].replace("--", "/")
-        if "/" not in compact:
-            return compact
-        last_segment = compact.rsplit("/", 1)[-1].strip()
-        if not last_segment:
-            return compact
-        if ":" in last_segment:
-            return last_segment.lower()
-        if "--" in last_segment and "models--" not in last_segment.lower():
-            return last_segment.replace("--", "/")
-        return last_segment
+
+        marker = "models--"
+        lower_compact = compact.lower()
+        if marker in lower_compact:
+            marker_index = lower_compact.rfind(marker)
+            token = compact[marker_index + len(marker):]
+            token = token.split("/snapshots/", 1)[0]
+            token = token.split("/refs/", 1)[0]
+            token = token.split("/", 1)[0]
+            return token.replace("--", "/")
+
+        return compact
+
 
 
     @staticmethod

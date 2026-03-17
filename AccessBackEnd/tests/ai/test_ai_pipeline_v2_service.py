@@ -44,6 +44,42 @@ def test_run_uses_chat_messages_and_system_prompt():
     assert result["meta"]["selected_provider"] == "huggingface"
 
 
+def test_run_uses_canonical_runtime_model_id_for_invocation():
+    invoked = {}
+
+    class FakePipe:
+        def __call__(self, messages, max_new_tokens=256):
+            return [{"generated_text": [*messages, {"role": "assistant", "content": "ok"}]}]
+
+    service = AIPipelineService(
+        AIPipelineConfig(model_id="default/model"),
+        runtime_client_factory=lambda _cfg: FakePipe(),
+    )
+
+    original_ensure_pipe = service._ensure_pipe
+
+    def _capture(model_id):
+        invoked["model_id"] = model_id
+        return original_ensure_pipe(model_id)
+
+    service._ensure_pipe = _capture
+
+    result = service.run(
+        AIPipelineRequest(
+            prompt="hello",
+            context={
+                "runtime_model_selection": {
+                    "provider": "huggingface",
+                    "model_id": "huggingfacetb/smollm-135m-instruct",
+                }
+            },
+        )
+    )
+
+    assert invoked["model_id"] == "huggingfacetb/smollm-135m-instruct"
+    assert result["meta"]["selected_model_id"] == "huggingfacetb/smollm-135m-instruct"
+
+
 def test_pipeline_can_send_prompt_after_instantiation():
     class FakePipe:
         def __call__(self, messages, max_new_tokens=256):

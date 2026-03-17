@@ -100,11 +100,24 @@ def _build_request_dto(payload: dict, prepared: dict, chat_id: int | None, initi
         chat_id=chat_id,
         initiated_by=initiated_by,
     )
+    runtime_selection = (
+        prepared.get("context_payload", {}).get("runtime_model_selection")
+        if isinstance(prepared.get("context_payload"), dict)
+        else {}
+    )
+    selected_provider = (
+        (runtime_selection or {}).get("provider")
+        or current_app.config.get("AI_PROVIDER")
+    )
+    selected_model = (
+        (runtime_selection or {}).get("model_id")
+        or current_app.config.get("AI_MODEL_NAME")
+    )
     current_app.logger.debug(
         "api.ai_interactions.dto.created request_id=%s provider=%s model=%s prompt_len=%s messages_count=%s has_system_prompt=%s",
         prepared["request_id"],
-        current_app.config.get("AI_PROVIDER"),
-        current_app.config.get("AI_MODEL_NAME"),
+        selected_provider,
+        selected_model,
         len(prepared["prompt"]),
         len(prepared["messages"]),
         bool(dto.system_prompt),
