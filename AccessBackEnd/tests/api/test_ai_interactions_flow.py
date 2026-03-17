@@ -230,7 +230,7 @@ def test_ai_interaction_request_model_override_beats_session_selection(app, clie
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["meta"]["selected_provider"] == "huggingface"
-    assert payload["meta"]["selected_model_id"] == request_model
+    assert payload["meta"]["selected_model_id"] == "qwen/qwen2.5-0.5b-instruct"
 
 
 def test_ai_interaction_returns_provider_unavailable_error_for_failed_selected_backend(app, client):
@@ -357,4 +357,60 @@ def test_ai_interaction_uses_session_selection_after_available_inventory_selecti
 
     payload = interaction_response.get_json()
     assert payload["meta"]["selected_provider"] == "huggingface"
-    assert payload["meta"]["selected_model_id"] == selected_model_id
+    assert payload["meta"]["selected_model_id"] == "qwen/qwen2.5-0.5b-instruct"
+
+
+def test_ai_interaction_upstream_error_details_prefer_runtime_selection_over_config(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import Chat, CourseClass, DBUser
+
+    class _FailingService:
+        def list_available_models(self):
+            return {
+                "huggingface_local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]},
+            }
+
+        def run(self, request):
+            raise AIPipelineUpstreamError(
+                "Model invocation failed",
+                details={
+                    "error_code": "provider_model_not_found",
+                    "provider": "ollama",
+                    "model_id": "llama3.2:3b",
+                },
+            )
+
+    with app.app_context():
+        init_flask_database(app)
+        app.config.update(AI_PROVIDER="ollama", AI_MODEL_NAME="llama3.2:3b")
+
+    _register(client, "runtime-selection-error-envelope@example.com")
+
+    with app.app_context():
+        user = db.session.query(DBUser).filter(DBUser.email == "runtime-selection-error-envelope@example.com").one()
+        class_record = CourseClass(name="Class F", description="desc", instructor_id=int(user.id), active=True)
+        db.session.add(class_record)
+        db.session.flush()
+        chat = Chat(title="Chat F", model="hf", class_id=int(class_record.id), user_id=int(user.id))
+        db.session.add(chat)
+        db.session.commit()
+        chat_id = int(chat.id)
+
+    app.extensions["ai_service"] = _FailingService()
+
+    response = client.post(
+        "/api/v1/ai/interactions",
+        json={
+            "prompt": "hello",
+            "chat_id": chat_id,
+            "messages": [{"role": "user", "content": "hello"}],
+            "provider": "huggingface",
+            "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+        },
+    )
+
+    assert response.status_code == 502
+    payload = response.get_json()
+    assert payload["error"]["details"]["provider"] == "huggingface"
+    assert payload["error"]["details"]["model_id"] == "qwen/qwen2.5-0.5b-instruct"

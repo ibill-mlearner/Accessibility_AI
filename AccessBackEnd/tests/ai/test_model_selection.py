@@ -1,3 +1,4 @@
+from flask import Flask
 from app.services.ai_pipeline_v2.model_selection import (
     extract_available_model_ids,
     normalize_model_id,
@@ -48,6 +49,7 @@ def test_resolve_provider_model_selection_accepts_available_inventory_ids_withou
         require_explicit=True,
     )
     assert selected_direct["source"] == "request_override"
+    assert selected_direct["model_id"] == "qwen/qwen2.5-0.5b-instruct"
 
     selected_alias = resolve_provider_model_selection(
         {
@@ -59,6 +61,7 @@ def test_resolve_provider_model_selection_accepts_available_inventory_ids_withou
         require_explicit=True,
     )
     assert selected_alias["source"] == "request_override"
+    assert selected_alias["model_id"] == "qwen/qwen2.5-0.5b-instruct"
 
 
 def test_resolve_catalog_selection_matches_config_default_with_canonical_normalizer():
@@ -75,6 +78,25 @@ def test_resolve_catalog_selection_matches_config_default_with_canonical_normali
 
     assert selected == {
         "provider": "huggingface",
-        "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+        "model_id": "qwen/qwen2.5-0.5b-instruct",
         "source": "config_default",
+    }
+
+
+def test_resolve_provider_model_selection_normalizes_session_selection_model_id():
+    app = Flask(__name__)
+    app.secret_key = "test-secret"
+    app.config.update(AI_PROVIDER="huggingface", AI_MODEL_NAME="Qwen/Qwen2.5-0.5B-Instruct")
+    service = _FakeService({"huggingface_local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}]}})
+
+    with app.test_request_context("/api/v1/ai/interactions"):
+        from flask import session
+
+        session["ai_model_selection"] = {"provider": "huggingface", "model_id": "Qwen/Qwen2.5-0.5B-Instruct"}
+        selected = resolve_provider_model_selection({}, service, allow_session=True)
+
+    assert selected == {
+        "provider": "huggingface",
+        "model_id": "qwen/qwen2.5-0.5b-instruct",
+        "source": "session_selection",
     }

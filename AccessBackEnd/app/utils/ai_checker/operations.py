@@ -653,7 +653,25 @@ def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest,
         return ai_service.run(dto)
     except AIPipelineUpstreamError as exc:
         details = exc.details if isinstance(exc.details, dict) else {}
-        error_code, status_code, normalized_details = classify_upstream_error(exc, provider=str(details.get("provider") or current_app.config.get("AI_PROVIDER") or ""), model_id=str(details.get("model_id") or current_app.config.get("AI_MODEL_NAME") or ""), request_id=request_id)
+        runtime_selection = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+        provider = str(
+            (runtime_selection or {}).get("provider")
+            or details.get("provider")
+            or current_app.config.get("AI_PROVIDER")
+            or ""
+        )
+        model_id = str(
+            (runtime_selection or {}).get("model_id")
+            or details.get("model_id")
+            or current_app.config.get("AI_MODEL_NAME")
+            or ""
+        )
+        error_code, status_code, normalized_details = classify_upstream_error(
+            exc,
+            provider=provider,
+            model_id=model_id,
+            request_id=request_id,
+        )
         current_app.logger.error(
             "ai_interaction.pipeline.upstream_error request_id=%s code=%s status=%s details=%s",
             request_id,
