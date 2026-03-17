@@ -101,6 +101,8 @@ def _build_request_dto(payload: dict, prepared: dict, chat_id: int | None, initi
         initiated_by=initiated_by,
     )
     selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+    if not isinstance(selected_runtime, dict):
+        selected_runtime = {}
     selected_provider = (
         (selected_runtime or {}).get("provider")
         or current_app.config.get("AI_PROVIDER")
@@ -128,6 +130,8 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
         return result, None
 
     selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+    if not isinstance(selected_runtime, dict):
+        selected_runtime = {}
     selected_provider = (
         (selected_runtime or {}).get("provider")
         or current_app.config.get("AI_PROVIDER")
@@ -148,10 +152,14 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
     )
     normalized_result = _normalize_interaction_response(result)
     meta = normalized_result.get("meta") if isinstance(normalized_result.get("meta"), dict) else {}
-    selected_provider = "huggingface"
+    selected_provider = str((selected_runtime or {}).get("provider") or current_app.config.get("AI_PROVIDER") or "").strip()
     selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_MODEL_NAME") or "").strip()
+    selected_source = str((selected_runtime or {}).get("source") or "").strip()
     meta.setdefault("selected_provider", selected_provider)
     meta.setdefault("selected_model_id", selected_model_id)
+    if selected_source:
+        meta.setdefault("selected_source", selected_source)
+        meta.setdefault("source", selected_source)
     meta.setdefault("provider", selected_provider)
     meta.setdefault("model", selected_model_id)
     normalized_result["meta"] = meta
