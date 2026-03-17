@@ -1,5 +1,6 @@
 import os
-os.environ.setdefault("TEST_AI_PROVIDER", "ollama")
+os.environ["TEST_AI_PROVIDER"] = "ollama"
+os.environ["AI_PROVIDER"] = "ollama"
 
 from app.utils import ai_checker as flow
 from app.utils.ai_checker import operations as ai_ops
@@ -285,3 +286,74 @@ def test_ai_interaction_returns_provider_unavailable_error_for_failed_selected_b
     assert response.status_code == 503
     payload = response.get_json()
     assert payload["error"]["code"] == "provider_unavailable"
+
+
+def test_ai_interaction_uses_session_selection_after_available_inventory_selection(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import Chat, CourseClass, DBUser
+
+    fixture_model_id = "/workspace/instance/models/models--Qwen--Qwen2.5-0.5B-Instruct/snapshots/fixture123"
+
+    class _InventoryBackedService:
+        def list_available_models(self):
+            return {
+                "huggingface_local": {"models": [{"id": fixture_model_id}]},
+                "local": {"models": [{"id": fixture_model_id}]},
+            }
+
+        def run(self, request):
+            return {
+                "assistant_text": "ok",
+                "meta": {
+                    "provider": "huggingface",
+                    "model_id": fixture_model_id,
+                    "model": fixture_model_id,
+                },
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, "session-selection-sequence@example.com")
+
+    with app.app_context():
+        user = db.session.query(DBUser).filter(DBUser.email == "session-selection-sequence@example.com").one()
+        class_record = CourseClass(name="Class E", description="desc", instructor_id=int(user.id), active=True)
+        db.session.add(class_record)
+        db.session.flush()
+        chat = Chat(title="Chat E", model="hf", class_id=int(class_record.id), user_id=int(user.id))
+        db.session.add(chat)
+        db.session.commit()
+        chat_id = int(chat.id)
+
+    app.extensions["ai_service"] = _InventoryBackedService()
+
+    available_response = client.get("/api/v1/ai/models/available")
+    assert available_response.status_code == 200
+    available_payload = available_response.get_json()
+    available_models = available_payload.get("huggingface_local", {}).get("models", [])
+    assert available_models
+
+    selected_model_id = available_models[0]["id"]
+
+    selection_response = client.post(
+        "/api/v1/ai/selection",
+        json={"provider": "huggingface", "model_id": selected_model_id},
+    )
+    assert selection_response.status_code == 200
+
+    interaction_response = client.post(
+        "/api/v1/ai/interactions",
+        json={
+            "prompt": "session selection should apply",
+            "chat_id": chat_id,
+            "messages": [{"role": "user", "content": "session selection should apply"}],
+            # Intentionally omit provider/model_id to validate session precedence.
+        },
+    )
+    assert interaction_response.status_code == 200
+
+    payload = interaction_response.get_json()
+    assert payload["meta"]["selected_provider"] == "huggingface"
+    assert payload["meta"]["selected_model_id"] == selected_model_id

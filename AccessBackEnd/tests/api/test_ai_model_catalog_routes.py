@@ -1,6 +1,7 @@
 import os
 
-os.environ.setdefault("TEST_AI_PROVIDER", "ollama")
+os.environ["TEST_AI_PROVIDER"] = "ollama"
+os.environ["AI_PROVIDER"] = "ollama"
 
 
 def _register(client, email: str):
