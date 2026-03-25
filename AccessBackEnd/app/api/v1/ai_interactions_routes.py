@@ -84,7 +84,6 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
             "has_system_prompt": bool(payload.get("system_prompt")),
             "has_guardrail_system_prompt": bool(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT")),
             "has_db_system_instructions": system_instructions,
-            "has_rag": bool(payload.get("rag")),
             "has_composed_system_prompt": bool(system_prompt),
         },
     )
@@ -230,7 +229,6 @@ def _authorize_chat_access(payload: dict) -> int | None | tuple:
     if deny is not None:
         return deny
     return chat_id
-
 
 
 @api_v1_bp.post("/ai/interactions")

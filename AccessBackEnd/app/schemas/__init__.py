@@ -1,7 +1,7 @@
 """Schema contracts for API v1."""
 
 from .auth_schema import LoginRequest, LoginResponse, RegisterRequest, RegisterResponse
-from .interaction_schema import AIInteractionRequest, AIInteractionResponse, RetrievalContext
+from .interaction_schema import AIInteractionRequest, AIInteractionResponse
 from .resource_schema import (
     ChatCreateRequest,
     ChatListResponse,
@@ -15,7 +15,6 @@ from .resource_schema import (
 __all__ = [
     "AIInteractionRequest",
     "AIInteractionResponse",
-    "RetrievalContext",
     "LoginRequest",
     "LoginResponse",
     "RegisterRequest",

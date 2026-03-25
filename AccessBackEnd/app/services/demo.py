@@ -12,7 +12,10 @@ def run_single(prompt: str) -> None:
     )
 
     pipeline.model_loader.device_map = "auto"
-    pipeline.model_loader.torch_dtype = "auto"
+    if hasattr(pipeline.model_loader, "dtype"):
+        pipeline.model_loader.dtype = "auto"
+    else:
+        pipeline.model_loader.torch_dtype = "auto"
 
     model = pipeline.build_model()
     tokenizer = pipeline.build_tokenizer()
