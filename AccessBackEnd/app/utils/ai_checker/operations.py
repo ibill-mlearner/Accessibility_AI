@@ -470,6 +470,8 @@ def _mark_stale_models_inactive(records: list[AIModel], discovered_set: set[str]
 
 
 def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | None]:
+    # TODO(ai-pipeline-thin): move model inventory source-of-truth to the new pipeline adapter
+    # so this sync reads available model ids from the pipeline runtime instead of local folders.
     provider = normalize_provider_name(app.config.get("AI_PROVIDER")) or "huggingface"
     models_root = Path(app.instance_path) / "models"
     discovered_model_ids = _discover_model_ids(models_root)
