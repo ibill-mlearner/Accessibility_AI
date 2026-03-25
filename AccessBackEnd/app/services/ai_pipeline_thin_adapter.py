@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -51,9 +52,22 @@ class PipelineInteractionRunner:
             return
         setattr(model_loader, "torch_dtype", "auto")
 
+    @staticmethod
+    def _load_ai_tool() -> Any:
+        candidates = ("ai_pipeline_thin.ai_pipeline", "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline")
+        for module_path in candidates:
+            try:
+                return importlib.import_module(module_path)
+            except ModuleNotFoundError:
+                continue
+        raise ModuleNotFoundError(
+            "No module named 'ai_pipeline_thin'. Install the ai runtime package or provide a local "
+            "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline module."
+        )
+
     def run(self, *, prompt: str, system_content: str) -> str:
         try:
-            import ai_pipeline_thin.ai_pipeline as ai_tool
+            ai_tool = self._load_ai_tool()
 
             pipeline = ai_tool.AIPipeline(
                 model_name_value=self.model_name,
