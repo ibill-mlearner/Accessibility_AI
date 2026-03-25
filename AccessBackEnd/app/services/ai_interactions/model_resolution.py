@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from flask import jsonify
 
-from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_provider_model_selection
+from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
+from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
 from .interfaces import AIInteractionModelResolverInterface
 
 

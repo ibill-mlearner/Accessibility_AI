@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 
 @dataclass(slots=True)
@@ -19,19 +19,17 @@ class AIPipelineRequest:
 
 
 @dataclass(slots=True)
-class AIPipelineConfig:
-    model_id: str = "Qwen/Qwen2.5-0.5B-Instruct"
-    max_new_tokens: int = 256
-    temperature: float = 0.7
-    torch_dtype: str = "bfloat16"
-    device_map: str = "auto"
-    config_log_path: str = "ai_pipeline_v2_model_config.txt"
-
-
-@dataclass(slots=True)
 class AIPipelineUpstreamError(RuntimeError):
     message: str
     details: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         RuntimeError.__init__(self, self.message)
+
+
+class AIPipelineServiceInterface(Protocol):
+    def run(self, request: AIPipelineRequest) -> dict[str, Any]: ...
+    def run_interaction(self, prompt: str, context: dict[str, Any] | None = None, **metadata: Any) -> dict[str, Any]: ...
+    def generate_text(self, text: str, model_name: str) -> dict[str, Any]: ...
+    def provider_health(self) -> dict[str, Any]: ...
+    def list_available_models(self) -> dict[str, Any]: ...

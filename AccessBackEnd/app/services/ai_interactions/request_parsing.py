@@ -5,7 +5,7 @@ from flask_login import current_user
 
 from ...api.v1.routes import BadRequestError, _read_json_object, _validate_payload
 from ...schemas.validation import AIInteractionPayloadSchema
-from ...services.ai_pipeline_v2.types import AIPipelineRequest
+from ...services.ai_pipeline_contracts import AIPipelineRequest
 from ...utils.ai_checker import (
     _resolve_chat_id,
     _resolve_initiated_by,

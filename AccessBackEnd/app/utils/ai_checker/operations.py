@@ -8,8 +8,7 @@ from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...models import AIInteraction, AIModel, Chat, CourseClass, UserAccessibilityFeature
 from ...models.ai import AccommodationSystemPrompt
-from ...services.ai_pipeline.model_catelog import family_id_from_model_id
-from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_provider_model_selection
+from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
 from ...api.v1.routes import _raise_bad_request_from_exception, _require_record, db
 from .mutations import AIInteractionMutations
 from .validators import AIInteractionValidator
@@ -83,7 +82,7 @@ class AIInteractionOps:
         return {
             "provider": provider,
             "model_id": model_id,
-            "family_id": family_id_from_model_id(model_id),
+            "family_id": None,
         }
 
     @staticmethod
@@ -120,7 +119,7 @@ class AIInteractionOps:
         return {
             "provider": provider or None,
             "model_id": selected_model_id or None,
-            "family_id": family_id_from_model_id(selected_model_id) if selected_model_id else None,
+            "family_id": None,
         }
 
     @staticmethod
@@ -426,10 +425,10 @@ __all__ = [
 
 from pathlib import Path
 from flask import Flask
-from ...services.ai_pipeline_v2.providers import normalize_provider_name
-from ...services.ai_pipeline_v2.types import AIPipelineUpstreamError
-from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.types import AIPipelineRequest
+from ...services.ai_pipeline_runtime_selection import normalize_provider_name
+from ...services.ai_pipeline_contracts import AIPipelineUpstreamError
+from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
+from ...services.ai_pipeline_contracts import AIPipelineRequest
 
 
 def _discover_model_ids(models_root: Path) -> list[str]:
