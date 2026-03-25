@@ -19,7 +19,7 @@ Behavior expectations:
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from ..ai_pipeline_v2.types import AIPipelineRequest
+from ..ai_pipeline_contracts import AIPipelineRequest
 
 
 @runtime_checkable

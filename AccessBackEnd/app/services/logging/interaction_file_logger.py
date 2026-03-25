@@ -7,7 +7,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from ..ai_pipeline_v2.types import AIPipelineRequest
+from ..ai_pipeline_contracts import AIPipelineRequest
 from .interfaces import InteractionLogWriterInterface, InteractionRunnerInterface
 
 MAX_LOG_LINES = 2000

@@ -4,15 +4,14 @@ import time
 from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
 from .routes import _read_json_object, api_v1_bp
-from ...services.ai_pipeline.model_reconciliation import AIModelReconciliationService
-from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.model_selection import (
+from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
+from ...services.ai_pipeline_runtime_selection import (
     ModelSelectionError,
     normalize_model_id,
     resolve_catalog_selection,
     resolve_provider_model_selection,
 )
-from ...services.ai_pipeline_v2.inventory_extractors import extract_huggingface_model_id_map
+from ...services.ai_pipeline_runtime_selection import extract_huggingface_model_id_map
 from ...models import AIModel
 from ...extensions import db
 
@@ -94,7 +93,8 @@ def list_persisted_ai_models():
     reconcile = str(request.args.get('reconcile') or '').strip().lower() in {'1', 'true', 'yes'}
     ai_service: AIPipelineServiceInterface = current_app.extensions['ai_service']
     if reconcile:
-        AIModelReconciliationService(ai_service).reconcile()
+        # Legacy no-op after removing ai_pipeline/ai_pipeline_v2 reconciliation services.
+        pass
 
     availability: dict[tuple[str, str], bool] = {}
     if include_live:

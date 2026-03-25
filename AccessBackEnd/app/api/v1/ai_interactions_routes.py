@@ -28,9 +28,9 @@ from .routes import (
 from ...models import AIInteraction, Chat
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...utils.chat_access import ChatAccessHelper
-from ...services.ai_pipeline_v2.interfaces import AIPipelineServiceInterface
-from ...services.ai_pipeline_v2.model_selection import ModelSelectionError, resolve_provider_model_selection
-from ...services.ai_pipeline_v2.types import AIPipelineRequest
+from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
+from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
+from ...services.ai_pipeline_contracts import AIPipelineRequest
 
 
 
