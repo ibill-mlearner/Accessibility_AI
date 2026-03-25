@@ -1,5 +1,5 @@
 <template>
-  <aside class="d-flex flex-column gap-3 h-100">
+  <aside class="sidebar-nav d-flex flex-column gap-3 h-100">
     <div class="card shadow-sm">
       <div class="card-body d-flex align-items-center gap-2"
         style="font-size: 1.25rem;">
@@ -41,7 +41,7 @@
     </nav>
 
     <section v-if="auth.role !== 'guest'" 
-      class="card shadow-sm flex-grow overflow-auto">
+      class="card shadow-sm flex-grow overflow-auto sidebar-nav__chat-list">
       <h3>Chats</h3>
       <ul>
         <li v-for="chat in chats.chats" 
@@ -58,11 +58,13 @@
       </ul>
     </section>
 
-    <AccountActionsCard
-      :is-logged-in="isLoggedIn"
-      @profile="router.push('/profile')"
-      @logout="handleLogout"
-    />
+    <div class="sidebar-nav__account-actions mt-auto">
+      <AccountActionsCard
+        :is-logged-in="isLoggedIn"
+        @profile="router.push('/profile')"
+        @logout="handleLogout"
+      />
+    </div>
   </aside>
 </template>
 
@@ -96,3 +98,17 @@ function selectedChat(id) {
 }
 
 </script>
+
+<style scoped>
+.sidebar-nav {
+  min-height: 0;
+}
+
+.sidebar-nav__chat-list {
+  min-height: 0;
+}
+
+.sidebar-nav__account-actions {
+  flex: 0 0 auto;
+}
+</style>

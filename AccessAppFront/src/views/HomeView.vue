@@ -1,6 +1,6 @@
 <template>
-  <section class="d-flex flex-column gap-2">
-    <div ref="messageListRef" class="overflow-auto" aria-live="polite">
+  <section class="home-thread d-flex flex-column gap-2">
+    <div ref="messageListRef" class="home-thread__messages overflow-auto" aria-live="polite">
       <div class="d-flex flex-column gap-2">
         <p v-if="interactionError" class="alert alert-danger py-2 mb-0">{{ interactionError }}</p>
         <p v-if="interactionLoading" class="alert alert-info py-2 mb-0">Sending…</p>
@@ -118,3 +118,16 @@ onMounted(async () => {
 })
 
 </script>
+
+<style scoped>
+.home-thread {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.home-thread__messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-right: 0.25rem;
+}
+</style>

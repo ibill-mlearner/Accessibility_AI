@@ -3,14 +3,16 @@
     <router-view />
   </div>
   <div v-else class="app-shell container-fluid py-3">
-    <div class="row g-3">
-      <div class="col-12 col-xl-3">
+    <div class="row g-3 app-shell__row">
+      <div class="col-12 col-xl-3 app-shell__sidebar">
         <SidebarNav />
       </div>
-      <main class="col-12 col-xl-9 d-flex flex-column gap-3">
+      <main class="col-12 col-xl-9 d-flex flex-column gap-3 app-shell__main">
         <HeaderBar />
         <p v-if="appError" class="alert alert-danger mb-0">{{ appError }}</p>
-        <router-view />
+        <div class="app-shell__content">
+          <router-view />
+        </div>
       </main>
     </div>
   </div>
@@ -41,3 +43,18 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.app-shell__row,
+.app-shell__sidebar,
+.app-shell__main {
+  min-height: 0;
+}
+
+.app-shell__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+</style>
