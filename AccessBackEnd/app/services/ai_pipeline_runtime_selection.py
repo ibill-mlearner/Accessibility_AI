@@ -19,21 +19,7 @@ def normalize_provider_name(provider: str | None) -> str:
 
 
 def normalize_model_id(model_id: str | None) -> str:
-    value = str(model_id or "").strip().lower()
-    if not value:
-        return ""
-    marker = "models--"
-    if marker in value:
-        value = value.split(marker, 1)[1]
-    if "/snapshots/" in value:
-        value = value.split("/snapshots/", 1)[0]
-    if "/" in value:
-        parts = [part for part in value.split("/") if part]
-        if len(parts) >= 2:
-            value = "/".join(parts[-2:])
-    if "--" in value and "/" not in value:
-        value = value.replace("--", "/", 1)
-    return value
+    return str(model_id or "").strip()
 
 
 def extract_huggingface_model_id_map(payload: dict[str, Any], *, normalize=normalize_model_id) -> dict[str, set[str]]:
