@@ -1,10 +1,10 @@
-import ai_pipeline_thin.ai_pipeline as ai_tool
+import ai_pipeline_thin.ai_pipeline as ai_pipeline
 
 # import ai_pipeline
 
 
 def run_single(prompt: str) -> None:
-    pipeline = ai_tool.AIPipeline(
+    pipeline = ai_pipeline.AIPipeline(
         model_name_value="HuggingFaceTB/SmolLM2-360M-Instruct",
         system_content="You are a concise assistant.",
         prompt_value=prompt,
