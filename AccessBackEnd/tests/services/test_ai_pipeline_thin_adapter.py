@@ -88,6 +88,18 @@ def test_runner_wraps_runtime_errors_as_upstream_error(monkeypatch):
         runner.run(prompt="Hello", system_content="Be concise")
 
 
+def test_runner_supports_local_module_fallback(monkeypatch):
+    module = types.SimpleNamespace(AIPipeline=_FakePipeline)
+    monkeypatch.delitem(sys.modules, "ai_pipeline_thin.ai_pipeline", raising=False)
+    monkeypatch.delitem(sys.modules, "ai_pipeline_thin", raising=False)
+    monkeypatch.setitem(sys.modules, "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline", module)
+
+    runner = PipelineInteractionRunner(model_name="repo/model", download_locally=True)
+    response = runner.run(prompt="Hello", system_content="Be concise")
+
+    assert response == "ok"
+
+
 def test_service_uses_configured_model_runner(monkeypatch):
     class _CaptureRunner:
         def __init__(self, model_name):
