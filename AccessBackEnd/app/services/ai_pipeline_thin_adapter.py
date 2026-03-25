@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .ai_pipeline_contracts import AIPipelineRequest, AIPipelineServiceInterface
+from .ai_pipeline_contracts import AIPipelineRequest, AIPipelineServiceInterface, AIPipelineUpstreamError
 
 
 @dataclass(slots=True)
@@ -17,12 +17,7 @@ class PipelineContextRepository:
         parts: list[str] = [self.config_system_content]
 
         from ..api.v1.routes import db
-        from ..models import CourseClass, UserAccessibilityFeature
-
-        if request.class_id:
-            class_record = db.session.get(CourseClass, int(request.class_id))
-            if class_record and class_record.description:
-                parts.append(str(class_record.description).strip())
+        from ..models import UserAccessibilityFeature
 
         if request.user_id:
             feature_rows = (
@@ -46,25 +41,47 @@ class PipelineInteractionRunner:
     download_locally: bool
     max_new_tokens: int = 256
 
+    @staticmethod
+    def _configure_model_loader(model_loader: Any) -> None:
+        if model_loader is None:
+            return
+        setattr(model_loader, "device_map", "auto")
+        if hasattr(model_loader, "dtype"):
+            setattr(model_loader, "dtype", "auto")
+            return
+        setattr(model_loader, "torch_dtype", "auto")
+
     def run(self, *, prompt: str, system_content: str) -> str:
-        import ai_pipeline_thin.ai_pipeline as ai_tool
+        try:
+            import ai_pipeline_thin.ai_pipeline as ai_tool
 
-        pipeline = ai_tool.AIPipeline(
-            model_name_value=self.model_name,
-            system_content=system_content,
-            prompt_value=prompt,
-            download_locally=self.download_locally,
-        )
-        pipeline.model_loader.device_map = "auto"
-        pipeline.model_loader.torch_dtype = "auto"
+            pipeline = ai_tool.AIPipeline(
+                model_name_value=self.model_name,
+                system_content=system_content,
+                prompt_value=prompt,
+                download_locally=self.download_locally,
+            )
+            self._configure_model_loader(getattr(pipeline, "model_loader", None))
 
-        model = pipeline.build_model()
-        tokenizer = pipeline.build_tokenizer()
-        text = pipeline.build_text(tokenizer=tokenizer)
-        model_inputs = pipeline.build_model_inputs(tokenizer=tokenizer, text=text, model=model)
-        raw_ids = pipeline.build_raw_generated_ids(model=model, model_inputs=model_inputs, max_new_tokens=self.max_new_tokens)
-        generated_ids = pipeline.build_generated_ids(model_inputs=model_inputs, raw_generated_ids=raw_ids)
-        return str(pipeline.build_response(tokenizer=tokenizer, generated_ids=generated_ids) or "").strip()
+            model = pipeline.build_model()
+            tokenizer = pipeline.build_tokenizer()
+            text = pipeline.build_text(tokenizer=tokenizer)
+            model_inputs = pipeline.build_model_inputs(tokenizer=tokenizer, text=text, model=model)
+            raw_ids = pipeline.build_raw_generated_ids(model=model, model_inputs=model_inputs, max_new_tokens=self.max_new_tokens)
+            generated_ids = pipeline.build_generated_ids(model_inputs=model_inputs, raw_generated_ids=raw_ids)
+            return str(pipeline.build_response(tokenizer=tokenizer, generated_ids=generated_ids) or "").strip()
+        except Exception as exc:  # noqa: BLE001
+            raise AIPipelineUpstreamError(
+                f"Model invocation failed: {exc}",
+                details={
+                    "error_code": "runtime_unavailable",
+                    "provider": "huggingface",
+                    "model_id": self.model_name,
+                    "source": "provider_runtime",
+                    "exception": exc.__class__.__name__,
+                    "exception_message": str(exc),
+                },
+            ) from exc
 
 
 @dataclass(slots=True)
@@ -80,7 +97,12 @@ class AIPipelineService(AIPipelineServiceInterface):
             "assistant_text": assistant_text,
             "confidence": None,
             "notes": [],
-            "meta": {"provider": "huggingface", "model": self.model_name},
+            "meta": {
+                "provider": "huggingface",
+                "model": self.model_name,
+                "selected_provider": "huggingface",
+                "selected_model_id": self.model_name,
+            },
         }
 
     def run_interaction(self, prompt: str, context: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
@@ -95,7 +117,6 @@ class AIPipelineService(AIPipelineServiceInterface):
                 initiated_by=kwargs.get("initiated_by"),
                 class_id=kwargs.get("class_id"),
                 user_id=kwargs.get("user_id"),
-                rag=kwargs.get("rag") if isinstance(kwargs.get("rag"), dict) else None,
             )
         )
 

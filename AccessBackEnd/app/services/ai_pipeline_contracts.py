@@ -15,7 +15,6 @@ class AIPipelineRequest:
     initiated_by: str | None = None
     class_id: int | None = None
     user_id: int | None = None
-    rag: dict[str, Any] | None = None
 
 
 class AIPipelineUpstreamError(RuntimeError):

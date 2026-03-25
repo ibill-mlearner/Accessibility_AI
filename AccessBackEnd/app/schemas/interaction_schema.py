@@ -16,27 +16,18 @@ class ChatMessage(TypedDict):
     content: str
 
 
-class RetrievalContext(TypedDict, total=False):
-    """Placeholder contract for future Retrieval-Augmented Generation inputs."""
-
-    source: str
-    query: str
-    documents: list[dict[str, Any]]
-
-
 class AIInteractionRequest(TypedDict, total=False):
     """Payload accepted by ``POST /api/v1/ai/interactions``.
 
     Logic intent:
     - Accept prompt/context values as submitted by the client.
-    - Leave room for upcoming system prompts and RAG context.
+    - Leave room for upcoming system prompts.
     - Pass the currently supported prompt field directly to AI service.
     """
 
     prompt: str
     system_prompt: str
     context: dict[str, Any]
-    rag: RetrievalContext
     conversation_id: str
     chat_id: int
     messages: list[ChatMessage]

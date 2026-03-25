@@ -48,6 +48,8 @@ class CourseClass(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    # NOTE(ai-pipeline-thin): class descriptions are no longer injected into AI
+    # system prompts; prompt composition is now based on guardrails + accessibility features.
     description: Mapped[str] = mapped_column(Text, nullable=False)
     instructor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     active: Mapped[bool] = mapped_column(nullable=False, default=True)

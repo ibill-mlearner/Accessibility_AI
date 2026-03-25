@@ -6,7 +6,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ...api.errors import BadRequestError
 from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
-from ...models import AIInteraction, AIModel, Chat, CourseClass, UserAccessibilityFeature
+from ...models import AIInteraction, AIModel, Chat, UserAccessibilityFeature
 from ...models.ai import AccommodationSystemPrompt
 from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
 from ...api.v1.routes import _raise_bad_request_from_exception, _require_record, db
@@ -405,16 +405,34 @@ class AIInteractionOps:
 
     @staticmethod
     def _resolve_system_instructions(payload: dict[str, Any]) -> str:
-        """Resolve DB backed system instructions for AI providers"""
-        prompt_link_id = AIInteractionOps._resolve_prompt_link_id(payload)
-        prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id) if prompt_link_id is not None else None
-        class_id = AIInteractionOps._resolve_class_id(payload)
-        class_record = _require_record("class", CourseClass, class_id) if class_id is not None else None
-        parts = [
-            AIInteractionOps._validator.to_clean_text(prompt_link.system_prompt.text) if prompt_link and prompt_link.system_prompt else "",
-            AIInteractionOps._validator.to_clean_text(prompt_link.accommodation.details) if prompt_link and prompt_link.accommodation else "",
-            AIInteractionOps._validator.to_clean_text(class_record.description) if class_record else "",
-        ]
+        """Resolve accessibility-only system instructions for AI providers."""
+        selected_feature_ids = payload.get("selected_accessibility_link_ids")
+        normalized_feature_ids: list[int] = []
+        if isinstance(selected_feature_ids, list):
+            for feature_id in selected_feature_ids:
+                try:
+                    normalized_feature_ids.append(int(feature_id))
+                except (TypeError, ValueError):
+                    continue
+
+        parts: list[str] = []
+        if normalized_feature_ids:
+            rows = (
+                db.session.query(UserAccessibilityFeature)
+                .filter(UserAccessibilityFeature.accommodation_id.in_(normalized_feature_ids))
+                .order_by(UserAccessibilityFeature.accommodation_id.asc())
+                .all()
+            )
+            for row in rows:
+                if row.accommodation and row.accommodation.details:
+                    parts.append(AIInteractionOps._validator.to_clean_text(row.accommodation.details))
+
+        if not parts:
+            prompt_link_id = AIInteractionOps._resolve_prompt_link_id(payload)
+            prompt_link = _require_record("accommodation_system_prompt", AccommodationSystemPrompt, prompt_link_id) if prompt_link_id is not None else None
+            if prompt_link and prompt_link.accommodation and prompt_link.accommodation.details:
+                parts.append(AIInteractionOps._validator.to_clean_text(prompt_link.accommodation.details))
+
         return "\n\n".join(part for part in parts if part)
 
 
@@ -437,6 +455,18 @@ def _discover_model_ids(models_root: Path) -> list[str]:
     return sorted(child.name for child in models_root.iterdir() if child.is_dir())
 
 
+def _resolve_local_models_root(app: Flask) -> Path:
+    project_root = Path(app.root_path).resolve().parents[1]
+    thin_models_root = project_root / "app" / "services" / "ai_pipeline_thin" / "models"
+    if thin_models_root.exists() and thin_models_root.is_dir():
+        return thin_models_root
+    return Path(app.instance_path) / "models"
+
+
+def _relative_model_path(models_root: Path, model_id: str) -> str:
+    return (models_root / model_id).as_posix()
+
+
 def _index_records_by_model_id(records: list[AIModel]) -> dict[str, AIModel]:
     return {record.model_id: record for record in records}
 
@@ -445,7 +475,7 @@ def _upsert_discovered_models(*, provider: str, models_root: Path, discovered_mo
     counter = 0
     for model_id in discovered_model_ids:
         record = by_model_id.get(model_id)
-        model_path = (models_root / model_id).resolve().as_posix()
+        model_path = _relative_model_path(models_root, model_id)
         is_default = bool(default_model_id and model_id == default_model_id)
         if record is None:
             db.session.add(AIModel(provider=provider, model_id=model_id, source="instance_models", path=model_path, active=is_default))
@@ -473,7 +503,7 @@ def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | Non
     # TODO(ai-pipeline-thin): move model inventory source-of-truth to the new pipeline adapter
     # so this sync reads available model ids from the pipeline runtime instead of local folders.
     provider = normalize_provider_name(app.config.get("AI_PROVIDER")) or "huggingface"
-    models_root = Path(app.instance_path) / "models"
+    models_root = _resolve_local_models_root(app)
     discovered_model_ids = _discover_model_ids(models_root)
     if provider == "ollama":
         default_model_id = str(app.config.get("AI_OLLAMA_MODEL") or app.config.get("AI_MODEL_NAME") or "").strip()
@@ -487,7 +517,7 @@ def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | Non
     if default_model_id:
         default_record = by_model_id.get(default_model_id)
         if default_record is None:
-            default_path = (models_root / default_model_id).resolve().as_posix()
+            default_path = _relative_model_path(models_root, default_model_id)
             db.session.add(AIModel(provider=provider, model_id=default_model_id, source="config_default", path=default_path, active=True))
             upserted += 1
         else:
@@ -656,7 +686,6 @@ def create_pipeline_request(
         initiated_by=initiated_by,
         class_id=payload.get("class_id"),
         user_id=payload.get("user_id"),
-        rag=payload.get("rag") if isinstance(payload.get("rag"), dict) else None,
         request_id=payload.get("request_id"),
     )
 

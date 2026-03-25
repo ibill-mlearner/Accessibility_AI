@@ -60,7 +60,6 @@ class AIInteractionPayloadSchema(Schema):
     prompt = fields.Str(required=False, allow_none=True)
     system_prompt = fields.Str(required=False, allow_none=True)
     context = fields.Dict(required=False)
-    rag = fields.Dict(required=False)
     conversation_id = fields.Str(required=False, allow_none=True)
     chat_id = fields.Int(required=False, allow_none=True)
     class_id = fields.Int(required=False, allow_none=True)
