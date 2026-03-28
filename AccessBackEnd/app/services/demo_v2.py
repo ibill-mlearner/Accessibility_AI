@@ -26,11 +26,11 @@ from flask import current_app
 try:
     from .. import create_app
     from ..extensions import db
-    from ..models import AIModel, SystemPrompt
+    from ..models import AIModel, Accommodation, AccommodationSystemPrompt, SystemPrompt
 except ImportError:
     from AccessBackEnd.app import create_app
     from AccessBackEnd.app.extensions import db
-    from AccessBackEnd.app.models import AIModel, SystemPrompt
+    from AccessBackEnd.app.models import AIModel, Accommodation, AccommodationSystemPrompt, SystemPrompt
 
 def _load_ai_tool() -> Any:
     candidates = ("ai_pipeline_thin.ai_pipeline", "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline")
@@ -63,9 +63,45 @@ def _resolve_active_model_name() -> str:
 
 
 def _fetch_accessibility_prompt_texts() -> list[str]:
-    # Placeholder first iteration: pulls system prompt records to prove DB wiring.
-    rows = db.session.query(SystemPrompt).order_by(SystemPrompt.id.asc()).all()
-    return [str(row.text).strip() for row in rows if row.text and str(row.text).strip()]
+    parts: list[str] = []
+    seen: set[str] = set()
+
+    prompt_rows = db.session.query(SystemPrompt.text).order_by(SystemPrompt.id.asc()).all()
+    for (prompt_text,) in prompt_rows:
+        normalized = str(prompt_text).strip() if prompt_text else ""
+        if normalized and normalized not in seen:
+            parts.append(normalized)
+            seen.add(normalized)
+
+    linked_rows = (
+        db.session.query(Accommodation.details)
+        .join(
+            AccommodationSystemPrompt,
+            AccommodationSystemPrompt.accommodation_id == Accommodation.id,
+        )
+        .filter(Accommodation.active.is_(True))
+        .order_by(Accommodation.id.asc())
+        .all()
+    )
+    for (details,) in linked_rows:
+        normalized = str(details).strip() if details else ""
+        if normalized and normalized not in seen:
+            parts.append(normalized)
+            seen.add(normalized)
+
+    active_accommodation_rows = (
+        db.session.query(Accommodation.details)
+        .filter(Accommodation.active.is_(True))
+        .order_by(Accommodation.id.asc())
+        .all()
+    )
+    for (details,) in active_accommodation_rows:
+        normalized = str(details).strip() if details else ""
+        if normalized and normalized not in seen:
+            parts.append(normalized)
+            seen.add(normalized)
+
+    return parts
 
 
 def _build_system_content_placeholder() -> str:
