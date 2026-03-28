@@ -1,13 +1,36 @@
 from __future__ import annotations
 
 import importlib
+import sys
+from pathlib import Path
 from typing import Any
+
+# When this file is executed as a script (python app/services/demo_v2.py),
+# Python prepends the script directory to sys.path. Because this directory
+# contains a local "logging" package, third-party imports that expect the
+# stdlib `logging` module can accidentally resolve our local package instead.
+# Remove the script directory from sys.path so stdlib module resolution works.
+_THIS_DIR = str(Path(__file__).resolve().parent)
+if _THIS_DIR in sys.path:
+    sys.path.remove(_THIS_DIR)
+
+_REPO_ROOT = str(Path(__file__).resolve().parents[3])
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+_BACKEND_ROOT = str(Path(__file__).resolve().parents[2])
+if _BACKEND_ROOT not in sys.path:
+    sys.path.insert(0, _BACKEND_ROOT)
 
 from flask import current_app
 
-from .. import create_app
-from ..extensions import db
-from ..models import AIModel, SystemPrompt
+try:
+    from .. import create_app
+    from ..extensions import db
+    from ..models import AIModel, SystemPrompt
+except ImportError:
+    from AccessBackEnd.app import create_app
+    from AccessBackEnd.app.extensions import db
+    from AccessBackEnd.app.models import AIModel, SystemPrompt
 
 def _load_ai_tool() -> Any:
     candidates = ("ai_pipeline_thin.ai_pipeline", "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline")
