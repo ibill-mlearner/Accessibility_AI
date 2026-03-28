@@ -1,13 +1,28 @@
 from __future__ import annotations
 
 import importlib
+import sys
+from pathlib import Path
 from typing import Any
+
+# When this file is executed directly (python AccessBackEnd/app/services/demo_v2.py),
+# Python puts the services directory on sys.path first, which can shadow the standard
+# library `logging` module with `app/services/logging`. Remove that path and add repo root.
+if __package__ in (None, ""):
+    _CURRENT_DIR = Path(__file__).resolve().parent
+    _REPO_ROOT = _CURRENT_DIR.parents[2]
+    try:
+        sys.path.remove(str(_CURRENT_DIR))
+    except ValueError:
+        pass
+    if str(_REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(_REPO_ROOT))
 
 from flask import current_app
 
-from .. import create_app
-from ..extensions import db
-from ..models import AIModel, SystemPrompt
+from AccessBackEnd.app import create_app
+from AccessBackEnd.app.extensions import db
+from AccessBackEnd.app.models import AIModel, SystemPrompt
 
 def _load_ai_tool() -> Any:
     candidates = ("ai_pipeline_thin.ai_pipeline", "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline")
