@@ -4,23 +4,47 @@ import time
 from flask import current_app, jsonify, session, request
 from flask_login import current_user, login_required
 from .routes import _read_json_object, api_v1_bp
-from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
-from ...services.ai_pipeline_runtime_selection import (
-    ModelSelectionError,
-    normalize_model_id,
-    resolve_catalog_selection,
-    resolve_provider_model_selection,
-)
-from ...services.ai_pipeline_runtime_selection import extract_huggingface_model_id_map
 from ...models import AIModel
 from ...extensions import db
+from ...utils.ai_checker.validators import AIInteractionValidator, ModelSelectionError
+
+def normalize_model_id(model_id: str | None) -> str:
+    return AIInteractionValidator.to_clean_model_id(model_id)
+
+
+def _resolve_provider_model_selection(payload: dict[str, Any], ai_service: Any, *, allow_session: bool = True, require_explicit: bool = False) -> dict[str, str]:
+    inventory = ai_service.list_available_models() if hasattr(ai_service, "list_available_models") else {}
+    persisted = session.get("ai_model_selection") if allow_session and isinstance(session.get("ai_model_selection"), dict) else None
+    return AIInteractionValidator.resolve_model_selection(
+        payload,
+        inventory=inventory,
+        persisted=persisted,
+        config_provider=str(current_app.config.get("AI_PROVIDER") or "huggingface"),
+        config_model_id=str(current_app.config.get("AI_MODEL_NAME") or ""),
+        require_explicit=require_explicit,
+    )
+
+
+def _resolve_catalog_selection(*, persisted_selection: dict[str, Any] | None, config_provider: str, config_model_id: str, available_models: set[str], ordered_models: list[dict[str, Any]]) -> dict[str, str]:
+    selected = AIInteractionValidator.resolve_model_selection(
+        {},
+        inventory={"local": {"models": [{"id": model_id} for model_id in sorted(available_models)]}},
+        persisted=persisted_selection,
+        config_provider=config_provider,
+        config_model_id=config_model_id,
+        require_explicit=False,
+    )
+    if selected.get("model_id"):
+        return selected
+    fallback_id = normalize_model_id(ordered_models[0].get("id")) if ordered_models else ""
+    return {"provider": "huggingface", "model_id": fallback_id, "source": "catalog_fallback"}
 
 AI_CATALOG_TTL_SECONDS = 30
 _ai_catalog_cache: dict[tuple[int | None, Any], dict[str, Any]] = {}
 
 
 def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
-    return extract_huggingface_model_id_map(payload, normalize=normalize_model_id)
+    return {"huggingface": AIInteractionValidator.available_huggingface_model_ids(payload)}
 
 
 def _serialize_available_models_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -91,7 +115,7 @@ def _invalidate_ai_catalog_cache() -> None:
 def list_persisted_ai_models():
     include_live = str(request.args.get("include_live") or '').strip().lower() in {'1', 'true', 'yes'}
     reconcile = str(request.args.get('reconcile') or '').strip().lower() in {'1', 'true', 'yes'}
-    ai_service: AIPipelineServiceInterface = current_app.extensions['ai_service']
+    ai_service: Any = current_app.extensions['ai_service']
     if reconcile:
         # Legacy no-op after removing ai_pipeline/ai_pipeline_v2 reconciliation services.
         pass
@@ -141,7 +165,7 @@ def list_persisted_ai_models():
 @login_required
 def list_available_ai_models():
     """Return read-only inventory of currently discoverable AI models."""
-    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
+    ai_service: Any = current_app.extensions["ai_service"]
     payload = ai_service.list_available_models()
     return jsonify(_serialize_available_models_payload(payload)), 200
 
@@ -151,7 +175,7 @@ def list_available_ai_models():
 def get_ai_catalog():
     """Return persisted AI model catalog grouped by provider."""
     include_health = str(request.args.get('include_health') or '').strip().lower() in {'1', 'true', 'yes'}
-    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
+    ai_service: Any = current_app.extensions["ai_service"]
 
     cache_key = _catalog_cache_key()
     now = time.time()
@@ -192,18 +216,13 @@ def get_ai_catalog():
             provider_grouped.setdefault(provider, []).append(model_payload)
             ordered_models.append({"provider": provider, **model_payload})
 
-        available_by_provider: dict[str, set[str]] = {
-            provider: {normalize_model_id(str(model.get("id") or "")) for model in models if normalize_model_id(str(model.get("id") or ""))}
-            for provider, models in provider_grouped.items()
-        }
+        available_models = {normalize_model_id(str(model.get("id") or "")) for model in ordered_models if normalize_model_id(str(model.get("id") or ""))}
 
-        selected = resolve_catalog_selection(
+        selected = _resolve_catalog_selection(
             persisted_selection=session.get("ai_model_selection") if isinstance(session.get("ai_model_selection"), dict) else None,
-            active_user_id=int(current_user.id) if getattr(current_user, "is_authenticated", False) else None,
-            active_session_id=session.get("auth_session_id"),
             config_provider=str(current_app.config.get("AI_PROVIDER") or "huggingface"),
             config_model_id=str(current_app.config.get("AI_MODEL_NAME") or ""),
-            available_by_provider=available_by_provider,
+            available_models=available_models,
             ordered_models=ordered_models,
         )
 
@@ -241,10 +260,10 @@ def set_ai_selection():
     rather than reusing `/api/v1/ai/selection`.
     """
     payload = _read_json_object()
-    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
+    ai_service: Any = current_app.extensions["ai_service"]
 
     try:
-        selected = resolve_provider_model_selection(payload, ai_service, allow_session=False, require_explicit=True)
+        selected = _resolve_provider_model_selection(payload, ai_service, allow_session=False, require_explicit=True)
     except ModelSelectionError as exc:
         return jsonify(exc.payload), exc.status_code
 

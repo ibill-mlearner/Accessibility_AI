@@ -2,19 +2,9 @@ import time
 
 from flask import current_app, jsonify
 
-from ..errors import BadRequestError
 from flask_login import current_user, login_required
 
-from ...utils.ai_checker import (
-    _normalize_interaction_response,
-    _persist_ai_interaction,
-    _resolve_chat_id,
-    _resolve_initiated_by,
-    _resolve_provider,
-    prepare_interaction_inputs,
-    create_pipeline_request,
-    run_pipeline,
-)
+from ...utils.ai_checker import _normalize_interaction_response, _persist_ai_interaction, _resolve_chat_id, _resolve_initiated_by, prepare_interaction_inputs
 from .routes import (
     _assert_chat_permissions,
     _publish,
@@ -28,9 +18,7 @@ from .routes import (
 from ...models import AIInteraction, Chat
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...utils.chat_access import ChatAccessHelper
-from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
-from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
-from ...services.ai_pipeline_contracts import AIPipelineRequest
+from ...services.ai_pipeline_gateway import AIPipelineGateway
 
 
 
@@ -89,146 +77,45 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
     )
 
 
-def _build_request_dto(payload: dict, prepared: dict, chat_id: int | None, initiated_by: str):
-    dto = create_pipeline_request(
-        payload,
-        prompt=prepared["prompt"],
+def _run(
+    ai_service: AIPipelineGateway,
+    payload: dict,
+    prepared: dict,
+    chat_id: int | None,
+    initiated_by: str,
+):
+    result = ai_service.run_interaction(
+        prepared["prompt"],
+        context=prepared["context_payload"],
         messages=prepared["messages"],
         system_prompt=prepared["system_prompt"],
-        context_payload=prepared["context_payload"],
+        request_id=prepared["request_id"],
         chat_id=chat_id,
         initiated_by=initiated_by,
+        class_id=payload.get("class_id"),
+        user_id=payload.get("user_id"),
     )
-    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
-    if not isinstance(selected_runtime, dict):
-        selected_runtime = {}
-    selected_provider = (
-        (selected_runtime or {}).get("provider")
-        or current_app.config.get("AI_PROVIDER")
-    )
-    selected_model = (
-        (selected_runtime or {}).get("model_id")
-        or current_app.config.get("AI_MODEL_NAME")
-    )
-    current_app.logger.debug(
-        "api.ai_interactions.dto.created request_id=%s provider=%s model=%s prompt_len=%s messages_count=%s has_system_prompt=%s",
-        prepared["request_id"],
-        selected_provider,
-        selected_model,
-        len(prepared["prompt"]),
-        len(prepared["messages"]),
-        bool(dto.system_prompt),
-    )
-    return dto
-
-
-def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest, request_id: str, prompt: str):
-    started_at = time.time()
-    result = run_pipeline(ai_service, dto, request_id, prompt)
-    if isinstance(result, tuple):
-        return result, None
-
-    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
-    if not isinstance(selected_runtime, dict):
-        selected_runtime = {}
-    selected_provider = (
-        (selected_runtime or {}).get("provider")
-        or current_app.config.get("AI_PROVIDER")
-    )
-    selected_model = (
-        (selected_runtime or {}).get("model_id")
-        or current_app.config.get("AI_MODEL_NAME")
-    )
-
-    current_app.logger.debug(
-        "api.ai_interactions.ai_service.run.end request_id=%s provider=%s model=%s response_text_len=%s notes_count=%s response_preview=%r",
-        request_id,
-        selected_provider,
-        selected_model,
-        len(str((result or {}).get("assistant_text") if isinstance(result, dict) else result or "")),
-        len((result or {}).get("notes")) if isinstance(result, dict) and isinstance((result or {}).get("notes"), list) else 0,
-        str(result)[:200],
-    )
-    normalized_result = _normalize_interaction_response(result)
-    meta = normalized_result.get("meta") if isinstance(normalized_result.get("meta"), dict) else {}
-    selected_provider = str((selected_runtime or {}).get("provider") or current_app.config.get("AI_PROVIDER") or "").strip()
-    selected_model_id = str((selected_runtime or {}).get("model_id") or current_app.config.get("AI_MODEL_NAME") or "").strip()
-    selected_source = str((selected_runtime or {}).get("source") or "").strip()
-    meta.setdefault("selected_provider", selected_provider)
-    meta.setdefault("selected_model_id", selected_model_id)
-    if selected_source:
-        meta.setdefault("selected_source", selected_source)
-        meta.setdefault("source", selected_source)
-    meta.setdefault("provider", selected_provider)
-    meta.setdefault("model", selected_model_id)
-    normalized_result["meta"] = meta
-
-    current_app.logger.debug(
-        "api.ai_interactions.ai_service.run.elapsed request_id=%s duration_ms=%s",
-        request_id,
-        round((time.time() - started_at) * 1000, 2),
-    )
-    return None, normalized_result
+    return _normalize_interaction_response(result)
 
 
 def _warn_if_empty_response(request_id: str, normalized_result: dict) -> None:
-    if normalized_result.get("assistant_text"):
-        return
-    current_app.logger.warning(
-        "api.ai_interactions.normalize.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
-        request_id,
-        normalized_result["meta"].get("provider")
-        or current_app.config.get("AI_PROVIDER")
-        or "unknown",
-        normalized_result["meta"].get("model")
-        or current_app.config.get("AI_MODEL_NAME")
-        or "unknown",
-        len(normalized_result.get("notes") or []),
-    )
-
-
-def _persist_and_respond(payload: dict, request_id: str, prompt: str, normalized_result: dict):
-    persistence_error = _persist_ai_interaction(payload, prompt, normalized_result)
-    if persistence_error is not None:
-        current_app.logger.debug(
-            "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
+    if not normalized_result.get("assistant_text"):
+        current_app.logger.warning(
+            "api.ai_interactions.normalize.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
             request_id,
-            payload.get("chat_id"),
-            True,
+            normalized_result["meta"].get("provider"),
+            normalized_result["meta"].get("model"),
+            len(normalized_result.get("notes") or []),
         )
-        return persistence_error
 
-    current_app.logger.debug(
-        "api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s",
-        request_id,
-        payload.get("chat_id"),
-        len(normalized_result.get("assistant_text") or ""),
-    )
-    return jsonify(normalized_result), 200
+
+def _persist_interaction(payload: dict, prompt: str, normalized_result: dict):
+    return _persist_ai_interaction(payload, prompt, normalized_result)
 
 def _validate_interaction_payload() -> tuple[dict, dict]:
     raw = _read_json_object()
-    try:
-        payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
-    except BadRequestError:
-        current_app.logger.debug(
-            "api.ai.interactions.payload.validation_failed path=%s json_keys=%s",
-            "/api/v1/ai/interactions",
-            sorted(raw.keys())
-        )
-        raise
+    payload = _validate_payload(raw, AIInteractionPayloadSchema())
     return raw, payload
-
-
-def _authorize_chat_access(payload: dict) -> int | None | tuple:
-    chat_id = _resolve_chat_id(payload)
-    if chat_id is None:
-        return None
-    chat = _require_record("chat", Chat, chat_id)
-    deny = _assert_chat_permissions(chat)
-    if deny is not None:
-        return deny
-    return chat_id
 
 
 @api_v1_bp.post("/ai/interactions")
@@ -250,30 +137,59 @@ def create_ai_interaction():
     _log_interaction_start(payload, prepared["request_id"], prepared["prompt"])
     _publish_request_summary(prepared["prompt"], prepared["messages"], payload, prepared["system_prompt"], bool(prepared["system_prompt"]))
 
-    chat_state = _authorize_chat_access(payload)
-    if isinstance(chat_state, tuple):
-        return chat_state
+    chat_state = _resolve_chat_id(payload)
+    if chat_state is not None:
+        chat = _require_record("chat", Chat, chat_state)
+        deny = _assert_chat_permissions(chat)
+        if deny is not None:
+            return deny
 
-    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
-    # Resolve runtime selection from request/session/config precedence without mutating
-    # process-wide app config values for individual users.
-    selection_input = {
-        "provider": payload.get("provider"),
-        "model_id": payload.get("model_id"),
+    ai_service: AIPipelineGateway = current_app.extensions["ai_service"]
+    prepared["context_payload"]["runtime_model_selection"] = {
+        "provider": payload.get("provider") or current_app.config.get("AI_PROVIDER"),
+        "model_id": payload.get("model_id") or current_app.config.get("AI_MODEL_NAME"),
+        "source": "request_or_config",
     }
+
     try:
-        selected_runtime = resolve_provider_model_selection(selection_input, ai_service)
-    except ModelSelectionError as exc:
-        return jsonify(exc.payload), exc.status_code
-
-    prepared["context_payload"]["runtime_model_selection"] = selected_runtime
-
-    dto = _build_request_dto(payload, prepared, chat_state, _resolve_initiated_by(payload))
-    pipeline_error, normalized_result = _run_and_normalize(ai_service, dto, prepared["request_id"], prepared["prompt"])
-    if pipeline_error is not None:
-        return pipeline_error
+        normalized_result = _run(
+            ai_service,
+            payload,
+            prepared,
+            chat_state,
+            _resolve_initiated_by(payload),
+        )
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("api.ai_interactions.run.failed request_id=%s error=%s", prepared["request_id"], str(exc))
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "runtime_unavailable",
+                        "message": "There was a problem with the model contact the administrator.",
+                        "details": {"exception": exc.__class__.__name__},
+                    }
+                }
+            ),
+            503,
+        )
     _warn_if_empty_response(prepared["request_id"], normalized_result)
-    return _persist_and_respond(payload, prepared["request_id"], prepared["prompt"], normalized_result)
+    persistence_error = _persist_interaction(payload, prepared["prompt"], normalized_result)
+    if persistence_error is not None:
+        current_app.logger.debug(
+            "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
+            prepared["request_id"],
+            payload.get("chat_id"),
+            True,
+        )
+        return persistence_error
+    current_app.logger.debug(
+        "api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s",
+        prepared["request_id"],
+        payload.get("chat_id"),
+        len(normalized_result.get("assistant_text") or ""),
+    )
+    return jsonify(normalized_result), 200
 
 
 

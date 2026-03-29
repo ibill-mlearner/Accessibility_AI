@@ -5,6 +5,13 @@ from typing import Any
 from .interfaces import AIInteractionEnvelope
 
 
+class ModelSelectionError(ValueError):
+    def __init__(self, payload: dict[str, Any], status_code: int = 400) -> None:
+        super().__init__(str(payload))
+        self.payload = payload
+        self.status_code = status_code
+
+
 class AIInteractionValidator:
     """Centralized validation/check helper to keep monolith logic compact."""
 
@@ -74,3 +81,46 @@ class AIInteractionValidator:
             "note_count": len(envelope.notes),
             "meta_keys": sorted(envelope.meta.keys()) if isinstance(envelope.meta, dict) else [],
         }
+
+    @staticmethod
+    def available_huggingface_model_ids(inventory: dict[str, Any]) -> set[str]:
+        buckets = ("local", "huggingface_local")
+        model_ids: set[str] = set()
+        for bucket in buckets:
+            models = inventory.get(bucket, {}).get("models", []) if isinstance(inventory, dict) else []
+            if not isinstance(models, list):
+                continue
+            for model in models:
+                if isinstance(model, dict):
+                    model_id = AIInteractionValidator.to_clean_text(model.get("id"))
+                    if model_id:
+                        model_ids.add(model_id)
+        return model_ids
+
+    @staticmethod
+    def resolve_model_selection(
+        payload: dict[str, Any],
+        *,
+        inventory: dict[str, Any],
+        persisted: dict[str, Any] | None = None,
+        config_provider: str = "huggingface",
+        config_model_id: str = "",
+        require_explicit: bool = False,
+    ) -> dict[str, str]:
+        available = AIInteractionValidator.available_huggingface_model_ids(inventory)
+        requested_model = AIInteractionValidator.to_clean_text(payload.get("model_id"))
+        if requested_model:
+            if requested_model in available:
+                return {"provider": "huggingface", "model_id": requested_model, "source": "request_override"}
+            raise ModelSelectionError({"error": {"code": "invalid_model_selection", "message": "Unsupported model selection", "details": {"model_id": requested_model}}}, 400)
+        if require_explicit:
+            raise ModelSelectionError({"error": {"code": "invalid_model_selection", "message": "model_id is required", "details": {}}}, 400)
+        if isinstance(persisted, dict):
+            persisted_model = AIInteractionValidator.to_clean_text(persisted.get("model_id"))
+            if persisted_model and persisted_model in available:
+                return {"provider": "huggingface", "model_id": persisted_model, "source": "session_selection"}
+        config_model = AIInteractionValidator.to_clean_text(config_model_id)
+        if config_model and (not available or config_model in available):
+            return {"provider": "huggingface", "model_id": config_model, "source": "config_default"}
+        fallback = next(iter(available), "")
+        return {"provider": AIInteractionValidator.to_clean_text(config_provider, lower=True) or "huggingface", "model_id": fallback, "source": "catalog_fallback"}

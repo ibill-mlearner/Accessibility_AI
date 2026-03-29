@@ -13,8 +13,7 @@ from .db.settings import resolve_database_url
 from .extensions import cors, db as db_ext, jwt, load_module_configs, login_manager, migrate
 from .services.logging import initialize_logging
 from .models import User
-from .services.ai_pipeline_thin_adapter import build_ai_service_from_config
-from .services import AIPipelineServiceInterface
+from .services.ai_pipeline_gateway import AIPipelineGateway
 
 def _register_cli_commands(app: Flask) -> None:
     @app.cli.command("init-db")
@@ -28,9 +27,9 @@ def _register_cli_commands(app: Flask) -> None:
         print("Database schema initialized.")
 
 
-def build_ai_service(app: Flask) -> AIPipelineServiceInterface:
+def build_ai_service(app: Flask) -> AIPipelineGateway:
     module_config = app.config.get("AI_PIPELINE_THIN_CONFIG")
-    return build_ai_service_from_config(module_config, config=app.config)
+    return AIPipelineGateway(config=app.config, module_config=module_config)
 
 
 def create_app(config_name: str | None = None) -> Flask:

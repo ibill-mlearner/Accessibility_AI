@@ -7,7 +7,6 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
-from ..ai_pipeline_contracts import AIPipelineRequest
 from .interfaces import InteractionLogWriterInterface, InteractionRunnerInterface
 
 MAX_LOG_LINES = 2000
@@ -93,5 +92,5 @@ class InteractionLoggingService:
             }
             self._writer.append(json.dumps(payload, default=str, sort_keys=True))
 
-    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+    def run(self, request: dict[str, Any]) -> dict[str, Any]:
         return self._wrapped.run(request)
