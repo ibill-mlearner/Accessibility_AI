@@ -115,6 +115,8 @@ def _persist_interaction(payload: dict, prompt: str, normalized_result: dict):
 def _validate_interaction_payload() -> tuple[dict, dict]:
     raw = _read_json_object()
     payload = _validate_payload(raw, AIInteractionPayloadSchema())
+    _log_payload(raw, payload)
+    _log_request(payload)
     return raw, payload
 
 
@@ -130,9 +132,7 @@ def create_ai_interaction():
 
     Per-request/per-session resolution does not mutate app config at runtime.
     """
-    raw, payload = _validate_interaction_payload()
-    _log_payload(raw, payload)
-    _log_request(payload)
+    _raw, payload = _validate_interaction_payload()
     prepared = prepare_interaction_inputs(payload)
     _log_interaction_start(payload, prepared["request_id"], prepared["prompt"])
     _publish_request_summary(prepared["prompt"], prepared["messages"], payload, prepared["system_prompt"], bool(prepared["system_prompt"]))
