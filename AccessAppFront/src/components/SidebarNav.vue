@@ -41,9 +41,9 @@
     </nav>
 
     <section v-if="auth.role !== 'guest'" 
-      class="card shadow-sm flex-grow overflow-auto sidebar-nav__chat-list">
-      <h3>Chats</h3>
-      <ul>
+      class="card shadow-sm flex-grow sidebar-nav__chat-list">
+      <h3 class="sidebar-nav__chat-list-title">Chats</h3>
+      <ul class="sidebar-nav__chat-list-items">
         <li v-for="chat in chats.chats" 
           :key="chat.id" 
           :class="{ 'bg-purple-200': chat.id === chats.selectedChatId }"
@@ -106,6 +106,22 @@ function selectedChat(id) {
 
 .sidebar-nav__chat-list {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav__chat-list-title {
+  flex: 0 0 auto;
+  margin: 0.75rem 0.75rem 0.25rem;
+}
+
+.sidebar-nav__chat-list-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 0.75rem 0.75rem;
+  list-style: none;
 }
 
 .sidebar-nav__account-actions {
