@@ -23,6 +23,9 @@ LOW_PARAMETER_MODEL_IDS = (
     "Qwen/Qwen2.5-0.5B-Instruct",
     "HuggingFaceTB/SmolLM2-360M-Instruct",
     "Qwen/Qwen2.5-0.5B",
+    "facebook/opt-125m",
+    "distilgpt2",
+    "EleutherAI/pythia-70m-deduped",
 )
 
 
