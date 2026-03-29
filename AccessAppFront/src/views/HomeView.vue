@@ -123,11 +123,13 @@ onMounted(async () => {
 .home-thread {
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
 
 .home-thread__messages {
   flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
   padding-right: 0.25rem;
 }
 </style>
