@@ -127,6 +127,34 @@ def _run_and_normalize(
             class_id=payload.get("class_id"),
             user_id=payload.get("user_id"),
         )
+    except ModuleNotFoundError as exc:
+        current_app.logger.error(
+            "ai_interaction.pipeline.runtime_missing request_id=%s provider=%s model=%s error=%s",
+            prepared["request_id"],
+            selected_provider,
+            selected_model,
+            str(exc),
+        )
+        details = {
+            "source": "provider_runtime",
+            "provider": str(selected_provider or "huggingface"),
+            "model_id": str(selected_model or current_app.config.get("AI_MODEL_NAME") or ""),
+            "request_id": prepared["request_id"],
+            "exception": "ModuleNotFoundError",
+            "exception_message": str(exc),
+        }
+        return (
+            jsonify(
+                {
+                    "error": {
+                        "code": "runtime_unavailable",
+                        "message": "There was a problem with the model contact the administrator.",
+                        "details": details,
+                    }
+                }
+            ),
+            503,
+        ), None
     except AIPipelineUpstreamError as exc:
         error_code, status_code, normalized_details = classify_upstream_error(
             exc,
@@ -153,7 +181,7 @@ def _run_and_normalize(
             if error_code in safe_error_codes
             else str(exc)
         )
-        return jsonify({"error": {"code": error_code, "message": response_message, "details": normalized_details}}), None
+        return jsonify({"error": {"code": error_code, "message": response_message, "details": normalized_details}}), status_code
 
     current_app.logger.debug(
         "api.ai_interactions.ai_service.run.end request_id=%s provider=%s model=%s response_text_len=%s notes_count=%s response_preview=%r",
