@@ -2,7 +2,6 @@ import time
 
 from flask import current_app, jsonify
 
-from ..errors import BadRequestError
 from flask_login import current_user, login_required
 
 from ...utils.ai_checker import _normalize_interaction_response, _persist_ai_interaction, _resolve_chat_id, _resolve_initiated_by, prepare_interaction_inputs
@@ -101,63 +100,23 @@ def _run(
 
 
 def _warn_if_empty_response(request_id: str, normalized_result: dict) -> None:
-    if normalized_result.get("assistant_text"):
-        return
-    current_app.logger.warning(
-        "api.ai_interactions.normalize.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
-        request_id,
-        normalized_result["meta"].get("provider")
-        or current_app.config.get("AI_PROVIDER")
-        or "unknown",
-        normalized_result["meta"].get("model")
-        or current_app.config.get("AI_MODEL_NAME")
-        or "unknown",
-        len(normalized_result.get("notes") or []),
-    )
-
-
-def _persist_and_respond(payload: dict, request_id: str, prompt: str, normalized_result: dict):
-    persistence_error = _persist_ai_interaction(payload, prompt, normalized_result)
-    if persistence_error is not None:
-        current_app.logger.debug(
-            "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
+    if not normalized_result.get("assistant_text"):
+        current_app.logger.warning(
+            "api.ai_interactions.normalize.empty_assistant request_id=%s provider=%s model=%s notes_count=%s",
             request_id,
-            payload.get("chat_id"),
-            True,
+            normalized_result["meta"].get("provider"),
+            normalized_result["meta"].get("model"),
+            len(normalized_result.get("notes") or []),
         )
-        return persistence_error
 
-    current_app.logger.debug(
-        "api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s",
-        request_id,
-        payload.get("chat_id"),
-        len(normalized_result.get("assistant_text") or ""),
-    )
-    return jsonify(normalized_result), 200
+
+def _persist_interaction(payload: dict, prompt: str, normalized_result: dict):
+    return _persist_ai_interaction(payload, prompt, normalized_result)
 
 def _validate_interaction_payload() -> tuple[dict, dict]:
     raw = _read_json_object()
-    try:
-        payload = _validate_payload(_read_json_object(), AIInteractionPayloadSchema())
-    except BadRequestError:
-        current_app.logger.debug(
-            "api.ai.interactions.payload.validation_failed path=%s json_keys=%s",
-            "/api/v1/ai/interactions",
-            sorted(raw.keys())
-        )
-        raise
+    payload = _validate_payload(raw, AIInteractionPayloadSchema())
     return raw, payload
-
-
-def _authorize_chat_access(payload: dict) -> int | None | tuple:
-    chat_id = _resolve_chat_id(payload)
-    if chat_id is None:
-        return None
-    chat = _require_record("chat", Chat, chat_id)
-    deny = _assert_chat_permissions(chat)
-    if deny is not None:
-        return deny
-    return chat_id
 
 
 @api_v1_bp.post("/ai/interactions")
@@ -179,9 +138,12 @@ def create_ai_interaction():
     _log_interaction_start(payload, prepared["request_id"], prepared["prompt"])
     _publish_request_summary(prepared["prompt"], prepared["messages"], payload, prepared["system_prompt"], bool(prepared["system_prompt"]))
 
-    chat_state = _authorize_chat_access(payload)
-    if isinstance(chat_state, tuple):
-        return chat_state
+    chat_state = _resolve_chat_id(payload)
+    if chat_state is not None:
+        chat = _require_record("chat", Chat, chat_state)
+        deny = _assert_chat_permissions(chat)
+        if deny is not None:
+            return deny
 
     ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
     # Resolve runtime selection from request/session/config precedence without mutating
@@ -220,7 +182,22 @@ def create_ai_interaction():
             503,
         )
     _warn_if_empty_response(prepared["request_id"], normalized_result)
-    return _persist_and_respond(payload, prepared["request_id"], prepared["prompt"], normalized_result)
+    persistence_error = _persist_interaction(payload, prepared["prompt"], normalized_result)
+    if persistence_error is not None:
+        current_app.logger.debug(
+            "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
+            prepared["request_id"],
+            payload.get("chat_id"),
+            True,
+        )
+        return persistence_error
+    current_app.logger.debug(
+        "api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s",
+        prepared["request_id"],
+        payload.get("chat_id"),
+        len(normalized_result.get("assistant_text") or ""),
+    )
+    return jsonify(normalized_result), 200
 
 
 
