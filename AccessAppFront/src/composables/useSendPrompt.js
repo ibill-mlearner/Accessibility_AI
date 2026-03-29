@@ -210,11 +210,15 @@ export function useSendPrompt({
     return pendingAssistantId
   }
 
-async function saveAssistantMessage({ 
-  chatId, 
-  assistantText, 
-  pendingAssistantId 
-}) {
+  function isChatStillSelected(chatId) {
+    return Number(chatStore.selectedChatId) === Number(chatId)
+  }
+
+  async function saveAssistantMessage({ 
+    chatId, 
+    assistantText, 
+    pendingAssistantId = null
+  }) {
     const savedAssistantMessage = await withSingleRetry(() =>
       chatStore.createMessage({
         chat_id: chatId,
@@ -222,6 +226,9 @@ async function saveAssistantMessage({
         help_intent: 'summarization'
       })
     )
+
+    if (!pendingAssistantId) return
+    if (!isChatStillSelected(chatId)) return
 
     timelineMessages.value = timelineMessages.value.map((message) =>
       message.id === pendingAssistantId
@@ -307,6 +314,15 @@ async function saveAssistantMessage({
   }) {
     const assistantText = resolveAssistantText(aiResponse, draftPrompt)
     if (!assistantText) return false
+
+    if (!isChatStillSelected(ensuredChat.id)) {
+      await saveAssistantMessage({
+        chatId: ensuredChat.id,
+        assistantText
+      })
+      prompt.value = ''
+      return true
+    }
 
     const pendingAssistantId = addPendingAssistantMessage(assistantText)
     await scrollToLatestTurn()
