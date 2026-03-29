@@ -10,10 +10,8 @@ from ...utils.ai_checker import (
     _persist_ai_interaction,
     _resolve_chat_id,
     _resolve_initiated_by,
-    _resolve_provider,
+    classify_upstream_error,
     prepare_interaction_inputs,
-    create_pipeline_request,
-    run_pipeline,
 )
 from .routes import (
     _assert_chat_permissions,
@@ -28,9 +26,8 @@ from .routes import (
 from ...models import AIInteraction, Chat
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...utils.chat_access import ChatAccessHelper
-from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
+from ...services.ai_pipeline_contracts import AIPipelineServiceInterface, AIPipelineUpstreamError
 from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
-from ...services.ai_pipeline_contracts import AIPipelineRequest
 
 
 
@@ -89,17 +86,14 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
     )
 
 
-def _build_request_dto(payload: dict, prepared: dict, chat_id: int | None, initiated_by: str):
-    dto = create_pipeline_request(
-        payload,
-        prompt=prepared["prompt"],
-        messages=prepared["messages"],
-        system_prompt=prepared["system_prompt"],
-        context_payload=prepared["context_payload"],
-        chat_id=chat_id,
-        initiated_by=initiated_by,
-    )
-    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
+def _run_and_normalize(
+    ai_service: AIPipelineServiceInterface,
+    payload: dict,
+    prepared: dict,
+    chat_id: int | None,
+    initiated_by: str,
+):
+    selected_runtime = prepared["context_payload"].get("runtime_model_selection") if isinstance(prepared["context_payload"], dict) else {}
     if not isinstance(selected_runtime, dict):
         selected_runtime = {}
     selected_provider = (
@@ -110,39 +104,60 @@ def _build_request_dto(payload: dict, prepared: dict, chat_id: int | None, initi
         (selected_runtime or {}).get("model_id")
         or current_app.config.get("AI_MODEL_NAME")
     )
+    started_at = time.time()
     current_app.logger.debug(
-        "api.ai_interactions.dto.created request_id=%s provider=%s model=%s prompt_len=%s messages_count=%s has_system_prompt=%s",
+        "api.ai_interactions.gateway.run.start request_id=%s provider=%s model=%s prompt_len=%s messages_count=%s has_system_prompt=%s",
         prepared["request_id"],
         selected_provider,
         selected_model,
         len(prepared["prompt"]),
         len(prepared["messages"]),
-        bool(dto.system_prompt),
+        bool(prepared["system_prompt"]),
     )
-    return dto
 
-
-def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest, request_id: str, prompt: str):
-    started_at = time.time()
-    result = run_pipeline(ai_service, dto, request_id, prompt)
-    if isinstance(result, tuple):
-        return result, None
-
-    selected_runtime = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
-    if not isinstance(selected_runtime, dict):
-        selected_runtime = {}
-    selected_provider = (
-        (selected_runtime or {}).get("provider")
-        or current_app.config.get("AI_PROVIDER")
-    )
-    selected_model = (
-        (selected_runtime or {}).get("model_id")
-        or current_app.config.get("AI_MODEL_NAME")
-    )
+    try:
+        result = ai_service.run_interaction(
+            prepared["prompt"],
+            context=prepared["context_payload"],
+            messages=prepared["messages"],
+            system_prompt=prepared["system_prompt"],
+            request_id=prepared["request_id"],
+            chat_id=chat_id,
+            initiated_by=initiated_by,
+            class_id=payload.get("class_id"),
+            user_id=payload.get("user_id"),
+        )
+    except AIPipelineUpstreamError as exc:
+        error_code, status_code, normalized_details = classify_upstream_error(
+            exc,
+            runtime_model_selection=selected_runtime,
+            request_id=prepared["request_id"],
+        )
+        current_app.logger.error(
+            "ai_interaction.pipeline.upstream_error request_id=%s code=%s status=%s details=%s",
+            prepared["request_id"],
+            error_code,
+            status_code,
+            normalized_details,
+        )
+        safe_error_codes = {
+            "runtime_unavailable",
+            "provider_unavailable",
+            "provider_auth_failed",
+            "provider_model_not_found",
+            "provider_gated_model",
+            "upstream_error",
+        }
+        response_message = (
+            "There was a problem with the model contact the administrator."
+            if error_code in safe_error_codes
+            else str(exc)
+        )
+        return jsonify({"error": {"code": error_code, "message": response_message, "details": normalized_details}}), None
 
     current_app.logger.debug(
         "api.ai_interactions.ai_service.run.end request_id=%s provider=%s model=%s response_text_len=%s notes_count=%s response_preview=%r",
-        request_id,
+        prepared["request_id"],
         selected_provider,
         selected_model,
         len(str((result or {}).get("assistant_text") if isinstance(result, dict) else result or "")),
@@ -165,7 +180,7 @@ def _run_and_normalize(ai_service: AIPipelineServiceInterface, dto: AIPipelineRe
 
     current_app.logger.debug(
         "api.ai_interactions.ai_service.run.elapsed request_id=%s duration_ms=%s",
-        request_id,
+        prepared["request_id"],
         round((time.time() - started_at) * 1000, 2),
     )
     return None, normalized_result
@@ -268,8 +283,13 @@ def create_ai_interaction():
 
     prepared["context_payload"]["runtime_model_selection"] = selected_runtime
 
-    dto = _build_request_dto(payload, prepared, chat_state, _resolve_initiated_by(payload))
-    pipeline_error, normalized_result = _run_and_normalize(ai_service, dto, prepared["request_id"], prepared["prompt"])
+    pipeline_error, normalized_result = _run_and_normalize(
+        ai_service,
+        payload,
+        prepared,
+        chat_state,
+        _resolve_initiated_by(payload),
+    )
     if pipeline_error is not None:
         return pipeline_error
     _warn_if_empty_response(prepared["request_id"], normalized_result)

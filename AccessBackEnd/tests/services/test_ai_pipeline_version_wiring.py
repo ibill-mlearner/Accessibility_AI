@@ -9,4 +9,4 @@ def test_app_bootstrap_uses_ai_pipeline_thin_service(monkeypatch):
 
     service = app.extensions["ai_service"]
     wrapped = getattr(service, "_wrapped", service)
-    assert wrapped.__class__.__module__ == "AccessBackEnd.app.services.ai_pipeline_thin_adapter"
+    assert wrapped.__class__.__module__ == "AccessBackEnd.app.services.ai_pipeline_gateway"
