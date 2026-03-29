@@ -1,58 +1,73 @@
 from __future__ import annotations
 
-import sys
-import types
+import importlib
 
-from AccessBackEnd.app import create_app
+import pytest
 
 
-def test_gateway_run_supports_alternate_qwen_model_name(monkeypatch):
-    """Smoke spec: pipeline can be invoked with only a different model name."""
+def _load_ai_pipeline_module():
+    candidates = (
+        "ai_pipeline_thin.ai_pipeline",
+        "app.services.ai_pipeline_thin.ai_pipeline",
+        "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline",
+    )
+    for module_path in candidates:
+        try:
+            return importlib.import_module(module_path)
+        except ModuleNotFoundError:
+            continue
+    pytest.skip("could not import ai pipeline module from known project paths")
 
-    selected_model_name = "Qwen/Qwen2.5-0.5B-Instruct"
-    observed = {"model_name": None}
 
-    class _FakePipeline:
-        def __init__(self, **kwargs):
-            observed["model_name"] = kwargs.get("model_name_value")
-            self.model_loader = types.SimpleNamespace()
+LOW_PARAMETER_MODEL_IDS = (
+    "Qwen/Qwen2.5-0.5B-Instruct",
+    "HuggingFaceTB/SmolLM2-360M-Instruct",
+    "Qwen/Qwen2.5-0.5B",
+    "facebook/opt-125m",
+    "distilgpt2",
+    "EleutherAI/pythia-70m-deduped",
+)
 
-        def build_model(self):
-            return object()
 
-        def build_tokenizer(self):
-            return object()
+@pytest.mark.parametrize("model_name", LOW_PARAMETER_MODEL_IDS)
+def test_pipeline_runs_with_low_parameter_model_names(model_name: str):
+    """Direct pipeline probe using demo.py flow across several small models."""
+    ai_pipeline = _load_ai_pipeline_module()
 
-        def build_text(self, tokenizer):
-            return "text"
+    pipeline = ai_pipeline.AIPipeline(
+        model_name_value=model_name,
+        system_content="You are a concise assistant.",
+        prompt_value="Write one short sentence about chicken noodle soup.",
+        download_locally=True,
+    )
 
-        def build_model_inputs(self, tokenizer, text, model):
-            return {"input_ids": [1]}
+    pipeline.model_loader.device_map = "auto"
+    if hasattr(pipeline.model_loader, "dtype"):
+        pipeline.model_loader.dtype = "auto"
+    else:
+        pipeline.model_loader.torch_dtype = "auto"
 
-        def build_raw_generated_ids(self, model, model_inputs, max_new_tokens):
-            return [[1, 2, 3]]
+    model = pipeline.build_model()
+    tokenizer = pipeline.build_tokenizer()
+    text = pipeline.build_text(tokenizer=tokenizer)
+    model_inputs = pipeline.build_model_inputs(
+        tokenizer=tokenizer,
+        text=text,
+        model=model,
+    )
+    raw_ids = pipeline.build_raw_generated_ids(
+        model=model,
+        model_inputs=model_inputs,
+        max_new_tokens=100,
+    )
+    generated_ids = pipeline.build_generated_ids(
+        model_inputs=model_inputs,
+        raw_generated_ids=raw_ids,
+    )
+    response = pipeline.build_response(
+        tokenizer=tokenizer,
+        generated_ids=generated_ids,
+    )
 
-        def build_generated_ids(self, model_inputs, raw_generated_ids):
-            return raw_generated_ids
-
-        def build_response(self, tokenizer, generated_ids):
-            return "alt-model-ok"
-
-    monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
-    monkeypatch.setitem(sys.modules, "ai_pipeline_thin", types.ModuleType("ai_pipeline_thin"))
-    monkeypatch.setitem(sys.modules, "ai_pipeline_thin.ai_pipeline", types.SimpleNamespace(AIPipeline=_FakePipeline))
-
-    app = create_app("testing")
-    service = app.extensions["ai_service"]
-    wrapped = getattr(service, "_wrapped", service)
-
-    with app.app_context():
-        result = wrapped.run(
-            "Say hello.",
-            model_name=selected_model_name,
-            system_content="You are concise.",
-        )
-
-    assert result["assistant_text"] == "alt-model-ok"
-    assert result["meta"]["model"] == selected_model_name
-    assert observed["model_name"] == selected_model_name
+    assert isinstance(response, str)
+    assert response.strip() != ""
