@@ -23,7 +23,11 @@ class AIPipelineGateway:
 
     @staticmethod
     def _load_ai_tool() -> Any:
-        candidates = ("ai_pipeline_thin.ai_pipeline", "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline")
+        candidates = (
+            "ai_pipeline_thin.ai_pipeline",
+            "app.services.ai_pipeline_thin.ai_pipeline",
+            "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline",
+        )
         for module_path in candidates:
             try:
                 return importlib.import_module(module_path)

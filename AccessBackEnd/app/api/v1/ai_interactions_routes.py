@@ -18,8 +18,7 @@ from .routes import (
 from ...models import AIInteraction, Chat
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...utils.chat_access import ChatAccessHelper
-from ...services.ai_pipeline_contracts import AIPipelineServiceInterface, AIPipelineUpstreamError
-from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
+from ...services.ai_pipeline_gateway import AIPipelineGateway
 
 
 
@@ -79,7 +78,7 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
 
 
 def _run(
-    ai_service: AIPipelineServiceInterface,
+    ai_service: AIPipelineGateway,
     payload: dict,
     prepared: dict,
     chat_id: int | None,
@@ -145,19 +144,12 @@ def create_ai_interaction():
         if deny is not None:
             return deny
 
-    ai_service: AIPipelineServiceInterface = current_app.extensions["ai_service"]
-    # Resolve runtime selection from request/session/config precedence without mutating
-    # process-wide app config values for individual users.
-    selection_input = {
-        "provider": payload.get("provider"),
-        "model_id": payload.get("model_id"),
+    ai_service: AIPipelineGateway = current_app.extensions["ai_service"]
+    prepared["context_payload"]["runtime_model_selection"] = {
+        "provider": payload.get("provider") or current_app.config.get("AI_PROVIDER"),
+        "model_id": payload.get("model_id") or current_app.config.get("AI_MODEL_NAME"),
+        "source": "request_or_config",
     }
-    try:
-        selected_runtime = resolve_provider_model_selection(selection_input, ai_service)
-    except ModelSelectionError as exc:
-        return jsonify(exc.payload), exc.status_code
-
-    prepared["context_payload"]["runtime_model_selection"] = selected_runtime
 
     try:
         normalized_result = _run(

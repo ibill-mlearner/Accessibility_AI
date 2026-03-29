@@ -8,11 +8,30 @@ from ...db.interfaces import InteractionRepositoryFactory
 from ...db.repositories.interaction_repo import AIInteractionRepository
 from ...models import AIInteraction, AIModel, Chat, UserAccessibilityFeature
 from ...models.ai import AccommodationSystemPrompt
-from ...services.ai_pipeline_runtime_selection import ModelSelectionError, resolve_provider_model_selection
 from ...api.v1.routes import _raise_bad_request_from_exception, _require_record, db
 from .mutations import AIInteractionMutations
-from .validators import AIInteractionValidator
+from .validators import AIInteractionValidator, ModelSelectionError
 from .interfaces import AIInteractionMutationsInterface, AIInteractionValidatorInterface
+
+
+class AIPipelineUpstreamError(RuntimeError):
+    def __init__(self, message: str, *, details: dict[str, Any] | None = None) -> None:
+        super().__init__(message)
+        self.details = details or {}
+
+
+def resolve_provider_model_selection(payload: dict[str, Any], ai_service: Any, *, allow_session: bool = True, require_explicit: bool = False) -> dict[str, str]:
+    inventory = ai_service.list_available_models() if hasattr(ai_service, "list_available_models") else {}
+    persisted = session.get("ai_model_selection") if allow_session and isinstance(session.get("ai_model_selection"), dict) else None
+    return AIInteractionValidator.resolve_model_selection(
+        payload,
+        inventory=inventory,
+        persisted=persisted,
+        config_provider=str(current_app.config.get("AI_PROVIDER") or "huggingface"),
+        config_model_id=str(current_app.config.get("AI_MODEL_NAME") or ""),
+        require_explicit=require_explicit,
+    )
+
 
 
 class AIInteractionOps:
@@ -87,17 +106,8 @@ class AIInteractionOps:
 
     @staticmethod
     def _resolve_default_model_id(provider: str, provider_defaults: dict[str, Any]) -> str:
-        if provider == "ollama":
-            value = (
-                provider_defaults.get("ollama_model_id")
-                or current_app.config.get("AI_OLLAMA_MODEL")
-                or current_app.config.get("AI_MODEL_NAME")
-                or ""
-            )
-        elif provider == "huggingface":
-            value = provider_defaults.get("huggingface_model_id") or current_app.config.get("AI_MODEL_NAME") or ""
-        else:
-            value = provider_defaults.get("model_name") or current_app.config.get("AI_MODEL_NAME") or ""
+        _ = provider
+        value = provider_defaults.get("huggingface_model_id") or provider_defaults.get("model_name") or current_app.config.get("AI_MODEL_NAME") or ""
         return AIInteractionOps._validator.to_clean_text(value)
 
     @staticmethod
@@ -126,20 +136,8 @@ class AIInteractionOps:
     def _extract_available_model_ids(payload: dict[str, Any]) -> dict[str, set[str]]:
         """Build provider-indexed model id sets from model inventory payload."""
         provider_models: dict[str, set[str]] = {
-            "ollama": set(),
             "huggingface": set(),
         }
-
-        ollama_payload = payload.get("ollama")
-        if isinstance(ollama_payload, dict):
-            models = ollama_payload.get("models")
-            if isinstance(models, list):
-                for model in models:
-                    if not isinstance(model, dict):
-                        continue
-                    model_id = AIInteractionOps._validator.to_clean_text(model.get("id"), lower=True)
-                    if model_id:
-                        provider_models["ollama"].add(model_id)
 
         huggingface_payload = payload.get("huggingface_local")
         if isinstance(huggingface_payload, dict):
@@ -158,7 +156,7 @@ class AIInteractionOps:
 
     @staticmethod
     def _default_model_name() -> str:
-        return current_app.config.get("AI_OLLAMA_MODEL") or current_app.config.get("AI_MODEL_NAME") or ""
+        return current_app.config.get("AI_MODEL_NAME") or ""
 
     @staticmethod
     def _model_metadata_from_result(result: Any, model_name: str) -> tuple[str, str | None, str | None]:
@@ -443,10 +441,6 @@ __all__ = [
 
 from pathlib import Path
 from flask import Flask
-from ...services.ai_pipeline_runtime_selection import normalize_provider_name
-from ...services.ai_pipeline_contracts import AIPipelineUpstreamError
-from ...services.ai_pipeline_contracts import AIPipelineServiceInterface
-from ...services.ai_pipeline_contracts import AIPipelineRequest
 
 
 def _discover_model_ids(models_root: Path) -> list[str]:
@@ -502,13 +496,10 @@ def _mark_stale_models_inactive(records: list[AIModel], discovered_set: set[str]
 def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | None]:
     # TODO(ai-pipeline-thin): move model inventory source-of-truth to the new pipeline adapter
     # so this sync reads available model ids from the pipeline runtime instead of local folders.
-    provider = normalize_provider_name(app.config.get("AI_PROVIDER")) or "huggingface"
+    provider = AIInteractionValidator.to_clean_text(app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
     models_root = _resolve_local_models_root(app)
     discovered_model_ids = _discover_model_ids(models_root)
-    if provider == "ollama":
-        default_model_id = str(app.config.get("AI_OLLAMA_MODEL") or app.config.get("AI_MODEL_NAME") or "").strip()
-    else:
-        default_model_id = str(app.config.get("AI_MODEL_NAME") or "").strip()
+    default_model_id = str(app.config.get("AI_MODEL_NAME") or "").strip()
     records = db.session.query(AIModel).filter(AIModel.provider == provider).all()
     by_model_id = _index_records_by_model_id(records)
     discovered_set = set(discovered_model_ids)
@@ -536,7 +527,7 @@ def compose_system_prompt(system_instructions: str, payload: dict[str, Any]) -> 
 
 SAFE_MODEL_CONTACT_ERROR_MESSAGE = "There was a problem with the model contact the administrator."
 
-def validate_runtime_model_selection(payload: dict[str, Any], ai_service: AIPipelineServiceInterface) -> tuple[dict[str, Any], int] | None:
+def validate_runtime_model_selection(payload: dict[str, Any], ai_service: Any) -> tuple[dict[str, Any], int] | None:
     """Validate/resolve runtime selection through the canonical resolver."""
     try:
         _ = resolve_provider_model_selection(payload, ai_service)
@@ -633,7 +624,7 @@ def build_context_and_system_instructions(payload: dict[str, Any], messages: lis
     return context_payload, system_instructions
 
 
-def resolve_model_override(payload: dict[str, Any], ai_service: AIPipelineServiceInterface, context_payload: dict[str, Any], request_id: str) -> None:
+def resolve_model_override(payload: dict[str, Any], ai_service: Any, context_payload: dict[str, Any], request_id: str) -> None:
     """Compatibility shim now delegated to the canonical model resolver."""
     _ = request_id
     selected = resolve_provider_model_selection(payload, ai_service)
@@ -642,7 +633,7 @@ def resolve_model_override(payload: dict[str, Any], ai_service: AIPipelineServic
 
 def ensure_runtime_model_selection(
     payload: dict[str, Any],
-    ai_service: AIPipelineServiceInterface,
+    ai_service: Any,
     context_payload: dict[str, Any],
     request_id: str,
 ) -> tuple[dict[str, Any], int] | None:
@@ -676,8 +667,8 @@ def create_pipeline_request(
     context_payload: dict[str, Any],
     chat_id: int | None,
     initiated_by: str,
-) -> AIPipelineRequest:
-    return AIPipelineRequest(
+) -> dict[str, Any]:
+    return dict(
         prompt=prompt,
         messages=messages,
         system_prompt=system_prompt,
@@ -690,7 +681,7 @@ def create_pipeline_request(
     )
 
 
-def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest, request_id: str, prompt: str) -> Any:
+def run_pipeline(ai_service: Any, dto: dict[str, Any], request_id: str, prompt: str) -> Any:
     _ = prompt
 
     runtime_selection = dto.context.get("runtime_model_selection") if isinstance(dto.context, dict) else {}
@@ -703,11 +694,7 @@ def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest,
     )
     provider = AIInteractionOps._validator.to_clean_text(runtime_selection.get("provider"), lower=True) or configured_provider
 
-    default_model_from_config = (
-        current_app.config.get("AI_OLLAMA_MODEL")
-        if provider == "ollama"
-        else current_app.config.get("AI_MODEL_NAME")
-    )
+    default_model_from_config = current_app.config.get("AI_MODEL_NAME")
     resolved_runtime_selection = {
         **runtime_selection,
         "provider": provider or runtime_selection.get("provider"),
@@ -717,7 +704,7 @@ def run_pipeline(ai_service: AIPipelineServiceInterface, dto: AIPipelineRequest,
     }
 
     try:
-        return ai_service.run(dto)
+        return ai_service.run_interaction(dto.get("prompt") or "", context=dto.get("context") or {}, messages=dto.get("messages") or [], system_prompt=dto.get("system_prompt"), request_id=dto.get("request_id"), chat_id=dto.get("chat_id"), initiated_by=dto.get("initiated_by"), class_id=dto.get("class_id"), user_id=dto.get("user_id"))
     except AIPipelineUpstreamError as exc:
         error_code, status_code, normalized_details = classify_upstream_error(
             exc,

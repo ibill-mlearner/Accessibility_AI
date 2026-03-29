@@ -19,7 +19,6 @@ Behavior expectations:
 from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
-from ..ai_pipeline_contracts import AIPipelineRequest
 
 
 @runtime_checkable
@@ -54,7 +53,7 @@ class EventBusInterface(Protocol):
 class InteractionRunnerInterface(Protocol):
     """Underlying AI interaction service contract."""
 
-    def run(self, request: AIPipelineRequest) -> dict[str, Any]:
+    def run(self, request: dict[str, Any]) -> dict[str, Any]:
         ...
 
     def run_interaction(
