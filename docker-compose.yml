@@ -70,13 +70,13 @@ services:
       retries: 5
       start_period: 20s
 
-  frontend:
-    profiles: ["dev", "gpu"]
+  frontend-dev:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: AccessAppFront/Dockerfile
       target: frontend-dev
-    container_name: accessibility-ai-frontend
+    container_name: accessibility-ai-frontend-dev
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
     working_dir: /app/AccessAppFront
     environment:
@@ -88,6 +88,26 @@ services:
       - "5173:5173"
     depends_on:
       backend:
+        condition: service_healthy
+
+  frontend-gpu:
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: AccessAppFront/Dockerfile
+      target: frontend-dev
+    container_name: accessibility-ai-frontend-gpu
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    working_dir: /app/AccessAppFront
+    environment:
+      VITE_API_BASE_URL: http://localhost:5000
+    volumes:
+      - ./AccessAppFront:/app/AccessAppFront
+      - frontend-node-modules:/app/AccessAppFront/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend-gpu:
         condition: service_healthy
 
   backend-prod:
