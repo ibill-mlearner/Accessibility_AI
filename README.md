@@ -1,198 +1,75 @@
 # Accessibility AI
 
-Accessibility AI is a local-development project with:
-- **Flask backend** (`AccessBackEnd/`)
-- **Vue 3 + Vite frontend** (`AccessAppFront/`)
+Accessibility AI is an accessibility-focused learning assistant platform with:
+- a **Flask backend** (`AccessBackEnd/`) for auth, API routes, class/notes/chat flows, and model orchestration,
+- a **Vue 3 + Vite frontend** (`AccessAppFront/`) for user-facing workflows,
+- a modular AI integration path that routes requests through a thin pipeline gateway layer.
 
----
+## Project purpose
 
-## Fastest install + run (Windows PowerShell)
+The project focuses on practical classroom accessibility support (accommodations context, role-aware chat, notes, and class-linked workflows) while maintaining clear boundaries between UI, API, DB, and AI runtime concerns.
 
-### 1) Start backend
-From repo root:
+## Architecture at a glance
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -r AccessBackEnd/requirements.txt
-python AccessBackEnd/manage.py --init-db
+### Backend (Flask)
+- API-first service with versioned routes under `/api/v1`.
+- SQLAlchemy-backed persistence with local SQLite default for development.
+- Authentication/session features plus role-aware route protection.
+- Event/logging hooks used to publish operational events for diagnostics and audit evolution.
+
+### Frontend (Vue)
+- Vue + Pinia + Vue Router architecture.
+- Chat, profile, classes, notes, and accessibility preference views/components.
+- API-bound state stores and composables for timeline/chat/session workflows.
+
+### AI integration model
+- Runtime provider selection is orchestrated through backend service wiring and config.
+- The **AI pipeline “thin contract” module** is treated as an externally shaped integration boundary that this repo consumes and adapts around rather than heavily rewriting internally.
+- Current default model behavior remains development-oriented, with GPU acceleration supported through Docker profile/runtime availability.
+
+## Current status snapshot
+
+### Working/implemented
+- End-to-end baseline chat loop is functional.
+- DB-backed model catalog and AI interaction route scaffolding exist.
+- Containerized dev/prod flows exist (CPU + optional GPU path).
+- GPU readiness helpers exist (host toolkit installer + runtime probe).
+
+### In progress / unfinished
+- Auth/session hardening and token lifecycle follow-through are still open.
+- Full DB-driven runtime model selection still has transitional/static overlap.
+- Instructor/admin workflows and accommodations integration still need closure.
+- Event logging durability still needs completion beyond current transitional hooks.
+
+### Legacy / transitional areas
+- Some implementation notes and TODOs are intentionally left in code/docs while migration from older patterns to module-owned config/services continues.
+
+## Docker workflow
+
+Run everything (backend + frontend + DB init) with one command from Windows Command Prompt:
+
+```cmd
+scripts\docker\run_all.cmd
 ```
 
-When prompted during `--init-db`, enter `y` to apply baseline seed data.
-
-After the seed completes, stop that backend process (`Ctrl+C`) and restart without DB init:
-
-```powershell
-python AccessBackEnd/manage.py
-```
-
-Backend runs at: `http://localhost:5000`
-
-### 2) Start frontend
-Open a second PowerShell window at repo root:
-
-```powershell
-npm install --prefix AccessAppFront
-npm run dev --prefix AccessAppFront
-```
-
-Frontend runs at: `http://localhost:5173`
-
-That is the complete local startup path.
-
----
-
-## Fastest install + run (macOS/Linux Bash)
-
-### 1) Start backend
-From repo root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r AccessBackEnd/requirements.txt
-python AccessBackEnd/manage.py --init-db
-```
-
-When prompted during `--init-db`, enter `y` to apply baseline seed data.
-
-After the seed completes, stop that backend process (`Ctrl+C`) and restart without DB init:
-
-```bash
-python AccessBackEnd/manage.py
-```
-
-Backend runs at: `http://localhost:5000`
-
-### 2) Start frontend
-Open a second terminal window at repo root:
-
-```bash
-npm install --prefix AccessAppFront
-npm run dev --prefix AccessAppFront
-```
-
-Frontend runs at: `http://localhost:5173`
-
-That is the complete local startup path for Bash-based environments.
-
----
-
-## QOL and QA issues (still unfinished / known issues)
-
-1. **Auth token lifecycle hardening is incomplete.**  
-   There is an explicit TODO for stronger token time-limit enforcement.
-
-2. **Model selection is still partially static in config.**  
-   There is an explicit TODO to fully move runtime model selection to DB-backed `ai_models` instead of static config defaults.
-
-3. **Core chat loop is working, but stabilization follow-through is still incomplete.**  
-   Chat back-and-forth is functional now, but auth-path validation and final API contract hardening still need to be fully closed out.
-
-4. **Current defaults are optimized for local dev, not production performance.**  
-   HTTP and other development-first defaults were kept to prioritize minimum working chat functionality, so production hardening is still required.
-
-5. **Frontend session hydration is creating an avoidable security gap and should be removed.**  
-   The frontend currently restores `role/currentUser/isAuthenticated` from `sessionStorage` before backend verification, so client state can temporarily diverge from server auth truth; session state should be derived from backend-authenticated responses only.
-
-6. **GPU runtime/hardware selection is not implemented yet.**  
-   Model execution is still effectively CPU-oriented in current defaults, so GPU selection/acceleration support remains a pending item.
-
----
-
-## Feature requirements still unfinished
-
-- **Accommodations via system prompts** (implementation + chat integration).
-- **Instructor classes** (complete end-to-end workflow).
-- **Admin controls** (role-safe management and hardening).
-- **User notes** (complete feature flow and integration).
-- **Real event logging** (replace EventBus-style logging with durable audit logs).
-
----
-
-## What needs to be done next
-
-1. **Keep the working chat loop stable while finalizing auth-path validation and contract cleanup.**
-2. **Remove frontend session hydration and make backend auth the single source of truth** for role/user/session state across bootstrap and login flows (includes token/session hardening work).
-3. **Complete DB-driven AI model/runtime selection** so different models can be selected at runtime instead of staying pinned to static defaults.
-4. **Create a production readiness pass** (move from HTTP-first local defaults, enforce secure cookie/transport settings, and finalize deploy-specific config).
-5. **Add GPU runtime/hardware selection support** so model execution can use accelerator-backed profiles when available.
-
----
+What this script does automatically:
+- detects NVIDIA GPU container runtime availability,
+- selects GPU backend when available (CPU fallback otherwise),
+- initializes backend DB (`python manage.py --init-db`),
+- starts backend + frontend with Docker Compose.
 
 ## Current AI model performance expectations
 
-- Default model is **`Qwen/Qwen2.5-0.5B-Instruct`**, chosen as a **small CPU-friendly baseline** for local machines while GPU selection remains unimplemented.
-- Expect **functional but limited quality** versus larger models (weaker reasoning depth, shorter effective context behavior, more output variability).
-- Larger model options exist, but typically trade speed and memory for quality.
-- Current setup should be treated as **development-grade inference behavior**, not production-grade latency/quality guarantees.
-
----
-
-## AI model operations
-
-- Backend hardware/runtime guide: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
-- Backend docs index: `AccessBackEnd/docs/README.md`
-
----
+- Default model configuration is optimized for local/dev feasibility first.
+- Expect usable but limited quality/latency characteristics versus larger production-focused models.
+- Larger model options are possible but require stronger hardware/runtime profiles.
 
 ## Useful paths
 
 - Backend entrypoint: `AccessBackEnd/manage.py`
-- Dev database: `AccessBackEnd/instance/accessibility_ai.db`
-- Seed SQL files: `AccessBackEnd/instance/seed_*.sql`
-- Chat scope guardrails: `docs/chat-stabilization-scope.md`
-
----
-
-## Docker workflows (Phase 1–5)
-
-### 1) CPU development stack
-
-```bash
-docker compose --profile dev up --build backend frontend
-```
-
-- Backend: `http://localhost:5000`
-- Frontend: `http://localhost:5173`
-
-### 2) GPU development stack (NVIDIA)
-
-```bash
-docker compose --profile gpu up --build backend-gpu frontend
-```
-
-- GPU backend: `http://localhost:5001`
-- Frontend: `http://localhost:5173`
-
-### 3) Production-style stack
-
-```bash
-docker compose --profile prod up --build backend-prod frontend-prod
-```
-
-- Backend: `http://localhost:5000`
-- Frontend static site: `http://localhost:8080`
-
-### 4) GPU runtime probe
-
-Use this one-off service to confirm container-side accelerator visibility:
-
-```bash
-docker compose --profile gpu run --rm gpu-runtime-probe
-```
-
-Probe succeeds only when both checks pass:
-- `nvidia-smi` can enumerate GPUs.
-- `torch.cuda.is_available()` reports `true`.
-
-### Host prerequisite: NVIDIA Docker runtime setup (Ubuntu)
-
-The script below installs the NVIDIA Container Toolkit on the host (not inside this repo container image):
-
-```bash
-sudo ./scripts/docker/install_nvidia_toolkit_ubuntu.sh
-```
-
+- Frontend app root: `AccessAppFront/src/`
+- Backend docs index: `AccessBackEnd/docs/README.md`
+- AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
+- AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
+- Docker launcher (Windows): `scripts/docker/run_all.cmd`
+- GPU runtime probe: `scripts/docker/gpu_runtime_probe.py`

@@ -93,6 +93,6 @@ docker compose --profile gpu up --build backend-gpu frontend
 
 ### Operations docs
 - Updated root `README.md` with:
-  - CPU/GPU/prod compose commands
-  - GPU probe command
-  - host NVIDIA toolkit install command
+  - a single-command Windows launcher: `scripts\docker\run_all.cmd`
+  - automatic GPU-runtime detection with CPU fallback
+  - automatic database initialization before startup
