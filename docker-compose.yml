@@ -1,0 +1,158 @@
+name: accessibility-ai
+
+services:
+  backend:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: AccessBackEnd/Dockerfile
+      target: backend-base
+      args:
+        PYTHON_VERSION: "3.11"
+    container_name: accessibility-ai-backend
+    command: ["python", "manage.py", "--host", "0.0.0.0", "--port", "5000"]
+    working_dir: /app/AccessBackEnd
+    environment:
+      APP_CONFIG: development
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      SQLALCHEMY_DATABASE_URI: sqlite:////app/AccessBackEnd/instance/accessibility_ai.db
+      CORS_ORIGINS: http://localhost:5173
+      AI_PROVIDER: huggingface
+    volumes:
+      - ./AccessBackEnd:/app/AccessBackEnd
+      - backend-instance:/app/AccessBackEnd/instance
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  backend-gpu:
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: AccessBackEnd/Dockerfile
+      target: backend-gpu
+      args:
+        PYTHON_VERSION: "3.11"
+    container_name: accessibility-ai-backend-gpu
+    command: ["python", "manage.py", "--host", "0.0.0.0", "--port", "5000"]
+    working_dir: /app/AccessBackEnd
+    environment:
+      APP_CONFIG: development
+      FLASK_ENV: development
+      FLASK_DEBUG: "1"
+      SQLALCHEMY_DATABASE_URI: sqlite:////app/AccessBackEnd/instance/accessibility_ai.db
+      CORS_ORIGINS: http://localhost:5173
+      AI_PROVIDER: huggingface
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    volumes:
+      - ./AccessBackEnd:/app/AccessBackEnd
+      - backend-instance:/app/AccessBackEnd/instance
+    ports:
+      - "5001:5000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  frontend:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: AccessAppFront/Dockerfile
+      target: frontend-dev
+    container_name: accessibility-ai-frontend
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    working_dir: /app/AccessAppFront
+    environment:
+      VITE_API_BASE_URL: http://localhost:5000
+    volumes:
+      - ./AccessAppFront:/app/AccessAppFront
+      - frontend-node-modules:/app/AccessAppFront/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backend-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: AccessBackEnd/Dockerfile
+      target: backend-base
+      args:
+        PYTHON_VERSION: "3.11"
+    container_name: accessibility-ai-backend-prod
+    command: ["python", "manage.py", "--host", "0.0.0.0", "--port", "5000"]
+    working_dir: /app/AccessBackEnd
+    environment:
+      APP_CONFIG: production
+      FLASK_ENV: production
+      FLASK_DEBUG: "0"
+      SQLALCHEMY_DATABASE_URI: sqlite:////app/AccessBackEnd/instance/accessibility_ai.db
+      AI_PROVIDER: huggingface
+    volumes:
+      - backend-instance:/app/AccessBackEnd/instance
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  frontend-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: AccessAppFront/Dockerfile
+      target: frontend-prod
+    container_name: accessibility-ai-frontend-prod
+    ports:
+      - "8080:80"
+    depends_on:
+      backend-prod:
+        condition: service_healthy
+
+  gpu-runtime-probe:
+    profiles: ["gpu"]
+    build:
+      context: .
+      dockerfile: AccessBackEnd/Dockerfile
+      target: backend-gpu
+      args:
+        PYTHON_VERSION: "3.11"
+    container_name: accessibility-ai-gpu-probe
+    command: ["python", "/app/scripts/docker/gpu_runtime_probe.py"]
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: "no"
+
+volumes:
+  backend-instance:
+  frontend-node-modules:
