@@ -16,7 +16,7 @@ if errorlevel 1 (
 
 set PROFILE=dev
 set BACKEND_SERVICE=backend
-set FRONTEND_SERVICE=frontend
+set FRONTEND_SERVICE=frontend-dev
 
 choice /C YN /N /M "Step 1: Check NVIDIA GPU container runtime. Continue? [Y/N]: "
 if errorlevel 2 exit /b 0
@@ -26,6 +26,7 @@ docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi >nul 2
 if not errorlevel 1 (
   set PROFILE=gpu
   set BACKEND_SERVICE=backend-gpu
+  set FRONTEND_SERVICE=frontend-gpu
   echo NVIDIA runtime detected. Using GPU backend profile.
 ) else (
   echo NVIDIA runtime not detected. Falling back to CPU backend profile.
