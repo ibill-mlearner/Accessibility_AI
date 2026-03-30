@@ -46,17 +46,29 @@ The project focuses on practical classroom accessibility support (accommodations
 
 ## Docker workflow
 
-Run everything (backend + frontend + DB init) with one command from Windows Command Prompt:
+The Docker setup is now intentionally minimal: **one root Dockerfile + one compose service** that runs backend and frontend in dev mode.
 
-```cmd
-scripts\docker\run_all.cmd
+Run everything with one command:
+
+```bash
+docker compose up --build
 ```
 
-What this script does automatically:
-- detects NVIDIA GPU container runtime availability,
-- selects GPU backend when available (CPU fallback otherwise),
-- initializes backend DB (`python manage.py --init-db`),
-- starts backend + frontend with Docker Compose.
+How that command triggers both servers:
+- `docker compose` reads `docker-compose.yml` and builds the `app` image using the root `Dockerfile`.
+- the compose service explicitly sets `command: ["/usr/local/bin/start_dev_stack.sh"]`.
+- that script runs DB init, then starts backend + frontend dev servers in the same container.
+
+What this does:
+- starts one container,
+- runs `python3 manage.py --init-db`,
+- starts backend dev server on `http://localhost:5000`,
+- starts frontend dev server on `http://localhost:5173`.
+
+Scope for this sprint:
+- no GPU acceleration,
+- no production build pipeline,
+- no multi-service Docker orchestration.
 
 ## Current AI model performance expectations
 
@@ -71,5 +83,4 @@ What this script does automatically:
 - Backend docs index: `AccessBackEnd/docs/README.md`
 - AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
 - AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
-- Docker launcher (Windows): `scripts/docker/run_all.cmd`
-- GPU runtime probe: `scripts/docker/gpu_runtime_probe.py`
+- Docker startup script: `scripts/docker/start_dev_stack.sh`
