@@ -144,3 +144,55 @@ That is the complete local startup path for Bash-based environments.
 - Dev database: `AccessBackEnd/instance/accessibility_ai.db`
 - Seed SQL files: `AccessBackEnd/instance/seed_*.sql`
 - Chat scope guardrails: `docs/chat-stabilization-scope.md`
+
+---
+
+## Docker workflows (Phase 1–5)
+
+### 1) CPU development stack
+
+```bash
+docker compose --profile dev up --build backend frontend
+```
+
+- Backend: `http://localhost:5000`
+- Frontend: `http://localhost:5173`
+
+### 2) GPU development stack (NVIDIA)
+
+```bash
+docker compose --profile gpu up --build backend-gpu frontend
+```
+
+- GPU backend: `http://localhost:5001`
+- Frontend: `http://localhost:5173`
+
+### 3) Production-style stack
+
+```bash
+docker compose --profile prod up --build backend-prod frontend-prod
+```
+
+- Backend: `http://localhost:5000`
+- Frontend static site: `http://localhost:8080`
+
+### 4) GPU runtime probe
+
+Use this one-off service to confirm container-side accelerator visibility:
+
+```bash
+docker compose --profile gpu run --rm gpu-runtime-probe
+```
+
+Probe succeeds only when both checks pass:
+- `nvidia-smi` can enumerate GPUs.
+- `torch.cuda.is_available()` reports `true`.
+
+### Host prerequisite: NVIDIA Docker runtime setup (Ubuntu)
+
+The script below installs the NVIDIA Container Toolkit on the host (not inside this repo container image):
+
+```bash
+sudo ./scripts/docker/install_nvidia_toolkit_ubuntu.sh
+```
+
