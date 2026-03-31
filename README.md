@@ -7,12 +7,6 @@ Accessibility AI is a learning support app with:
 
 ## Start here (run the app)
 
-If you only need to run the project, use **one command** from the repository root:
-
-```bash
-docker compose up --build
-```
-
 If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
 
 ```bash
