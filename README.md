@@ -13,6 +13,12 @@ If you only need to run the project, use **one command** from the repository roo
 docker compose up --build
 ```
 
+After the first successful build, you can restart the existing app container without rebuilding dependencies by running:
+
+```bash
+docker compose up
+```
+
 That command does all of this automatically:
 1. Builds the image from the root `Dockerfile`.
 2. Starts one container defined in `docker-compose.yml`.

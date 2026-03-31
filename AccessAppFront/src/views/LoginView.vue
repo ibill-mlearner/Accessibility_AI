@@ -1,6 +1,9 @@
 <template>
   <div class="d-flex flex-column gap-2">
-    <LoginFormCard v-model:username="username" v-model:password="password" @submit="doLogin" />
+    <LoginFormCard v-model:email="email" v-model:password="password" @submit="doLogin" />
+    <p class="mb-0 text-muted small">
+      Seeded users must sign in with their full email address.
+    </p>
     <p v-if="auth.authError" class="text-danger mb-0">{{ auth.authError }}</p>
   </div>
 </template>
@@ -18,12 +21,12 @@ const route = useRoute()
 const auth = useAuthStore()
 const bootstrap = useAppBootstrapStore()
 const chatStore = useChatStore()
-const username = ref('')
+const email = ref('')
 const password = ref('')
 
 async function doLogin() {
   try {
-    await auth.login({ email: username.value, password: password.value })
+    await auth.login({ email: email.value, password: password.value })
     await bootstrap.bootstrap()
     const nextPath = typeof route.query?.next === 'string' ? route.query.next : '/'
     // `next` restores the intended destination, while `prompt` is only forwarded when
