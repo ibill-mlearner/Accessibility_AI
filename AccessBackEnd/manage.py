@@ -64,10 +64,22 @@ def _seed_all_from_sql(database_uri: str) -> bool:
         print("Skipping seed prompt: SQL seeds currently support only file-based SQLite databases.")
         return False
 
+    scripts_applied = 0
     try:
         with sqlite3.connect(database_path.as_posix()) as conn:
             for seed_file in _SEED_SQL_FILES:
-                conn.executescript(seed_file.read_text(encoding="utf-8"))
+                try:
+                    conn.executescript(seed_file.read_text(encoding="utf-8"))
+                    scripts_applied += 1
+                except Exception as exc:
+                    print(f"Seed script failed: {seed_file} ({exc})")
+                    print(f"Seed summary: {scripts_applied}/{len(_SEED_SQL_FILES)} scripts succeeded before failure.")
+                    if os.environ.get("DEBUG", "").strip().lower() in {"1", "true", "yes", "on"}:
+                        import traceback
+
+                        traceback.print_exc()
+                    print("Error in seed files. Skipping baseline seed data.")
+                    return False
     except Exception:
         print("Error in seed files. Skipping baseline seed data.")
         return False
