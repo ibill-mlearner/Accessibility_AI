@@ -47,6 +47,7 @@ def create_feature():
         title=payload['title'],
         details=payload['details'],
         active=payload['active'],
+        displayable=payload["displayable"],
     )
     if not feature.title:
         raise BadRequestError("title is required")
