@@ -28,8 +28,8 @@ docker compose up
 That command does all of this automatically:
 1. Builds the image from the root `Dockerfile`.
 2. Starts one container defined in `docker-compose.yml`.
-3. Runs the Compose startup command inside the container to initialize the DB and start backend + frontend dev servers.
-4. Prints fast-fail diagnostics if expected app files are missing in `/app`.
+3. Runs the Docker image default command (`python3 /app/scripts/docker/dev_stack_runner.py`).
+4. The Python runner initializes DB, verifies backend health, runs a login smoke check, and then starts backend + frontend dev servers.
 
 
 Open in your browser:
@@ -61,7 +61,7 @@ docker compose build --no-cache
 docker compose up
 ```
 
-The container startup script now prints diagnostics and fails fast if those files are missing, so you can see exactly what exists under `/app` before startup exits.
+The Docker startup runner prints diagnostics and fails fast if those files are missing, so you can see exactly what exists under `/app` before startup exits.
 
 ### Seeded login for local Docker
 
@@ -127,4 +127,4 @@ This now runs the same single Docker Compose command (`docker compose up --build
 - Backend docs index: `AccessBackEnd/docs/README.md`
 - AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
 - AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
-- Docker startup script: `scripts/docker/start_dev_stack.sh`
+- Docker startup runner: `scripts/docker/dev_stack_runner.py`

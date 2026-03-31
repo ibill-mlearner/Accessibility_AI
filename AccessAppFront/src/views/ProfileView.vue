@@ -192,7 +192,6 @@ const fontSizeFeatures = computed(() =>
 const fontSizeOptions = computed(() =>
   fontSizeFeatures.value.map((feature) => ({
     value: String(feature.font_size_px),
-    featureId: Number(feature.id),
     label: `${feature.font_size_px}px`
   }))
 )
@@ -209,6 +208,18 @@ watch(
     selectedFontSize.value = activeFontSize ? String(activeFontSize.font_size_px) : ''
   },
   { immediate: true, deep: true }
+)
+
+watch(
+  selectedFontSize,
+  (value) => {
+    if (!value) {
+      document.documentElement.style.removeProperty('font-size')
+      return
+    }
+    document.documentElement.style.fontSize = `${Number(value)}px`
+  },
+  { immediate: true }
 )
 
 onMounted(async () => {
