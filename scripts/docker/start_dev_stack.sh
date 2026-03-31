@@ -8,11 +8,11 @@ fi
 
 cd /app/AccessBackEnd
 python3 manage.py --init-db
-python3 manage.py --host 0.0.0.0 --port 5000 &
+FLASK_DEBUG=0 python3 manage.py --host 127.0.0.1 --port 5000 &
 BACKEND_PID=$!
 
 cd /app/AccessAppFront
-npm run dev -- --host 0.0.0.0 --port 5173 &
+npm run dev -- --host 0.0.0.0 --port 5173 --strictPort &
 FRONTEND_PID=$!
 
 cleanup() {
