@@ -19,6 +19,12 @@ If you pulled new Docker-related changes, always rebuild once before plain `dock
 docker compose up --build
 ```
 
+If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
+
+```bash
+docker compose up --build
+```
+
 After the first successful build, you can restart the existing app container without rebuilding dependencies by running:
 
 ```bash

@@ -9,3 +9,5 @@ def test_dockerignore_uses_default_deny_allowlist_strategy():
     assert '!AccessBackEnd/app/**' in content
     assert '!AccessAppFront/src/**' in content
     assert '!scripts/docker/dev_stack_runner.py' in content
+    assert 'AccessBackEnd/app/services/ai_pipeline_thin/models/' in content
+    assert 'AccessBackEnd/instance/models/' in content
