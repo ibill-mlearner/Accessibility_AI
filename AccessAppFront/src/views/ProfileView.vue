@@ -4,6 +4,14 @@
       <div class="card-body">
         <h2 class="h4 mb-1">Profile</h2>
         <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
+        <div class="mt-3" style="max-width: 18rem;">
+          <label for="profileFontSize" class="form-label small text-uppercase text-muted mb-1">Font size</label>
+          <select id="profileFontSize" v-model="selectedFontSize" class="form-select form-select-sm">
+            <option v-for="size in fontSizeOptions" :key="size.value" :value="size.value">
+              {{ size.label }}
+            </option>
+          </select>
+        </div>
       </div>
     </header>
 
@@ -50,12 +58,12 @@
             <div class="card-body d-flex flex-column gap-2">
               <h3 class="h6 text-uppercase text-muted mb-1">Accessibility features</h3>
               <p class="mb-0 text-muted small">
-                {{ enabledFeatures.length }} enabled
+                {{ visibleEnabledFeatures.length }} enabled
               </p>
-              <p v-if="!enabledFeatures.length" class="mb-0 text-muted">No accessibility features are enabled.</p>
+              <p v-if="!visibleEnabledFeatures.length" class="mb-0 text-muted">No accessibility features are enabled.</p>
               <ul v-else class="list-group list-group-flush">
                 <li
-                  v-for="feature in enabledFeatures"
+                  v-for="feature in visibleEnabledFeatures"
                   :key="feature.id"
                   class="list-group-item px-0"
                 >
@@ -88,7 +96,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { useClassStore } from '../stores/classStore'
@@ -100,6 +108,14 @@ const classStore = useClassStore()
 const featureStore = useFeatureStore()
 
 const isLoading = computed(() => !auth.sessionChecked)
+const fontSizeOptions = [
+  { value: '14px', label: '14px (Small)' },
+  { value: '16px', label: '16px (Default)' },
+  { value: '18px', label: '18px (Large)' },
+  { value: '20px', label: '20px (Extra large)' },
+  { value: '24px', label: '24px (Maximum readability)' }
+]
+const selectedFontSize = ref(fontSizeOptions[1].value)
 const currentUserId = computed(() => auth.currentUser?.id ?? auth.user?.id ?? null)
 const normalizedRole = computed(() => String(auth.role || '').toLowerCase())
 const allowedActions = computed(() => new Set(auth.allowedActions || []))
@@ -130,6 +146,9 @@ const metrics = computed(() => {
 
 const recentChats = computed(() => chatStore.chats.slice(0, 5))
 const enabledFeatures = computed(() => featureStore.features.filter((feature) => feature?.enabled))
+const visibleEnabledFeatures = computed(() =>
+  enabledFeatures.value.filter((feature) => !feature?.skipInProfile)
+)
 
 onMounted(async () => {
   if (!auth.sessionChecked) {
