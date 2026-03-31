@@ -42,6 +42,26 @@ docker compose exec app curl -sS http://127.0.0.1:5000/api/v1/health
 To stop:
 - Press `Ctrl + C` in the terminal where Compose is running.
 
+
+### Container troubleshooting (missing `/app/...` files)
+
+If Docker logs show missing files such as `/app/AccessBackEnd/manage.py` or `/app/AccessAppFront/package.json`, run:
+
+```bash
+docker compose down --remove-orphans --volumes
+docker compose build --no-cache
+docker compose up
+```
+
+The container startup script now prints diagnostics and fails fast if those files are missing, so you can see exactly what exists under `/app` before startup exits.
+
+### Seeded login for local Docker
+
+After startup, sign in with:
+- Email: `admin.seed@example.com`
+- Password: `Password123!`
+
+
 ## Windows shortcut
 
 If you prefer a Windows command, use:
