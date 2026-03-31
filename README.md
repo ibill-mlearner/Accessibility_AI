@@ -19,9 +19,19 @@ That command does all of this automatically:
 3. Runs `/usr/local/bin/start_dev_stack.sh` inside the container.
 4. The script initializes the DB and starts backend + frontend dev servers.
 
-Open:
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:5000`
+
+Open in your browser:
+- **Use this for the app UI:** `http://localhost:5173`
+
+Important:
+- The backend API is intentionally not published to your host in Docker Compose.
+- Frontend API calls go through the Vite dev server proxy (`/api` -> `127.0.0.1:5000` inside container).
+- Docker logs may also show a container IP; still use `localhost:5173` from your host machine.
+
+Optional internal API check (from inside the container):
+```bash
+docker compose exec app curl -sS http://127.0.0.1:5000/api/v1/health
+```
 
 To stop:
 - Press `Ctrl + C` in the terminal where Compose is running.
