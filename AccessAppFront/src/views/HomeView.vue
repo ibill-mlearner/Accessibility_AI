@@ -12,6 +12,8 @@
             :text="message.text"
             :variant="messageVariantMap[message.role] || message.role"
             :show-actions="message.role === 'assistant'"
+            :read-aloud-enabled="isReadAloudSupported"
+            @read-aloud="handleReadAloud(message)"
           />
         </template>
       </div>
@@ -33,7 +35,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
@@ -55,6 +57,7 @@ const noteStore = useNoteStore()
 const { messageListRef, scrollToLatestTurn } = useAutoScroll()
 const { timelineMessages, interactionError, hydrateTimelineForChat } = useChatTimeline(chatStore)
 const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError })
+const isReadAloudSupported = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
 
 
 
@@ -78,6 +81,23 @@ const conversationMessages = computed(() =>
 
 async function handleModelSelection(modelValue) {
   await chatStore.updateModelSelection(modelValue)
+}
+
+// This read-aloud block is intentionally a brute-force, test-first implementation to prove
+// end-to-end text-to-speech behavior from the chat card UI with the least amount of setup.
+// For now, we simply take the card text, cancel any active speech, and immediately push a new
+// utterance through the browser's built-in speech synthesis engine so we can verify that "any"
+// TTS path works in real usage before investing in more polished controls such as voice pickers,
+// playback state, queueing, pause/resume, or per-user accessibility preferences.
+function handleReadAloud(message) {
+  if (!isReadAloudSupported || !message?.text?.trim()) return
+
+  window.speechSynthesis.cancel()
+  const utterance = new window.SpeechSynthesisUtterance(message.text)
+  utterance.lang = 'en-US'
+  utterance.rate = 1
+  utterance.pitch = 1
+  window.speechSynthesis.speak(utterance)
 }
 
 async function saveCurrentChatAsNote() {
@@ -115,6 +135,11 @@ onMounted(async () => {
       await router.replace({ path: '/', query: {} })
     }
   }
+})
+
+onBeforeUnmount(() => {
+  if (!isReadAloudSupported) return
+  window.speechSynthesis.cancel()
 })
 
 </script>
