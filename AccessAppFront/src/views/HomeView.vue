@@ -76,7 +76,7 @@ const conversationMessages = computed(() =>
     }, 
     { 
       id: 'user-preview', role: 'user', 
-      text: prompt.value || "User's prompt . . ." 
+      text: "User's prompt . . ." 
     }])
 
 async function handleModelSelection(modelValue) {
