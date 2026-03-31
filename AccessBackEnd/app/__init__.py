@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Flask
 from flask import jsonify, request, session
 from flask_login import current_user, logout_user
+from sqlalchemy import inspect
 
 from . import config
 from .api.errors import register_api_error_handlers
@@ -115,7 +116,10 @@ def create_app(config_name: str | None = None) -> Flask:
     app.extensions["ai_service"] = build_ai_service(app)
     with app.app_context():
         try:
-            sync_ai_models_with_local_inventory(app)
+            if inspect(db_ext.engine).has_table("ai_models"):
+                sync_ai_models_with_local_inventory(app)
+            else:
+                app.logger.info("Skipping AI model sync during app init because ai_models table is not created yet.")
         except Exception as exc:  # noqa: BLE001
             app.logger.warning("AI model sync skipped during app init: %s", exc)
     initialize_logging(app)

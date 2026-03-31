@@ -11,14 +11,14 @@ python3 manage.py --init-db
 FLASK_DEBUG=0 python3 manage.py --host 127.0.0.1 --port 5000 &
 BACKEND_PID=$!
 
-cd /app/AccessAppFront
-npm run dev -- --host 0.0.0.0 --port 5173 --strictPort &
-FRONTEND_PID=$!
+echo "Frontend URL: http://localhost:5173"
+echo "Backend API is internal-only in Docker (not published to host)."
 
 cleanup() {
-  kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
+  kill "$BACKEND_PID" 2>/dev/null || true
 }
 
-trap cleanup INT TERM
-wait -n "$BACKEND_PID" "$FRONTEND_PID"
-cleanup
+trap cleanup EXIT INT TERM
+
+cd /app/AccessAppFront
+exec npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
