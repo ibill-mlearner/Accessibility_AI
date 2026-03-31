@@ -1,0 +1,2 @@
+ALTER TABLE accommodations
+ADD COLUMN displayable BOOLEAN NOT NULL DEFAULT 1;
