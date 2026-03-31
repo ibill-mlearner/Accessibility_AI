@@ -56,11 +56,33 @@ def test_feature_create_supports_non_displayable_records(app, client):
             "details": "RGB(0, 114, 178) RGB(230, 159, 0)",
             "active": True,
             "displayable": False,
+            "color_family": "deuteranopia-safe",
         },
     )
     assert response.status_code == 201
     payload = response.get_json()
     assert payload["displayable"] is False
+    assert payload["color_family"] == "deuteranopia-safe"
+
+
+def test_feature_create_supports_font_family_metadata(app, client):
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, email="feature-font-family@example.com")
+    response = client.post(
+        "/api/v1/features",
+        json={
+            "title": "Font family: Sans-serif",
+            "details": "Prefer sans-serif fonts.",
+            "active": True,
+            "displayable": True,
+            "font_family": "sans-serif",
+        },
+    )
+    assert response.status_code == 201
+    payload = response.get_json()
+    assert payload["font_family"] == "sans-serif"
 
 
 def test_feature_preferences_replace_endpoint_upserts_records(app, client):
