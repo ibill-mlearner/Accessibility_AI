@@ -9,7 +9,10 @@ SELECT
   1
 FROM users AS user_record
 JOIN classes AS class_record
-  ON class_record.name IN ('Soup Basics 101', 'Soup Lab')
+  ON class_record.name IN (
+    'BIOL 110: Foundations of Cell Biology',
+    'CS 220: Data Structures and Algorithms'
+  )
 WHERE user_record.email IN (
   'student.one.seed@example.com',
   'student.two.seed@example.com',
