@@ -150,6 +150,8 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     runtime_app = build_runtime_app(args)
+    if args.init_only:
+        return
     runtime_app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
 
 
