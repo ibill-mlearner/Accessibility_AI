@@ -90,7 +90,6 @@ def seed_all_from_sql(database_uri: str) -> bool:
     return True
 
 
-
 def should_run_init_db_for_process(app) -> bool:
     """Run `--init-db` once per startup, including non-reloader debug runs.
 
@@ -133,8 +132,7 @@ def run_init_db_flow(app) -> None:
     print("--init-db requested: running schema creation (create_all).")
     init_flask_database(app)
     print("Schema creation completed.")
-
-    print("Running baseline seed scripts.")
+    print("Running seed scripts.")
     seed_ran = seed_all_from_sql(database_uri)
     print(f"Seed scripts {'ran' if seed_ran else 'did not run'}.")
 
