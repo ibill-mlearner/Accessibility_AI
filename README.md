@@ -13,6 +13,12 @@ If you only need to run the project, use **one command** from the repository roo
 docker compose up --build
 ```
 
+If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
+
+```bash
+docker compose up --build
+```
+
 After the first successful build, you can restart the existing app container without rebuilding dependencies by running:
 
 ```bash
@@ -22,8 +28,8 @@ docker compose up
 That command does all of this automatically:
 1. Builds the image from the root `Dockerfile`.
 2. Starts one container defined in `docker-compose.yml`.
-3. Runs `/usr/local/bin/start_dev_stack.sh` inside the container.
-4. The script initializes the DB and starts backend + frontend dev servers.
+3. Runs the Compose startup command inside the container to initialize the DB and start backend + frontend dev servers.
+4. Prints fast-fail diagnostics if expected app files are missing in `/app`.
 
 
 Open in your browser:
@@ -45,6 +51,8 @@ To stop:
 
 ### Container troubleshooting (missing `/app/...` files)
 
+If `docker compose build` shows multi-GB context transfer (for example `transferring context: 10+GB`), that usually means a local dependency folder or workspace symlink is leaking into the build context. This repo now ignores `**/node_modules` and `**/accessibility-ai-workspace` in `.dockerignore`.
+
 If Docker logs show missing files such as `/app/AccessBackEnd/manage.py` or `/app/AccessAppFront/package.json`, run:
 
 ```bash
@@ -60,6 +68,12 @@ The container startup script now prints diagnostics and fails fast if those file
 After startup, sign in with:
 - Email: `admin.seed@example.com`
 - Password: `Password123!`
+
+Run the containerized login E2E test (requires Docker):
+
+```bash
+pytest AccessBackEnd/tests/integration/test_container_login_e2e.py -s
+```
 
 
 ## Windows shortcut

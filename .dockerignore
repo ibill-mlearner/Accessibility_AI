@@ -1,15 +1,31 @@
+# VCS / IDE
 .git
 .gitignore
+.idea
+
+# Python caches
 **/__pycache__/
 **/*.pyc
 **/*.pyo
 **/*.pyd
 **/.pytest_cache/
 **/.mypy_cache/
+
+# OS noise
 **/.DS_Store
+
+# Node artifacts (critical for Docker context size)
 node_modules/
+**/node_modules/
 AccessAppFront/node_modules/
+
+# Workspace symlink created by local installs; can explode context size on Windows
+**/accessibility-ai-workspace
+
+# Build artifacts
 AccessAppFront/dist/
 .venv/
 *.log
+
+# Test artifacts not needed for runtime image
 AccessBackEnd/tests/
