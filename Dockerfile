@@ -7,8 +7,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-RUN pip install --no-cache-dir \
-    Flask Flask-Cors Flask-JWT-Extended Flask-Login Flask-Migrate Flask-SQLAlchemy marshmallow
+
+COPY AccessBackEnd/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+COPY AccessAppFront/package.json AccessAppFront/package-lock.json /app/AccessAppFront/
+RUN npm --prefix /app/AccessAppFront ci
 
 EXPOSE 5000 5173
 CMD ["bash"]
