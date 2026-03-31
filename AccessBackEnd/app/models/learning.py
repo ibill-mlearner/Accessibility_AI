@@ -23,6 +23,7 @@ class Accommodation(Base):
     title: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
     details: Mapped[str] = mapped_column(Text, nullable=False, default="")
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    displayable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     font_size_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     prompt_links: Mapped[list["AccommodationSystemPrompt"]] = relationship(

@@ -39,8 +39,28 @@ def test_feature_preferences_routes_read_and_update_current_user_preferences(app
     features_response = client.get('/api/v1/features')
     assert features_response.status_code == 200
     features_payload = features_response.get_json()
+    assert all(item["displayable"] is True for item in features_payload)
     enabled_map = {int(item["id"]): bool(item["enabled"]) for item in features_payload}
     assert enabled_map[target_feature_id] is True
+
+
+def test_feature_create_supports_non_displayable_records(app, client):
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, email="feature-create@example.com")
+    response = client.post(
+        "/api/v1/features",
+        json={
+            "title": "Color profile: Deuteranopia-safe palette",
+            "details": "RGB(0, 114, 178) RGB(230, 159, 0)",
+            "active": True,
+            "displayable": False,
+        },
+    )
+    assert response.status_code == 201
+    payload = response.get_json()
+    assert payload["displayable"] is False
 
 
 def test_feature_preferences_replace_endpoint_upserts_records(app, client):

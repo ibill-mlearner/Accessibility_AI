@@ -29,12 +29,14 @@ class FeaturePayloadSchema(Schema):
     title = fields.Str(required=True)
     details = fields.Str(required=True)
     active = fields.Bool(required=False, load_default=True)
+    displayable = fields.Bool(required=False, load_default=True)
 
 
 class PartialFeaturePayloadSchema(Schema):
     title = fields.Str(required=False)
     details = fields.Str(required=False)
     active = fields.Bool(required=False)
+    displayable = fields.Bool(required=False)
 
 
 class MessagePayloadSchema(Schema):

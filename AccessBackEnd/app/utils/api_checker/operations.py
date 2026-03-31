@@ -162,6 +162,7 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
             "title": record.title,
             "details": record.details,
             "active": record.active,
+            "displayable": record.displayable,
             "font_size_px": record.font_size_px,
             "description": record.details,
             "enabled": record.active,
@@ -314,7 +315,7 @@ def _apply_class_mutations(class_record: CourseClass, payload: dict[str, Any]) -
 
 
 def _apply_feature_mutations(feature: Accommodation, payload: dict[str, Any]) -> None:
-    api_monolith_helper.apply_updates(feature, payload, {"title", "details", "active"})
+    api_monolith_helper.apply_updates(feature, payload, {"title", "details", "active", "displayable"})
 
 
 def _enforce_roles(*allowed_roles: str):
