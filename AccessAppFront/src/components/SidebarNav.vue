@@ -3,7 +3,7 @@
     <div class="card shadow-sm">
       <div class="card-body d-flex align-items-center gap-2"
         style="font-size: 1.25rem;">
-        <img src="/logo.svg" alt="Project logo" 
+        <img src="/logo.svg" alt="Project logo"
           style="width:42px; height:42px" />
         <span>AI Project or Logo</span>
       </div>
@@ -11,50 +11,46 @@
 
     <nav class="card shadow-sm">
       <div class="card-body d-grid gap-2">
-        <button class="btn btn-outline-primary text-start" 
-          type="button" 
+        <button class="btn btn-outline-primary text-start"
+          type="button"
           @click="handleNewChatClick">
           New Chat
         </button>
-        <RouterLink to="/accessibility" 
+        <RouterLink to="/accessibility"
           class="btn btn-outline-primary text-start"
           active-class="bg-purple-200 text-dark border-0"
           >
           Accessibility Features
         </RouterLink>
         <!-- Intentionally hidden during sprint 4 -->
-        <!-- <RouterLink to="/saved-notes" 
+        <!-- <RouterLink to="/saved-notes"
           class="btn btn-outline-primary text-start"
           active-class="bg-purple-200 text-dark border-0"
           >
           Saved Notes
         </RouterLink> -->
 
-        <RouterLink 
-          to="/classes" 
+        <RouterLink
+          to="/classes"
           class="btn btn-outline-primary text-start"
           active-class="bg-purple-200 text-dark border-0" >
           My Classes
         </RouterLink>
-        
+
       </div>
     </nav>
 
-    <section v-if="auth.role !== 'guest'" 
+    <section v-if="auth.role !== 'guest'"
       class="card shadow-sm flex-grow sidebar-nav__chat-list">
       <h3 class="sidebar-nav__chat-list-title">Chats</h3>
       <ul class="sidebar-nav__chat-list-items">
-        <li v-for="chat in chats.chats" 
-          :key="chat.id" 
-          :class="{ 'bg-purple-200': chat.id === chats.selectedChatId }"
-          class="list-group-item p-0">
-          <button 
-            class="w-100 text-start border-0 bg-transparent px-3 py-2" 
-            type="button" 
-            @click="selectedChat(chat.id)">
-            {{ chat.title }}
-          </button>
-        </li>
+        <ChatListItem
+          v-for="chat in chats.chats"
+          :key="chat.id"
+          :chat="chat"
+          :is-active="chat.id === chats.selectedChatId"
+          @select="selectedChat"
+        />
       </ul>
     </section>
 
@@ -72,10 +68,9 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import AccountActionsCard from './auth/AccountActionsCard.vue'
+import ChatListItem from './chat/ChatListItem.vue'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
-
-
 
 const router = useRouter()
 const auth = useAuthStore()
