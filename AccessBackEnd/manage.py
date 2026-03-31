@@ -127,22 +127,32 @@ def build_runtime_app(args: argparse.Namespace):
     # Rebuild service with runtime overrides from parsed args.
     app.extensions["ai_service"] = build_ai_service(app)
 
-    if args.init_db and _should_run_init_db_for_process(app):
-        database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
-        if _database_has_any_tables(database_uri):
-            print("Database already has tables. Skipping init-db/seed flow.")
+    if args.init_db:
+        if not _should_run_init_db_for_process(app):
+            print("--init-db detected but skipped in reloader parent process.")
             return app
 
+        database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
         db_path = _sqlite_database_path(database_uri)
         db_missing_before_init = db_path is not None and not db_path.exists()
+        had_tables_before_init = _database_has_any_tables(database_uri)
 
         print(f"Resolved SQLALCHEMY_DATABASE_URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        print("--init-db requested: running schema creation (create_all).")
         init_flask_database(app)
+        print("Schema creation completed.")
 
         if db_missing_before_init:
-            _seed_all_from_sql(database_uri)
+            print("Database file was missing before init. Running automatic first-run seed scripts.")
+            seed_ran = _seed_all_from_sql(database_uri)
+            print(f"Seed scripts {'ran' if seed_ran else 'did not run'}.")
         else:
+            if had_tables_before_init:
+                print("Existing database detected. --init-db allows explicit reseed on existing DBs.")
+            else:
+                print("Database existed without tables. Prompting for optional seed scripts.")
             _prompt_for_seed_users(database_uri)
+            print("Seed scripts executed only if confirmed in the interactive prompt.")
 
     return app
 
