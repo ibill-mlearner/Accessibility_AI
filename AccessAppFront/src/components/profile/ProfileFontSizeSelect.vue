@@ -1,5 +1,5 @@
 <template>
-  <div style="max-width: 18rem;">
+  <div style="max-width: 10rem;">
     <label for="profileFontSize" class="form-label small text-uppercase text-muted mb-1">Font size</label>
     <select
       id="profileFontSize"
@@ -7,7 +7,6 @@
       class="form-select form-select-sm"
       @change="onChange"
     >
-      <option value="">Default</option>
       <option v-for="size in options" :key="size.value" :value="size.value">
         {{ size.label }}
       </option>

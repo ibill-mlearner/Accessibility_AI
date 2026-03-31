@@ -2,7 +2,7 @@
   <section class="d-flex flex-column gap-3">
     <header class="card shadow-sm">
       <div class="card-body d-flex flex-column gap-3">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3">
+        <div class="d-flex flex-column flex-md-row align-items-md-start gap-3">
           <div>
             <h2 class="h4 mb-1">Profile</h2>
             <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
@@ -173,7 +173,13 @@ const recentChats = computed(() => chatStore.chats.slice(0, 5))
 const enabledFeatures = computed(() => featureStore.features.filter((feature) => feature?.enabled))
 const fontSizeFeatures = computed(() =>
   featureStore.features
-    .filter((feature) => Number.isInteger(Number(feature?.font_size_px)))
+    .filter((feature) => {
+      if (feature?.font_size_px === null || feature?.font_size_px === undefined || feature?.font_size_px === '') {
+        return false
+      }
+      const numericSize = Number(feature.font_size_px)
+      return Number.isInteger(numericSize) && numericSize > 0
+    })
     .sort((left, right) => Number(left.font_size_px) - Number(right.font_size_px))
 )
 const fontSizeOptions = computed(() =>
@@ -190,9 +196,16 @@ watch(
   () => featureStore.features,
   (features) => {
     const activeFontSize = features.find(
-      (feature) => feature?.enabled && Number.isInteger(Number(feature?.font_size_px))
+      (feature) => feature?.enabled
+        && feature?.font_size_px !== null
+        && feature?.font_size_px !== undefined
+        && feature?.font_size_px !== ''
+        && Number.isInteger(Number(feature?.font_size_px))
+        && Number(feature?.font_size_px) > 0
     )
-    selectedFontSize.value = activeFontSize ? String(activeFontSize.font_size_px) : ''
+    selectedFontSize.value = activeFontSize
+      ? String(activeFontSize.font_size_px)
+      : (fontSizeOptions.value[0]?.value ?? '')
   },
   { immediate: true, deep: true }
 )
@@ -233,6 +246,9 @@ function classLabel(course) {
 
 async function applyFontSizePreference() {
   const selectedValue = Number(selectedFontSize.value)
+  if (!Number.isFinite(selectedValue) || selectedValue <= 0) {
+    return
+  }
   const updates = fontSizeFeatures.value.map((feature) => {
     const isSelected = Number(feature.font_size_px) === selectedValue
     return featureStore.updateFeaturePreference(feature.id, isSelected)
