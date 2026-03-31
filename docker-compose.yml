@@ -10,11 +10,10 @@ services:
       - /bin/bash
       - -lc
       - |
+        python3 -m pip install -r /app/AccessBackEnd/requirements.txt
         npm --prefix /app/AccessAppFront install
-        python3 /app/AccessBackEnd/manage.py --init-db --init-only || echo "WARNING: backend init-db failed; continuing."
+        python3 /app/AccessBackEnd/manage.py --init-db --init-only
         python3 /app/AccessBackEnd/manage.py &
-        echo "Frontend URL: http://localhost:5173"
-        echo "Backend URL (internal): http://localhost:5000"
         exec npm --prefix /app/AccessAppFront run dev -- --host 0.0.0.0 --port 5173 --strictPort
     environment:
       APP_CONFIG: development
