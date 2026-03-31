@@ -19,7 +19,6 @@ SEED_SQL_FILES: tuple[Path, ...] = (
     INSTANCE_DIR / "seed_classes.sql",
     INSTANCE_DIR / "seed_user_class_enrollments.sql",
     INSTANCE_DIR / "seed_chats.sql",
-    INSTANCE_DIR / "seed_ai_interactions.sql",
 )
 
 DEBUG_TRUE_VALUES = {"1", "true", "yes", "on"}

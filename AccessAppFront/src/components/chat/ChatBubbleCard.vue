@@ -4,7 +4,14 @@
       <slot>{{ text }}</slot>
       <div v-if="showActions" 
         class="d-flex justify-content-between mt-1 gap-1">
-        <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('read-aloud')">Read Aloud</button>
+        <button
+          class="btn btn-secondary px-2 py-1 btn-sm"
+          :disabled="!readAloudEnabled"
+          :aria-disabled="!readAloudEnabled"
+          @click="$emit('read-aloud')"
+        >
+          {{ readAloudEnabled ? 'Read Aloud' : 'Read Aloud Unavailable' }}
+        </button>
         <!-- Intentionally hidden during sprint 4 -->
         <!-- <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button> -->
       </div>
@@ -18,7 +25,8 @@ import { computed } from 'vue'
 const props = defineProps({
   text: { type: String, default: '' },
   variant: { type: String, default: 'system' },
-  showActions: { type: Boolean, default: false }
+  showActions: { type: Boolean, default: false },
+  readAloudEnabled: { type: Boolean, default: true }
 })
 
 defineEmits(['read-aloud'/*, 'save-note'*/])

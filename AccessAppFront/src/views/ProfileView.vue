@@ -1,9 +1,28 @@
 <template>
   <section class="d-flex flex-column gap-3">
     <header class="card shadow-sm">
-      <div class="card-body">
-        <h2 class="h4 mb-1">Profile</h2>
-        <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
+      <div class="card-body d-flex flex-column gap-3">
+        <div class="d-flex flex-column flex-md-row align-items-md-start gap-3">
+          <div>
+            <h2 class="h4 mb-1">Profile</h2>
+            <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
+          </div>
+          <ProfileFontSizeSelect
+            v-model="selectedFontSize"
+            :options="fontSizeOptions"
+            @change="applyFontSizePreference"
+          />
+        </div>
+
+        <ProfileColorblindFeatures
+          v-model="selectedColorblindType"
+          :options="colorblindOptions"
+        />
+
+        <ProfileFontFamilyFeatures
+          v-model="selectedFontFamily"
+          :options="fontFamilyOptions"
+        />
       </div>
     </header>
 
@@ -25,20 +44,45 @@
         </div>
       </section>
 
-      <section class="card shadow-sm">
-        <div class="card-body d-flex flex-column gap-2">
-          <h3 class="h6 text-uppercase text-muted mb-1">Recent chats</h3>
-          <p v-if="!chatStore.chats.length" class="mb-0 text-muted">No chats yet.</p>
-          <ul v-else class="list-group list-group-flush">
-            <li
-              v-for="chat in recentChats"
-              :key="chat.id"
-              class="list-group-item px-0 d-flex justify-content-between gap-3"
-            >
-              <span class="text-truncate">{{ chat.title || 'Untitled chat' }}</span>
-              <span class="text-muted small">Class #{{ chat.class_id ?? 'n/a' }}</span>
-            </li>
-          </ul>
+      <section class="row g-3">
+        <div class="col-12 col-xl-7">
+          <section class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column gap-2">
+              <h3 class="h6 text-uppercase text-muted mb-1">Recent chats</h3>
+              <p v-if="!chatStore.chats.length" class="mb-0 text-muted">No chats yet.</p>
+              <ul v-else class="list-group list-group-flush">
+                <li
+                  v-for="chat in recentChats"
+                  :key="chat.id"
+                  class="list-group-item px-0 d-flex justify-content-between gap-3"
+                >
+                  <span class="text-truncate">{{ chat.title || 'Untitled chat' }}</span>
+                  <span class="text-muted small">Class #{{ chat.class_id ?? 'n/a' }}</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </div>
+
+        <div class="col-12 col-xl-5">
+          <section class="card shadow-sm h-100">
+            <div class="card-body d-flex flex-column gap-2">
+              <h3 class="h6 text-uppercase text-muted mb-1">Accessibility features</h3>
+              <p class="mb-0 text-muted small">
+                {{ visibleEnabledFeatures.length }} enabled
+              </p>
+              <p v-if="!visibleEnabledFeatures.length" class="mb-0 text-muted">No accessibility features are enabled.</p>
+              <ul v-else class="list-group list-group-flush">
+                <li
+                  v-for="feature in visibleEnabledFeatures"
+                  :key="feature.id"
+                  class="list-group-item px-0"
+                >
+                  {{ feature.name || feature.title || `Feature #${feature.id}` }}
+                </li>
+              </ul>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -58,45 +102,125 @@
           </ul>
         </div>
       </section>
-
-      <ProfileSecurityCard @logout="handleLogout" @retry="refreshSession" />
     </template>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { useClassStore } from '../stores/classStore'
-import ProfileSecurityCard from '../components/profile/ProfileSecurityCard.vue'
+import { useFeatureStore } from '../stores/featureStore'
+import ProfileFontSizeSelect from '../components/profile/ProfileFontSizeSelect.vue'
+import ProfileColorblindFeatures from '../components/profile/ProfileColorblindFeatures.vue'
+import ProfileFontFamilyFeatures from '../components/profile/ProfileFontFamilyFeatures.vue'
 
-const router = useRouter()
 const auth = useAuthStore()
 const chatStore = useChatStore()
 const classStore = useClassStore()
+const featureStore = useFeatureStore()
 
 const isLoading = computed(() => !auth.sessionChecked)
+const selectedFontSize = ref('')
+const selectedColorblindType = ref('none')
+const selectedFontFamily = ref('default')
+const colorblindOptions = [
+  { value: 'none', label: 'None' },
+  { value: 'protanopia', label: 'Protanopia' },
+  { value: 'deuteranopia', label: 'Deuteranopia' },
+  { value: 'tritanopia', label: 'Tritanopia' },
+  { value: 'achromatopsia', label: 'Achromatopsia' }
+]
+
+const fontFamilyOptions = [
+  { value: 'default', label: 'Default', family: 'inherit' },
+  { value: 'opendyslexic', label: 'OpenDyslexic', family: 'OpenDyslexic, Arial, sans-serif' },
+  { value: 'atkinson', label: 'Atkinson Hyperlegible', family: 'Atkinson Hyperlegible, Arial, sans-serif' },
+  { value: 'arial', label: 'Arial', family: 'Arial, Helvetica, sans-serif' },
+  { value: 'verdana', label: 'Verdana', family: 'Verdana, Geneva, sans-serif' },
+  { value: 'monospace', label: 'Monospace', family: 'ui-monospace, SFMono-Regular, Menlo, monospace' }
+]
 const currentUserId = computed(() => auth.currentUser?.id ?? auth.user?.id ?? null)
+const normalizedRole = computed(() => String(auth.role || '').toLowerCase())
+const allowedActions = computed(() => new Set(auth.allowedActions || []))
+const canTeachClasses = computed(() =>
+  (normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
+  && allowedActions.value.has('classes:write')
+)
+
 const teachingClasses = computed(() =>
   classStore.classes.filter((course) => Number(course?.instructor_id) === Number(currentUserId.value))
 )
-const chatsByClassCount = computed(() => {
-  const usedClassIds = new Set(chatStore.chats.map((chat) => chat?.class_id).filter(Boolean))
-  return usedClassIds.size
+const classesImIn = computed(() =>
+  classStore.classes.filter((course) => Number(course?.instructor_id) !== Number(currentUserId.value))
+)
+
+const metrics = computed(() => {
+  const items = [
+    { label: 'Total chats', value: chatStore.chats.length },
+    { label: "Classes I'm in", value: classesImIn.value.length }
+  ]
+
+  if (canTeachClasses.value) {
+    items.push({ label: 'Classes teaching', value: teachingClasses.value.length })
+  }
+
+  return items
 })
 
-const metrics = computed(() => [
-  { label: 'Total chats', value: chatStore.chats.length },
-  { label: 'Active conversation', value: chatStore.hasActiveChat ? 'Yes' : 'No' },
-  { label: 'Classes loaded', value: classStore.classes.length },
-  { label: 'Classes teaching', value: teachingClasses.value.length },
-  { label: 'Classes with chats', value: chatsByClassCount.value },
-  { label: 'Allowed actions', value: auth.allowedActions.length }
-])
-
 const recentChats = computed(() => chatStore.chats.slice(0, 5))
+const enabledFeatures = computed(() => featureStore.features.filter((feature) => feature?.enabled))
+const fontSizeFeatures = computed(() =>
+  featureStore.features
+    .filter((feature) => {
+      if (feature?.font_size_px === null || feature?.font_size_px === undefined || feature?.font_size_px === '') {
+        return false
+      }
+      const numericSize = Number(feature.font_size_px)
+      return Number.isInteger(numericSize) && numericSize > 0
+    })
+    .sort((left, right) => Number(left.font_size_px) - Number(right.font_size_px))
+)
+const fontSizeOptions = computed(() =>
+  fontSizeFeatures.value.map((feature) => ({
+    value: String(feature.font_size_px),
+    label: `${feature.font_size_px}px`
+  }))
+)
+const visibleEnabledFeatures = computed(() =>
+  enabledFeatures.value.filter((feature) => !feature?.skipInProfile)
+)
+
+watch(
+  () => featureStore.features,
+  (features) => {
+    const activeFontSize = features.find(
+      (feature) => feature?.enabled
+        && feature?.font_size_px !== null
+        && feature?.font_size_px !== undefined
+        && feature?.font_size_px !== ''
+        && Number.isInteger(Number(feature?.font_size_px))
+        && Number(feature?.font_size_px) > 0
+    )
+    selectedFontSize.value = activeFontSize
+      ? String(activeFontSize.font_size_px)
+      : (fontSizeOptions.value[0]?.value ?? '')
+  },
+  { immediate: true, deep: true }
+)
+
+watch(
+  selectedFontSize,
+  (value) => {
+    if (!value) {
+      document.documentElement.style.removeProperty('font-size')
+      return
+    }
+    document.documentElement.style.fontSize = `${Number(value)}px`
+  },
+  { immediate: true }
+)
 
 onMounted(async () => {
   if (!auth.sessionChecked) {
@@ -110,21 +234,25 @@ onMounted(async () => {
   if (auth.isAuthenticated && !classStore.classes.length) {
     await classStore.fetchClasses().catch(() => {})
   }
-})
 
-async function refreshSession() {
-  await auth.me()
-  if (auth.isAuthenticated) {
-    await Promise.allSettled([chatStore.fetchChats(), classStore.fetchClasses()])
+  if (auth.isAuthenticated && !featureStore.features.length) {
+    await featureStore.fetchFeatures().catch(() => {})
   }
-}
+})
 
 function classLabel(course) {
   return Number(course?.instructor_id) === Number(currentUserId.value) ? 'Instructor' : 'Member'
 }
 
-async function handleLogout() {
-  await auth.logout()
-  await router.push('/')
+async function applyFontSizePreference() {
+  const selectedValue = Number(selectedFontSize.value)
+  if (!Number.isFinite(selectedValue) || selectedValue <= 0) {
+    return
+  }
+  const updates = fontSizeFeatures.value.map((feature) => {
+    const isSelected = Number(feature.font_size_px) === selectedValue
+    return featureStore.updateFeaturePreference(feature.id, isSelected)
+  })
+  await Promise.allSettled(updates)
 }
 </script>
