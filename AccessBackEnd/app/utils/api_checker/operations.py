@@ -157,7 +157,15 @@ def _serialize_record(resource: str, record: Any) -> dict[str, Any]:
     if resource == "class":
         return {"id": record.id, "name": record.name, "description": record.description, "instructor_id": record.instructor_id, "active": record.active}
     if resource == "feature":
-        return {"id": record.id, "title": record.title, "details": record.details, "active": record.active, "description": record.details, "enabled": record.active}
+        return {
+            "id": record.id,
+            "title": record.title,
+            "details": record.details,
+            "active": record.active,
+            "font_size_px": record.font_size_px,
+            "description": record.details,
+            "enabled": record.active,
+        }
     if resource == "ai_interaction":
         created_at = record.created_at.isoformat() if getattr(record, "created_at", None) else None
         return {

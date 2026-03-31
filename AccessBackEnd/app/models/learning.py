@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -12,11 +12,18 @@ class Accommodation(Base):
     """Global accommodation options reusable across classes/interactions."""
 
     __tablename__ = "accommodations"
+    __table_args__ = (
+        CheckConstraint(
+            "font_size_px IS NULL OR font_size_px IN (14, 16, 18, 20, 24)",
+            name="ck_accommodations_font_size_px",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False, unique=True, index=True)
     details: Mapped[str] = mapped_column(Text, nullable=False, default="")
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    font_size_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     prompt_links: Mapped[list["AccommodationSystemPrompt"]] = relationship(
         back_populates="accommodation", cascade="all, delete-orphan"
