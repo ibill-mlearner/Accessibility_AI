@@ -13,13 +13,11 @@ services:
       FLASK_DEBUG: "1"
       SQLALCHEMY_DATABASE_URI: sqlite:////app/AccessBackEnd/instance/accessibility_ai.db
       CORS_ORIGINS: http://localhost:5173
-      VITE_API_BASE_URL: http://localhost:5000
     volumes:
       - .:/app
       - frontend-node-modules:/app/AccessAppFront/node_modules
       - backend-instance:/app/AccessBackEnd/instance
     ports:
-      - "5000:5000"
       - "5173:5173"
 
 volumes:
