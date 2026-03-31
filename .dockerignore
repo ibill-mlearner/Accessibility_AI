@@ -1,31 +1,29 @@
-# VCS / IDE
-.git
-.gitignore
-.idea
+# Default-deny docker build context to prevent local large files from being sent.
+**
 
-# Python caches
-**/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
-**/.pytest_cache/
-**/.mypy_cache/
+# Build metadata
+!Dockerfile
+!.dockerignore
+!package.json
 
-# OS noise
-**/.DS_Store
+# Backend runtime files
+!AccessBackEnd/manage.py
+!AccessBackEnd/requirements.txt
+!AccessBackEnd/app/
+!AccessBackEnd/app/**
+!AccessBackEnd/instance/
+!AccessBackEnd/instance/*.sql
+!AccessBackEnd/instance/config.py
 
-# Node artifacts (critical for Docker context size)
-node_modules/
-**/node_modules/
-AccessAppFront/node_modules/
+# Frontend runtime files
+!AccessAppFront/package.json
+!AccessAppFront/package-lock.json
+!AccessAppFront/index.html
+!AccessAppFront/vite.config.js
+!AccessAppFront/src/
+!AccessAppFront/src/**
+!AccessAppFront/public/
+!AccessAppFront/public/**
 
-# Workspace symlink created by local installs; can explode context size on Windows
-**/accessibility-ai-workspace
-
-# Build artifacts
-AccessAppFront/dist/
-.venv/
-*.log
-
-# Test artifacts not needed for runtime image
-AccessBackEnd/tests/
+# Docker runtime bootstrap
+!scripts/docker/dev_stack_runner.py

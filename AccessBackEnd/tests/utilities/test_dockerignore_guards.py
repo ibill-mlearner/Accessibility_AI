@@ -1,9 +1,11 @@
 from pathlib import Path
 
 
-def test_dockerignore_blocks_large_node_context_entries():
-    dockerignore = Path(__file__).resolve().parents[3] / ".dockerignore"
-    content = dockerignore.read_text(encoding="utf-8")
+def test_dockerignore_uses_default_deny_allowlist_strategy():
+    dockerignore = Path(__file__).resolve().parents[3] / '.dockerignore'
+    content = dockerignore.read_text(encoding='utf-8')
 
-    assert "**/node_modules/" in content
-    assert "**/accessibility-ai-workspace" in content
+    assert content.splitlines()[1].strip() == '**'
+    assert '!AccessBackEnd/app/**' in content
+    assert '!AccessAppFront/src/**' in content
+    assert '!scripts/docker/dev_stack_runner.py' in content

@@ -13,6 +13,12 @@ If you pulled new Docker-related changes, always rebuild once before plain `dock
 docker compose up --build
 ```
 
+If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
+
+```bash
+docker compose up --build
+```
+
 After the first successful build, you can restart the existing app container without rebuilding dependencies by running:
 
 ```bash
@@ -44,6 +50,8 @@ To stop:
 
 
 ### Docker reset (short version)
+
+If build context still shows multi-GB transfer after pulling updates, that is usually local files leaking into context (not the number of git commits). This repo now uses a default-deny `.dockerignore` allowlist to avoid that.
 
 If you want a clean seeded DB (for example, to wipe old test chats), reset containers + volumes and start again. This clears the persisted `backend-instance` volume and recreates the app from scratch.
 
