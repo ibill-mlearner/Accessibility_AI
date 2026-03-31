@@ -49,19 +49,14 @@ To stop:
 - Press `Ctrl + C` in the terminal where Compose is running.
 
 
-### Container troubleshooting (missing `/app/...` files)
+### Docker reset (short version)
 
-If `docker compose build` shows multi-GB context transfer (for example `transferring context: 10+GB`), that usually means a local dependency folder or workspace symlink is leaking into the build context. This repo now ignores `**/node_modules` and `**/accessibility-ai-workspace` in `.dockerignore`.
-
-If Docker logs show missing files such as `/app/AccessBackEnd/manage.py` or `/app/AccessAppFront/package.json`, run:
+If you want a clean seeded DB (for example, to wipe old test chats), reset containers + volumes and start again. This clears the persisted `backend-instance` volume and recreates the app from scratch.
 
 ```bash
 docker compose down --remove-orphans --volumes
-docker compose build --no-cache
-docker compose up
+docker compose up --build
 ```
-
-The Docker startup runner prints diagnostics and fails fast if those files are missing, so you can see exactly what exists under `/app` before startup exits.
 
 ### Seeded login for local Docker
 
