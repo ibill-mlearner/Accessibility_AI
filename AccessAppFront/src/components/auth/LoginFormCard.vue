@@ -3,9 +3,10 @@
     <div class="card-body d-grid" style="grid-template-columns: 1fr 1fr auto; gap: 8px">
       <input
         class="form-control"
-        :value="username"
-        @input="$emit('update:username', $event.target.value)"
-        placeholder="Username . . ."
+        :value="email"
+        @input="$emit('update:email', $event.target.value)"
+        type="email"
+        placeholder="Email . . ."
       />
       <input
         class="form-control"
@@ -21,9 +22,9 @@
 
 <script setup>
 defineProps({
-  username: { type: String, default: '' },
+  email: { type: String, default: '' },
   password: { type: String, default: '' }
 })
 
-defineEmits(['submit', 'update:username', 'update:password'])
+defineEmits(['submit', 'update:email', 'update:password'])
 </script>
