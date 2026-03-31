@@ -2,9 +2,12 @@
   <section class="d-flex flex-column gap-3">
     <header class="card shadow-sm">
       <div class="card-body">
-        <h2 class="h4 mb-1">Profile</h2>
-        <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
-        <div class="mt-3" style="max-width: 18rem;">
+        <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
+          <div>
+            <h2 class="h4 mb-1">Profile</h2>
+            <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
+          </div>
+          <div style="min-width: 13rem;">
           <label for="profileFontSize" class="form-label small text-uppercase text-muted mb-1">Font size</label>
           <select
             id="profileFontSize"
@@ -17,6 +20,7 @@
               {{ size.label }}
             </option>
           </select>
+          </div>
         </div>
       </div>
     </header>
@@ -153,7 +157,6 @@ const fontSizeFeatures = computed(() =>
 const fontSizeOptions = computed(() =>
   fontSizeFeatures.value.map((feature) => ({
     value: String(feature.font_size_px),
-    featureId: Number(feature.id),
     label: `${feature.font_size_px}px`
   }))
 )
@@ -170,6 +173,18 @@ watch(
     selectedFontSize.value = activeFontSize ? String(activeFontSize.font_size_px) : ''
   },
   { immediate: true, deep: true }
+)
+
+watch(
+  selectedFontSize,
+  (value) => {
+    if (!value) {
+      document.documentElement.style.removeProperty('font-size')
+      return
+    }
+    document.documentElement.style.fontSize = `${Number(value)}px`
+  },
+  { immediate: true }
 )
 
 onMounted(async () => {
