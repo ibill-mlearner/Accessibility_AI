@@ -51,6 +51,8 @@ To stop:
 
 ### Container troubleshooting (missing `/app/...` files)
 
+If `docker compose build` shows multi-GB context transfer (for example `transferring context: 10+GB`), that usually means a local dependency folder or workspace symlink is leaking into the build context. This repo now ignores `**/node_modules` and `**/accessibility-ai-workspace` in `.dockerignore`.
+
 If Docker logs show missing files such as `/app/AccessBackEnd/manage.py` or `/app/AccessAppFront/package.json`, run:
 
 ```bash
