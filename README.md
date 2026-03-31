@@ -13,6 +13,12 @@ If you only need to run the project, use **one command** from the repository roo
 docker compose up --build
 ```
 
+If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
+
+```bash
+docker compose up --build
+```
+
 After the first successful build, you can restart the existing app container without rebuilding dependencies by running:
 
 ```bash
@@ -22,8 +28,8 @@ docker compose up
 That command does all of this automatically:
 1. Builds the image from the root `Dockerfile`.
 2. Starts one container defined in `docker-compose.yml`.
-3. Runs `/usr/local/bin/start_dev_stack.sh` inside the container.
-4. The script initializes the DB and starts backend + frontend dev servers.
+3. Runs the Docker image default command (`python3 /app/scripts/docker/dev_stack_runner.py`).
+4. The Python runner initializes DB, verifies backend health, runs a login smoke check, and then starts backend + frontend dev servers.
 
 
 Open in your browser:
@@ -41,6 +47,34 @@ docker compose exec app curl -sS http://127.0.0.1:5000/api/v1/health
 
 To stop:
 - Press `Ctrl + C` in the terminal where Compose is running.
+
+
+### Container troubleshooting (missing `/app/...` files)
+
+If `docker compose build` shows multi-GB context transfer (for example `transferring context: 10+GB`), that usually means a local dependency folder or workspace symlink is leaking into the build context. This repo now ignores `**/node_modules` and `**/accessibility-ai-workspace` in `.dockerignore`.
+
+If Docker logs show missing files such as `/app/AccessBackEnd/manage.py` or `/app/AccessAppFront/package.json`, run:
+
+```bash
+docker compose down --remove-orphans --volumes
+docker compose build --no-cache
+docker compose up
+```
+
+The Docker startup runner prints diagnostics and fails fast if those files are missing, so you can see exactly what exists under `/app` before startup exits.
+
+### Seeded login for local Docker
+
+After startup, sign in with:
+- Email: `admin.seed@example.com`
+- Password: `Password123!`
+
+Run the containerized login E2E test (requires Docker):
+
+```bash
+pytest AccessBackEnd/tests/integration/test_container_login_e2e.py -s
+```
+
 
 ## Windows shortcut
 
@@ -93,4 +127,4 @@ This now runs the same single Docker Compose command (`docker compose up --build
 - Backend docs index: `AccessBackEnd/docs/README.md`
 - AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
 - AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
-- Docker startup script: `scripts/docker/start_dev_stack.sh`
+- Docker startup runner: `scripts/docker/dev_stack_runner.py`
