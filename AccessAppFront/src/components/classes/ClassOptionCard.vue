@@ -1,28 +1,23 @@
 <template>
-  <OptionCard :description="item.description">
-    <template #selector>
-      <OptionSelector
-        :name="name"
-        :label="item.name"
-        :checked="checked"
-        @change="$emit('select', item.id)"
-       />
-    </template>
-    <template #action>
-      <button class="btn btn-outline-primary">{{ actionLabel }}</button>
-    </template>
-  </OptionCard>
+  <article
+    :class="['card', 'shadow-sm', checked ? 'border-primary' : '']"
+    role="button"
+    tabindex="0"
+    @click="$emit('select', item.id)"
+    @keydown.enter.prevent="$emit('select', item.id)"
+    @keydown.space.prevent="$emit('select', item.id)"
+  >
+    <div class="card-body">
+      <h4 class="h6 mb-2">{{ item.name }}</h4>
+      <p class="text-muted mb-0">{{ item.description }}</p>
+    </div>
+  </article>
 </template>
 
 <script setup>
-import OptionCard from '../ui/OptionCard.vue'
-import OptionSelector from '../ui/OptionSelector.vue'
-
 defineProps({
   item: { type: Object, required: true },
-  checked: { type: Boolean, default: false },
-  actionLabel: { type: String, default: '' },
-  name: { type: String, default: 'class' }
+  checked: { type: Boolean, default: false }
 })
 
 defineEmits(['select'])

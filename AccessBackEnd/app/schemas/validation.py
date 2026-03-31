@@ -29,12 +29,20 @@ class FeaturePayloadSchema(Schema):
     title = fields.Str(required=True)
     details = fields.Str(required=True)
     active = fields.Bool(required=False, load_default=True)
+    displayable = fields.Bool(required=False, load_default=True)
+    font_size_px = fields.Int(required=False, allow_none=True)
+    font_family = fields.Str(required=False, allow_none=True)
+    color_family = fields.Str(required=False, allow_none=True)
 
 
 class PartialFeaturePayloadSchema(Schema):
     title = fields.Str(required=False)
     details = fields.Str(required=False)
     active = fields.Bool(required=False)
+    displayable = fields.Bool(required=False)
+    font_size_px = fields.Int(required=False, allow_none=True)
+    font_family = fields.Str(required=False, allow_none=True)
+    color_family = fields.Str(required=False, allow_none=True)
 
 
 class MessagePayloadSchema(Schema):

@@ -47,6 +47,10 @@ def create_feature():
         title=payload['title'],
         details=payload['details'],
         active=payload['active'],
+        displayable=payload["displayable"],
+        font_size_px=payload.get("font_size_px"),
+        font_family=payload.get("font_family"),
+        color_family=payload.get("color_family"),
     )
     if not feature.title:
         raise BadRequestError("title is required")

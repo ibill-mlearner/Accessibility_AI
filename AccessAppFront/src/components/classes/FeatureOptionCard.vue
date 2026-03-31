@@ -1,20 +1,25 @@
 <template>
-  <OptionCard :description="featureDescription">
-    <template #selector>
-      <OptionSelector
-        type="checkbox"
-        :name="name"
-        :label="featureLabel"
-        :checked="isActive"
-        @change="onToggle"
-      />
-    </template>
-  </OptionCard>
+  <article :class="['card', 'shadow-sm', isActive ? 'border-primary' : '']">
+    <div class="card-body d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-start">
+      <div>
+        <h4 class="h6 mb-1">{{ featureLabel }}</h4>
+        <p class="text-muted mb-0">{{ featureDescription }}</p>
+      </div>
+      <div class="pt-1">
+        <OptionSelector
+          type="checkbox"
+          :name="name"
+          :label="'Enabled'"
+          :checked="isActive"
+          @change="onToggle"
+        />
+      </div>
+    </div>
+  </article>
 </template>
 
 <script setup>
 import { computed } from 'vue';
-import OptionCard from '../ui/OptionCard.vue'
 import OptionSelector from '../ui/OptionSelector.vue'
 
 const props = defineProps({
