@@ -25,6 +25,8 @@ class Accommodation(Base):
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     displayable: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     font_size_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    font_family: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    color_family: Mapped[str | None] = mapped_column(String(80), nullable=True)
 
     prompt_links: Mapped[list["AccommodationSystemPrompt"]] = relationship(
         back_populates="accommodation", cascade="all, delete-orphan"
