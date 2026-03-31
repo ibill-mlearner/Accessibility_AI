@@ -11,7 +11,8 @@ RUN pip3 install --no-cache-dir \
     Flask Flask-Cors Flask-JWT-Extended Flask-Login Flask-Migrate Flask-SQLAlchemy marshmallow
 
 COPY scripts/docker/start_dev_stack.sh /usr/local/bin/start_dev_stack.sh
-RUN chmod +x /usr/local/bin/start_dev_stack.sh
+RUN sed -i 's/\r$//' /usr/local/bin/start_dev_stack.sh \
+    && chmod +x /usr/local/bin/start_dev_stack.sh
 
 EXPOSE 5000 5173
 CMD ["/usr/local/bin/start_dev_stack.sh"]

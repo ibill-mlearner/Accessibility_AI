@@ -19,9 +19,16 @@ That command does all of this automatically:
 3. Runs `/usr/local/bin/start_dev_stack.sh` inside the container.
 4. The script initializes the DB and starts backend + frontend dev servers.
 
+
 Open:
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:5000`
+- Frontend UI: `http://localhost:5173`
+- Backend API base: `http://localhost:5000`
+- Backend health endpoint: `http://localhost:5000/api/v1/health`
+
+Quick API check after startup:
+```bash
+curl http://localhost:5000/api/v1/health
+```
 
 To stop:
 - Press `Ctrl + C` in the terminal where Compose is running.
