@@ -1,15 +1,32 @@
-.git
-.gitignore
-**/__pycache__/
-**/*.pyc
-**/*.pyo
-**/*.pyd
-**/.pytest_cache/
-**/.mypy_cache/
-**/.DS_Store
-node_modules/
-AccessAppFront/node_modules/
-AccessAppFront/dist/
-.venv/
-*.log
-AccessBackEnd/tests/
+# Default-deny docker build context to prevent local large files from being sent.
+**
+
+# Build metadata
+!Dockerfile
+!.dockerignore
+!package.json
+
+# Backend runtime files
+!AccessBackEnd/manage.py
+!AccessBackEnd/requirements.txt
+!AccessBackEnd/app/
+!AccessBackEnd/app/**
+!AccessBackEnd/instance/
+!AccessBackEnd/instance/*.sql
+!AccessBackEnd/instance/config.py
+
+# Frontend runtime files
+!AccessAppFront/package.json
+!AccessAppFront/package-lock.json
+!AccessAppFront/index.html
+!AccessAppFront/vite.config.js
+!AccessAppFront/src/
+!AccessAppFront/src/**
+!AccessAppFront/public/
+!AccessAppFront/public/**
+
+# Docker runtime bootstrap
+!scripts/docker/dev_stack_runner.py
+# Explicitly exclude local model caches/checkpoints
+AccessBackEnd/app/services/ai_pipeline_thin/models/
+AccessBackEnd/instance/models/
