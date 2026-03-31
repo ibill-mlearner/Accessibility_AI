@@ -16,25 +16,39 @@ docker compose up --build
 That command does all of this automatically:
 1. Builds the image from the root `Dockerfile`.
 2. Starts one container defined in `docker-compose.yml`.
-3. Runs `/usr/local/bin/start_dev_stack.sh` inside the container.
-4. The script initializes the DB and starts backend + frontend dev servers.
+3. Runs the startup command defined directly in `docker-compose.yml`.
+4. That command initializes DB, starts backend internally, and starts the Vite frontend server.
 
-Open:
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:5000`
+
+Open in your browser:
+- **Use this for the app UI:** `http://localhost:5173`
+
+Important:
+- The backend API is intentionally not published to your host in Docker Compose.
+- Frontend API calls go through the Vite dev server proxy (`/api` -> `127.0.0.1:5000` inside container).
+- Docker logs may also show a container IP; still use `localhost:5173` from your host machine.
+
+Optional internal API check (from inside the container):
+```bash
+docker compose exec app curl -sS http://127.0.0.1:5000/api/v1/health
+```
 
 To stop:
 - Press `Ctrl + C` in the terminal where Compose is running.
 
-## Windows shortcut
-
-If you prefer a Windows command, use:
-
-```cmd
-scripts\docker\run_all.cmd
+If frontend is not reachable on `http://localhost:5173`, reset containers and volumes once:
+```bash
+docker compose down -v
+docker compose up --build
 ```
 
-This now runs the same single Docker Compose command (`docker compose up --build`) with no GPU prompts and no extra steps.
+## Windows usage
+
+Use the same command in PowerShell or Command Prompt:
+
+```powershell
+docker compose up --build
+```
 
 ## Architecture at a glance
 
@@ -77,4 +91,3 @@ This now runs the same single Docker Compose command (`docker compose up --build
 - Backend docs index: `AccessBackEnd/docs/README.md`
 - AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
 - AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
-- Docker startup script: `scripts/docker/start_dev_stack.sh`

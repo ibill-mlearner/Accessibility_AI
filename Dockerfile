@@ -7,11 +7,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --break-system-packages --no-cache-dir \
     Flask Flask-Cors Flask-JWT-Extended Flask-Login Flask-Migrate Flask-SQLAlchemy marshmallow
 
-COPY scripts/docker/start_dev_stack.sh /usr/local/bin/start_dev_stack.sh
-RUN chmod +x /usr/local/bin/start_dev_stack.sh
-
 EXPOSE 5000 5173
-CMD ["/usr/local/bin/start_dev_stack.sh"]
+CMD ["bash"]
