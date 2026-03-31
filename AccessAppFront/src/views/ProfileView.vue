@@ -94,10 +94,10 @@
             <li
               v-for="course in classStore.classes.slice(0, 5)"
               :key="course.id"
-              class="list-group-item px-0 d-flex justify-content-between gap-3"
+              class="list-group-item px-0 d-flex align-items-center gap-2"
             >
-              <span class="text-truncate">{{ course.name }}</span>
               <span class="badge text-bg-light border">{{ classLabel(course) }}</span>
+              <span class="text-truncate">{{ course.name }}</span>
             </li>
           </ul>
         </div>
