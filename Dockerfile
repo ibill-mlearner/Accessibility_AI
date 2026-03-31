@@ -20,7 +20,8 @@ RUN npm install
 WORKDIR /app
 COPY AccessBackEnd /app/AccessBackEnd
 COPY AccessAppFront /app/AccessAppFront
+COPY scripts/docker/dev_stack_runner.py /app/scripts/docker/dev_stack_runner.py
 
 EXPOSE 5000 5173
 
-CMD ["sh", "-c", "python3 /app/AccessBackEnd/manage.py & npm --prefix /app/AccessAppFront run dev -- --host 0.0.0.0 --port 5173"]
+CMD ["python3", "/app/scripts/docker/dev_stack_runner.py"]
