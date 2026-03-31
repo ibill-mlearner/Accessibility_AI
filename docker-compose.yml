@@ -1,18 +1,13 @@
 name: accessibility-ai
 
 services:
-  app:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: accessibility-ai-dev
-    command:
-      - /bin/bash
-      - -lc
-      - |
-        python3 /app/AccessBackEnd/manage.py --init-db --init-only
-        python3 /app/AccessBackEnd/manage.py &
-        exec npm --prefix /app/AccessAppFront run dev -- --host 0.0.0.0 --port 5173 --strictPort
+    container_name: accessibility-ai-backend
+    working_dir: /app
+    command: python3 /app/AccessBackEnd/manage.py
     environment:
       APP_CONFIG: development
       FLASK_ENV: development
@@ -21,10 +16,24 @@ services:
       CORS_ORIGINS: http://localhost:5173
     volumes:
       - .:/app
-      - frontend-node-modules:/app/AccessAppFront/node_modules
       - backend-instance:/app/AccessBackEnd/instance
     ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: accessibility-ai-frontend
+    working_dir: /app
+    command: npm --prefix /app/AccessAppFront run dev -- --host 0.0.0.0 --port 5173 --strictPort
+    volumes:
+      - .:/app
+      - frontend-node-modules:/app/AccessAppFront/node_modules
+    ports:
       - "5173:5173"
+    depends_on:
+      - backend
 
 volumes:
   frontend-node-modules:
