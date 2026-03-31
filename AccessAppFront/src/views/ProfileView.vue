@@ -1,54 +1,28 @@
 <template>
   <section class="d-flex flex-column gap-3">
     <header class="card shadow-sm">
-      <div class="card-body">
-        <h2 class="h4 mb-1">Profile</h2>
-        <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
-        <div class="mt-3 d-flex flex-column gap-3" style="max-width: 38rem;">
-          <div style="max-width: 18rem;">
-            <label for="profileFontSize" class="form-label small text-uppercase text-muted mb-1">Font size</label>
-            <select
-              id="profileFontSize"
-              v-model="selectedFontSize"
-              class="form-select form-select-sm"
-              @change="applyFontSizePreference"
-            >
-              <option value="">Default</option>
-              <option v-for="size in fontSizeOptions" :key="size.value" :value="size.value">
-                {{ size.label }}
-              </option>
-            </select>
-          </div>
-
+      <div class="card-body d-flex flex-column gap-3">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3">
           <div>
-            <p class="form-label small text-uppercase text-muted mb-2">Colorblind features</p>
-            <div class="d-flex flex-wrap gap-2">
-              <label
-                v-for="option in colorblindOptions"
-                :key="option.value"
-                :class="[
-                  'btn',
-                  'btn-sm',
-                  'rounded-pill',
-                  selectedColorblindType === option.value ? 'btn-primary' : 'btn-outline-secondary'
-                ]"
-              >
-                <input
-                  class="visually-hidden"
-                  type="radio"
-                  name="profileColorblindType"
-                  :value="option.value"
-                  :checked="selectedColorblindType === option.value"
-                  @change="selectedColorblindType = option.value"
-                />
-                {{ option.label }}
-              </label>
-            </div>
-            <p class="small text-muted mt-2 mb-0">
-              Placeholder selector options for future mapped accommodation records.
-            </p>
+            <h2 class="h4 mb-1">Profile</h2>
+            <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
           </div>
+          <ProfileFontSizeSelect
+            v-model="selectedFontSize"
+            :options="fontSizeOptions"
+            @change="applyFontSizePreference"
+          />
         </div>
+
+        <ProfileColorblindFeatures
+          v-model="selectedColorblindType"
+          :options="colorblindOptions"
+        />
+
+        <ProfileFontFamilyFeatures
+          v-model="selectedFontFamily"
+          :options="fontFamilyOptions"
+        />
       </div>
     </header>
 
@@ -138,6 +112,9 @@ import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { useClassStore } from '../stores/classStore'
 import { useFeatureStore } from '../stores/featureStore'
+import ProfileFontSizeSelect from '../components/profile/ProfileFontSizeSelect.vue'
+import ProfileColorblindFeatures from '../components/profile/ProfileColorblindFeatures.vue'
+import ProfileFontFamilyFeatures from '../components/profile/ProfileFontFamilyFeatures.vue'
 
 const auth = useAuthStore()
 const chatStore = useChatStore()
@@ -147,12 +124,22 @@ const featureStore = useFeatureStore()
 const isLoading = computed(() => !auth.sessionChecked)
 const selectedFontSize = ref('')
 const selectedColorblindType = ref('none')
+const selectedFontFamily = ref('default')
 const colorblindOptions = [
   { value: 'none', label: 'None' },
   { value: 'protanopia', label: 'Protanopia' },
   { value: 'deuteranopia', label: 'Deuteranopia' },
   { value: 'tritanopia', label: 'Tritanopia' },
   { value: 'achromatopsia', label: 'Achromatopsia' }
+]
+
+const fontFamilyOptions = [
+  { value: 'default', label: 'Default', family: 'inherit' },
+  { value: 'opendyslexic', label: 'OpenDyslexic', family: 'OpenDyslexic, Arial, sans-serif' },
+  { value: 'atkinson', label: 'Atkinson Hyperlegible', family: 'Atkinson Hyperlegible, Arial, sans-serif' },
+  { value: 'arial', label: 'Arial', family: 'Arial, Helvetica, sans-serif' },
+  { value: 'verdana', label: 'Verdana', family: 'Verdana, Geneva, sans-serif' },
+  { value: 'monospace', label: 'Monospace', family: 'ui-monospace, SFMono-Regular, Menlo, monospace' }
 ]
 const currentUserId = computed(() => auth.currentUser?.id ?? auth.user?.id ?? null)
 const normalizedRole = computed(() => String(auth.role || '').toLowerCase())
