@@ -11,8 +11,14 @@ WORKDIR /app
 COPY AccessBackEnd/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
+COPY package.json /app/package.json
 COPY AccessAppFront/package.json AccessAppFront/package-lock.json /app/AccessAppFront/
-RUN npm --prefix /app/AccessAppFront ci
+WORKDIR /app/AccessAppFront
+RUN npm install
+
+WORKDIR /app
+COPY AccessBackEnd /app/AccessBackEnd
+COPY AccessAppFront /app/AccessAppFront
 
 EXPOSE 5000 5173
 CMD ["bash"]

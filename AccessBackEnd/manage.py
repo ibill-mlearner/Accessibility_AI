@@ -3,10 +3,8 @@ from __future__ import annotations
 import argparse
 import os
 import sqlite3
-import sys
 from pathlib import Path
 
-from sqlalchemy import create_engine, inspect as sa_inspect
 from sqlalchemy.engine import make_url
 
 from app import build_ai_service, create_app
@@ -92,27 +90,6 @@ def seed_all_from_sql(database_uri: str) -> bool:
     return True
 
 
-def database_has_any_tables(database_uri: str) -> bool:
-    try:
-        engine = create_engine(database_uri)
-        with engine.connect() as connection:
-            return bool(sa_inspect(connection).get_table_names())
-    except Exception:
-        return False
-
-
-def prompt_for_seed_users(database_uri: str) -> None:
-    if not (sys.stdin.isatty() and sys.stdout.isatty()):
-        print("Skipping interactive seed prompt (non-interactive session).")
-        return
-
-    answer = input("Seed default baseline data now? [y/N]: ").strip().lower()
-    if answer in {"y", "yes"}:
-        seed_all_from_sql(database_uri)
-    else:
-        print("Skipping seed data.")
-
-
 def should_run_init_db_for_process(app) -> bool:
     """Run `--init-db` once per startup, including non-reloader debug runs.
 
@@ -150,28 +127,14 @@ def run_init_db_flow(app) -> None:
         return
 
     database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
-    db_path = sqlite_database_path(database_uri)
-    db_missing_before_init = db_path is not None and not db_path.exists()
-    had_tables_before_init = database_has_any_tables(database_uri)
 
     print(f"Resolved SQLALCHEMY_DATABASE_URI: {database_uri}")
     print("--init-db requested: running schema creation (create_all).")
     init_flask_database(app)
     print("Schema creation completed.")
-
-    if db_missing_before_init:
-        print("Database file was missing before init. Running automatic first-run seed scripts.")
-        seed_ran = seed_all_from_sql(database_uri)
-        print(f"Seed scripts {'ran' if seed_ran else 'did not run'}.")
-        return
-
-    if had_tables_before_init:
-        print("Existing database detected. --init-db allows explicit reseed on existing DBs.")
-    else:
-        print("Database existed without tables. Prompting for optional seed scripts.")
-
-    prompt_for_seed_users(database_uri)
-    print("Seed scripts executed only if confirmed in the interactive prompt.")
+    print("Running seed scripts.")
+    seed_ran = seed_all_from_sql(database_uri)
+    print(f"Seed scripts {'ran' if seed_ran else 'did not run'}.")
 
 
 def build_runtime_app(args: argparse.Namespace):
