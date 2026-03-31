@@ -10,7 +10,6 @@ services:
       - /bin/bash
       - -lc
       - |
-        python3 -m pip install -r /app/AccessBackEnd/requirements.txt
         npm --prefix /app/AccessAppFront install
         python3 /app/AccessBackEnd/manage.py --init-db --init-only
         python3 /app/AccessBackEnd/manage.py &
@@ -24,10 +23,8 @@ services:
     volumes:
       - .:/app
       - frontend-node-modules:/app/AccessAppFront/node_modules
-      - backend-instance:/app/AccessBackEnd/instance
     ports:
       - "5173:5173"
 
 volumes:
   frontend-node-modules:
-  backend-instance:
