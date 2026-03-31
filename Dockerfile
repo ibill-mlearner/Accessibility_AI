@@ -20,9 +20,8 @@ RUN npm install
 WORKDIR /app
 COPY AccessBackEnd /app/AccessBackEnd
 COPY AccessAppFront /app/AccessAppFront
-COPY scripts/docker/start_dev_stack.sh /usr/local/bin/start_dev_stack.sh
-RUN chmod +x /usr/local/bin/start_dev_stack.sh
+COPY scripts/docker/dev_stack_runner.py /app/scripts/docker/dev_stack_runner.py
 
 EXPOSE 5000 5173
 
-CMD ["/usr/local/bin/start_dev_stack.sh"]
+CMD ["python3", "/app/scripts/docker/dev_stack_runner.py"]

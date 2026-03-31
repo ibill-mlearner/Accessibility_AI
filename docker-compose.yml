@@ -7,7 +7,6 @@ services:
       dockerfile: Dockerfile
     container_name: accessibility-ai
     working_dir: /app
-    command: ["/usr/local/bin/start_dev_stack.sh"]
     environment:
       APP_CONFIG: development
       FLASK_ENV: development
