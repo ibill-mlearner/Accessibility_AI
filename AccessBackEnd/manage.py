@@ -36,6 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--init-db", action="store_true", help="Initialize database tables before starting the server")
+    parser.add_argument("--init-only", action="store_true", help="Run one-time initialization flow and exit without starting the server")
     return parser
 
 
