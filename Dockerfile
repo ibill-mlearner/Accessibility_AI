@@ -12,8 +12,15 @@ WORKDIR /app
 COPY AccessBackEnd/requirements.txt /app/AccessBackEnd/requirements.txt
 RUN pip install --no-cache-dir -r /app/AccessBackEnd/requirements.txt
 
-COPY AccessAppFront/package*.json /app/AccessAppFront/
-RUN npm --prefix /app/AccessAppFront ci
+COPY AccessAppFront/package.json AccessAppFront/package-lock.json /app/AccessAppFront/
+WORKDIR /app/AccessAppFront
+
+
+COPY package.json /app/package.json
+COPY AccessAppFront/package.json AccessAppFront/package-lock.json /app/AccessAppFront/
+WORKDIR /app/AccessAppFront
+RUN npm install
+
 
 COPY AccessBackEnd /app/AccessBackEnd
 COPY AccessAppFront /app/AccessAppFront
