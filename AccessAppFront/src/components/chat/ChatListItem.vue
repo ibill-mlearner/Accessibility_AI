@@ -25,11 +25,7 @@
           <span aria-hidden="true">⋯</span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end" :aria-labelledby="dropdownId">
-          <li>
-            <p class="dropdown-item-text mb-1 text-muted small">
-              Temporary demo options. These items show where future chat actions can live.
-            </p>
-          </li>
+          <!-- Temporary demo options: placeholder location for future chat actions. -->
           <li><span class="dropdown-item-text">Edit</span></li>
           <li><span class="dropdown-item-text">Archive</span></li>
           <li><hr class="dropdown-divider" /></li>
