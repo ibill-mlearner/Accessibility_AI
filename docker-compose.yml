@@ -7,25 +7,6 @@ services:
       dockerfile: Dockerfile
     container_name: accessibility-ai
     working_dir: /app
-    command: >-
-      sh -lc '
-      set -eu;
-      if [ ! -f /app/AccessBackEnd/manage.py ]; then
-        echo "[compose-start] ERROR missing /app/AccessBackEnd/manage.py";
-        find /app -maxdepth 3 -type f | sed -n "1,80p";
-        exit 1;
-      fi;
-      if [ ! -f /app/AccessAppFront/package.json ]; then
-        echo "[compose-start] ERROR missing /app/AccessAppFront/package.json";
-        find /app -maxdepth 3 -type f | sed -n "1,80p";
-        exit 1;
-      fi;
-      python3 /app/AccessBackEnd/manage.py --init-db --host 0.0.0.0 --port 5000 &
-      BACKEND_PID=$!;
-      cleanup(){ kill "$BACKEND_PID" 2>/dev/null || true; };
-      trap cleanup INT TERM EXIT;
-      npm --prefix /app/AccessAppFront run dev -- --host 0.0.0.0 --port 5173 --strictPort
-      '
     environment:
       APP_CONFIG: development
       FLASK_ENV: development
