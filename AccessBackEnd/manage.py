@@ -4,11 +4,11 @@ import sqlite3
 import sys
 from pathlib import Path
 
+from sqlalchemy import create_engine, inspect as sa_inspect
 from sqlalchemy.engine import make_url
 
 from app import create_app, build_ai_service
 from app.db import init_flask_database
-from app.extensions import db
 
 
 _INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
@@ -36,6 +36,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--init-db", action="store_true", help="Initialize database tables before starting the server")
+    parser.add_argument("--init-only", action="store_true", help="Run init tasks and exit without starting the server")
     return parser
 
 
@@ -73,6 +74,15 @@ def _seed_all_from_sql(database_uri: str) -> bool:
 
     print("Seeded baseline data.")
     return True
+
+
+def _database_has_any_tables(database_uri: str) -> bool:
+    try:
+        engine = create_engine(database_uri)
+        with engine.connect() as connection:
+            return bool(sa_inspect(connection).get_table_names())
+    except Exception:
+        return False
 
 
 def _prompt_for_seed_users(database_uri: str) -> None:
@@ -119,6 +129,10 @@ def build_runtime_app(args: argparse.Namespace):
 
     if args.init_db and _should_run_init_db_for_process(app):
         database_uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        if _database_has_any_tables(database_uri):
+            print("Database already has tables. Skipping init-db/seed flow.")
+            return app
+
         db_path = _sqlite_database_path(database_uri)
         db_missing_before_init = db_path is not None and not db_path.exists()
 
@@ -133,19 +147,13 @@ def build_runtime_app(args: argparse.Namespace):
     return app
 
 
-app = create_app()
-
-
-@app.shell_context_processor
-def _shell_context():
-    return {"db": db}
-
-
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
     runtime_app = build_runtime_app(args)
-    runtime_app.run(host=args.host, port=args.port)
+    if args.init_only:
+        return
+    runtime_app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
 
 
 if __name__ == "__main__":

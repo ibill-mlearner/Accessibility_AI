@@ -6,20 +6,27 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: accessibility-ai-dev
-    command: ["/usr/local/bin/start_dev_stack.sh"]
+    command:
+      - /bin/bash
+      - -lc
+      - |
+        npm --prefix /app/AccessAppFront install
+        python3 /app/AccessBackEnd/manage.py --init-db --init-only || echo "WARNING: backend init-db failed; continuing."
+        python3 /app/AccessBackEnd/manage.py &
+        echo "Frontend URL: http://localhost:5173"
+        echo "Backend URL (internal): http://localhost:5000"
+        exec npm --prefix /app/AccessAppFront run dev -- --host 0.0.0.0 --port 5173 --strictPort
     environment:
       APP_CONFIG: development
       FLASK_ENV: development
       FLASK_DEBUG: "1"
       SQLALCHEMY_DATABASE_URI: sqlite:////app/AccessBackEnd/instance/accessibility_ai.db
       CORS_ORIGINS: http://localhost:5173
-      VITE_API_BASE_URL: http://localhost:5000
     volumes:
       - .:/app
       - frontend-node-modules:/app/AccessAppFront/node_modules
       - backend-instance:/app/AccessBackEnd/instance
     ports:
-      - "5000:5000"
       - "5173:5173"
 
 volumes:
