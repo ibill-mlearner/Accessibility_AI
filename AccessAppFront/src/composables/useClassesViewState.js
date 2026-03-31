@@ -33,12 +33,6 @@ export function useClassesViewState({ auth, classStore }) {
     return 'Student access: view and select classes.'
   })
 
-  const primaryActionLabel = computed(() => {
-    if (canDeleteClass.value) return 'Manage class'
-    if (canEditClass.value) return 'Edit details'
-    return 'View details'
-  })
-
   const fetchLoading = computed(() => Boolean(classStore.actionStatus?.fetchClasses?.loading))
   const fetchError = computed(() => classStore.actionStatus?.fetchClasses?.error || '')
 
@@ -94,7 +88,6 @@ export function useClassesViewState({ auth, classStore }) {
     canCreateClass,
     canDeleteClass,
     roleSummary,
-    primaryActionLabel,
     fetchLoading,
     fetchError,
     updateLoading,
