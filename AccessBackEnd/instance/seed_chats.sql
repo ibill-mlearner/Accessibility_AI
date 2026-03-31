@@ -6,7 +6,7 @@ INSERT INTO chats (title, model, class_id, user_id, ai_interaction_id)
 SELECT
   'Chicken Noodle Soup - Starter Chat',
   'huggingface_langchain',
-  (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1),
+  (SELECT id FROM classes WHERE name = 'BIOL 110: Foundations of Cell Biology' LIMIT 1),
   (SELECT id FROM users WHERE email = 'student.one.seed@example.com' LIMIT 1),
   NULL
 WHERE NOT EXISTS (
@@ -20,7 +20,7 @@ INSERT INTO chats (title, model, class_id, user_id, ai_interaction_id)
 SELECT
   'Chicken Noodle Soup - General User Chat',
   'huggingface_langchain',
-  (SELECT id FROM classes WHERE name = 'Soup Basics 101' LIMIT 1),
+  (SELECT id FROM classes WHERE name = 'CS 220: Data Structures and Algorithms' LIMIT 1),
   (SELECT id FROM users WHERE email = 'student.two.seed@example.com' LIMIT 1),
   NULL
 WHERE NOT EXISTS (
@@ -34,7 +34,7 @@ INSERT INTO chats (title, model, class_id, user_id, ai_interaction_id)
 SELECT
   'Chicken Noodle Soup - Instructor Demo',
   'huggingface_langchain',
-  (SELECT id FROM classes WHERE name = 'Soup Lab' LIMIT 1),
+  (SELECT id FROM classes WHERE name = 'MATH 251: Calculus I' LIMIT 1),
   (SELECT id FROM users WHERE email = 'instructor.one.seed@example.com' LIMIT 1),
   NULL
 WHERE NOT EXISTS (

@@ -6,6 +6,7 @@ def test_seed_enrollments_reference_seeded_class_names():
     classes_sql = (root / 'AccessBackEnd/instance/seed_classes.sql').read_text(encoding='utf-8')
     enroll_sql = (root / 'AccessBackEnd/instance/seed_user_class_enrollments.sql').read_text(encoding='utf-8')
 
-    assert 'Soup Basics 101' in classes_sql
-    assert 'Soup Lab' in classes_sql
-    assert "class_record.name IN ('Soup Basics 101', 'Soup Lab')" in enroll_sql
+    assert 'BIOL 110: Foundations of Cell Biology' in classes_sql
+    assert 'CS 220: Data Structures and Algorithms' in classes_sql
+    assert "'BIOL 110: Foundations of Cell Biology'" in enroll_sql
+    assert "'CS 220: Data Structures and Algorithms'" in enroll_sql
