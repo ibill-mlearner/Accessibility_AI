@@ -3,12 +3,12 @@ import api from '../services/api'
 import { setActionStatus, setActionError } from '../stores/helpers/actionStatus'
 import { deriveSelectedId } from '../stores/helpers/selection'
 import { toResourceError } from '../stores/helpers/apiErrors'
-import { useAuthStore } from './authStore'
 
 export const useClassStore = defineStore('classes', {
   state: () => ({
     selectedClassId: null,
     classes: [],
+    instructors: [],
     actionStatus: {}
   }),
   getters: {
@@ -28,6 +28,7 @@ export const useClassStore = defineStore('classes', {
     resetClassState() {
       this.selectedClassId = null
       this.classes = []
+      this.instructors = []
       this.actionStatus = {}
     },
     reconcileSelection() {
@@ -49,6 +50,18 @@ export const useClassStore = defineStore('classes', {
         })
         setActionError(this.actionStatus, key, wrapped.message)
         throw wrapped
+      }
+    },
+    async fetchInstructors() {
+      const key = 'fetchInstructors'
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.get('/api/v1/classes/instructors')
+        this.instructors = Array.isArray(response?.data) ? response.data : []
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to load instructors.')
+        throw new Error('Unable to load instructors.')
       }
     },
     async createClass(payload) {

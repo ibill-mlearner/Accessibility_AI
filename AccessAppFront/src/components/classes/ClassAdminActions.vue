@@ -19,10 +19,18 @@
           :disabled="isSubmitting"
         />
 
-        <label class="form-label mb-0" for="new-class-role-input">Role</label>
-        <select id="new-class-role-input" v-model="createForm.role" class="form-select" :disabled="isSubmitting">
-          <option value="student">Student</option>
-          <option value="instructor">Instructor</option>
+        <label class="form-label mb-0" for="new-class-instructor-input">Instructor email</label>
+        <select
+          id="new-class-instructor-input"
+          v-model.number="createForm.instructor_id"
+          class="form-select"
+          :disabled="isSubmitting"
+          required
+        >
+          <option :value="null" disabled>Select an instructor</option>
+          <option v-for="instructor in instructors" :key="instructor.id" :value="instructor.id">
+            {{ instructor.email }}
+          </option>
         </select>
 
         <button class="btn btn-outline-primary align-self-start" type="submit" :disabled="isSubmitting">
@@ -53,6 +61,7 @@ const props = defineProps({
   selectedClass: { type: Object, default: null },
   canCreate: { type: Boolean, default: false },
   canDelete: { type: Boolean, default: false },
+  instructors: { type: Array, default: () => [] },
   isSubmitting: { type: Boolean, default: false }
 })
 
@@ -61,22 +70,22 @@ const emit = defineEmits(['create', 'delete'])
 const createForm = reactive({
   name: '',
   description: '',
-  role: 'student'
+  instructor_id: null
 })
 
 function submitCreate() {
   const name = createForm.name.trim()
-  if (!name) return
+  if (!name || !createForm.instructor_id) return
 
   emit('create', {
     name,
     description: createForm.description.trim(),
-    role: createForm.role
+    instructor_id: createForm.instructor_id
   })
 
   createForm.name = ''
   createForm.description = ''
-  createForm.role = 'student'
+  createForm.instructor_id = null
 }
 
 function emitDelete() {

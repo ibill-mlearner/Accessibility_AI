@@ -61,6 +61,7 @@ class CourseClass(Base):
     # NOTE(ai-pipeline-thin): class descriptions are no longer injected into AI
     # system prompts; prompt composition is now based on guardrails + accessibility features.
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    # TODO: Decouple this single-owner link into a class-to-instructors association so one class can have many instructors.
     instructor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     active: Mapped[bool] = mapped_column(nullable=False, default=True)
 
