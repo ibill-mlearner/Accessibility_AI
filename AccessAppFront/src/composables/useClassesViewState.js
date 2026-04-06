@@ -53,6 +53,9 @@ export function useClassesViewState({ auth, classStore }) {
     } else {
       classStore.reconcileSelection()
     }
+    if (canCreateClass.value) {
+      await classStore.fetchInstructors()
+    }
   })
 
   // watch(

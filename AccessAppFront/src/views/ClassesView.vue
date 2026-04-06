@@ -32,6 +32,8 @@
       v-if="canEditClass"
       :selected-class="classStore.selectedClass"
       :can-edit="canEditClass"
+      :is-admin="canCreateClass"
+      :instructors="classStore.instructors"
       :is-saving="updateLoading"
       @save="handleUpdateClass"
     />
@@ -42,6 +44,7 @@
       :selected-class="classStore.selectedClass"
       :can-create="canCreateClass"
       :can-delete="canDeleteClass"
+      :instructors="classStore.instructors"
       :is-submitting="createLoading || deleteLoading"
       @create="handleCreateClass"
       @delete="handleDeleteClass"

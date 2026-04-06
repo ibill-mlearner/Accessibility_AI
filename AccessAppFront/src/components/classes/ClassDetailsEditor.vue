@@ -21,10 +21,19 @@
           :disabled="!canEdit || isSaving"
         />
 
-        <label class="form-label mb-0" for="class-role-input">Role</label>
-        <select id="class-role-input" v-model="form.role" class="form-select" :disabled="!canEdit || isSaving">
-          <option value="student">Student</option>
-          <option value="instructor">Instructor</option>
+        <label v-if="isAdmin" class="form-label mb-0" for="class-instructor-input">Instructor email</label>
+        <select
+          v-if="isAdmin"
+          id="class-instructor-input"
+          v-model.number="form.instructor_id"
+          class="form-select"
+          :disabled="!canEdit || isSaving"
+          required
+        >
+          <option :value="null" disabled>Select an instructor</option>
+          <option v-for="instructor in instructors" :key="instructor.id" :value="instructor.id">
+            {{ instructor.email }}
+          </option>
         </select>
 
         <button class="btn btn-primary align-self-start" type="submit" :disabled="!canEdit || isSaving">
@@ -41,6 +50,8 @@ import { reactive, watch } from 'vue'
 const props = defineProps({
   selectedClass: { type: Object, default: null },
   canEdit: { type: Boolean, default: false },
+  isAdmin: { type: Boolean, default: false },
+  instructors: { type: Array, default: () => [] },
   isSaving: { type: Boolean, default: false }
 })
 
@@ -49,7 +60,7 @@ const emit = defineEmits(['save'])
 const form = reactive({
   name: '',
   description: '',
-  role: 'student'
+  instructor_id: null
 })
 
 watch(
@@ -57,19 +68,20 @@ watch(
   (value) => {
     form.name = value?.name || ''
     form.description = value?.description || ''
-    form.role = value?.role || 'student'
+    form.instructor_id = value?.instructor_id ?? null
   },
   { immediate: true }
 )
 
 function submitUpdate() {
   if (!props.selectedClass || !props.canEdit) return
+  if (props.isAdmin && !form.instructor_id) return
   emit('save', {
     id: props.selectedClass.id,
     patch: {
       name: form.name.trim(),
       description: form.description.trim(),
-      role: form.role
+      ...(props.isAdmin ? { instructor_id: form.instructor_id } : {})
     }
   })
 }

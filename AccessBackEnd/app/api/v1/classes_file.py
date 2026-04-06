@@ -19,6 +19,22 @@ from ...utils.api_checker import _apply_class_mutations
 from ...utils.api_checker import _enforce_roles
 
 
+@api_v1_bp.get("/classes/instructors")
+@login_required
+def list_class_instructors():
+    denied = _enforce_roles("admin")
+    if denied is not None:
+        return denied
+    instructors = (
+        db.session.query(User)
+        .filter(User.role == "instructor")
+        .order_by(User.email.asc())
+        .all()
+    )
+    payload = [{"id": int(instructor.id), "email": instructor.email} for instructor in instructors]
+    return jsonify(payload), 200
+
+
 @api_v1_bp.get("/classes")
 @login_required
 def list_classes():
