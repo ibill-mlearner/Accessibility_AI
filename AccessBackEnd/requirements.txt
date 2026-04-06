@@ -11,3 +11,4 @@ langchain-core>=0.2,<1.0
 langchain-community>=0.2,<1.0
 torch>=2.2,<3.0
 marshmallow>=3.22,<4.0
+git+https://github.com/ibill-mlearner/ai-pipeline-thin.git

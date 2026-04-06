@@ -24,6 +24,7 @@ class AIPipelineGateway:
     @staticmethod
     def _load_ai_tool() -> Any:
         candidates = (
+            "ai_pipeline",
             "ai_pipeline_thin.ai_pipeline",
             "app.services.ai_pipeline_thin.ai_pipeline",
             "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline",
@@ -34,7 +35,7 @@ class AIPipelineGateway:
             except ModuleNotFoundError:
                 continue
         raise ModuleNotFoundError(
-            "No module named 'ai_pipeline_thin'. Install the ai runtime package or provide a local "
+            "No module named 'ai_pipeline'. Install the ai runtime package or provide a local "
             "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline module."
         )
 

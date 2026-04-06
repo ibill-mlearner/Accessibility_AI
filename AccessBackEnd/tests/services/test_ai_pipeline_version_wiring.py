@@ -24,14 +24,14 @@ def test_gateway_run_interaction_surfaces_missing_ai_pipeline_runtime(monkeypatc
     monkeypatch.setattr(
         AIPipelineGateway,
         "_load_ai_tool",
-        staticmethod(lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'ai_pipeline_thin'"))),
+        staticmethod(lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'ai_pipeline'"))),
     )
 
     app = create_app("testing")
     service = app.extensions["ai_service"]
 
     with app.app_context():
-        with pytest.raises(ModuleNotFoundError, match="ai_pipeline_thin"):
+        with pytest.raises(ModuleNotFoundError, match="ai_pipeline"):
             service.run_interaction("test", context={}, system_prompt="You are concise.")
 
 
@@ -65,6 +65,7 @@ def test_gateway_run_interaction_works_with_injected_local_runtime(monkeypatch):
             return "ok"
 
     monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+    monkeypatch.setitem(sys.modules, "ai_pipeline", types.SimpleNamespace(AIPipeline=_FakePipeline))
     monkeypatch.setitem(sys.modules, "ai_pipeline_thin", types.ModuleType("ai_pipeline_thin"))
     monkeypatch.setitem(sys.modules, "ai_pipeline_thin.ai_pipeline", types.SimpleNamespace(AIPipeline=_FakePipeline))
 

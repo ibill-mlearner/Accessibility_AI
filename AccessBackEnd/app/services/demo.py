@@ -1,6 +1,4 @@
-import ai_pipeline_thin.ai_pipeline as ai_pipeline
-
-# import ai_pipeline
+import ai_pipeline
 
 
 def run_single(prompt: str) -> None:
