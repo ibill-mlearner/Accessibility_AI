@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -38,6 +39,10 @@ class AIPipelineGateway:
             "No module named 'ai_pipeline'. Install the ai runtime package or provide a local "
             "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline module."
         )
+
+    @staticmethod
+    def _accelerate_available() -> bool:
+        return importlib.util.find_spec("accelerate") is not None
 
     @staticmethod
     def _resolve_active_model_name() -> str:
@@ -122,7 +127,10 @@ class AIPipelineGateway:
             download_locally=bool(current_app.config.get("AI_DOWNLOAD_LOCALLY", True)),
         )
 
-        pipeline.model_loader.device_map = "auto"
+        if self._accelerate_available():
+            pipeline.model_loader.device_map = "auto"
+        else:
+            pipeline.model_loader.device_map = None
         if hasattr(pipeline.model_loader, "dtype"):
             pipeline.model_loader.dtype = "auto"
         else:

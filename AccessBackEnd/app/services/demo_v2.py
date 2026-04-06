@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import importlib.util
 import sys
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,10 @@ def _load_ai_tool() -> Any:
         "No module named 'ai_pipeline'. Install the ai runtime package or provide a local "
         "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline module."
     )
+
+
+def _accelerate_available() -> bool:
+    return importlib.util.find_spec("accelerate") is not None
 
 
 def _resolve_active_model_name() -> str:
@@ -130,7 +135,10 @@ def run_single_v2(prompt: str) -> None:
         download_locally=bool(current_app.config.get("AI_DOWNLOAD_LOCALLY", True)),
     )
 
-    pipeline.model_loader.device_map = "auto"
+    if _accelerate_available():
+        pipeline.model_loader.device_map = "auto"
+    else:
+        pipeline.model_loader.device_map = None
     if hasattr(pipeline.model_loader, "dtype"):
         pipeline.model_loader.dtype = "auto"
     else:
