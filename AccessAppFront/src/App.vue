@@ -19,19 +19,72 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAppBootstrapStore } from './stores/appBootstrapStore'
 import { useAuthStore } from './stores/authStore'
+import { useFeatureStore } from './stores/featureStore'
 import SidebarNav from './components/SidebarNav.vue'
 import HeaderBar from './components/HeaderBar.vue'
 
 const route = useRoute()
 const bootstrap = useAppBootstrapStore()
 const auth = useAuthStore()
+const featureStore = useFeatureStore()
 
 const isComponentPreviewRoute = computed(() => route.path.startsWith('/component-previews/'))
 const appError = computed(() => bootstrap.error || bootstrap.authError)
+
+const fontFamilyByFeature = {
+  opendyslexic: 'OpenDyslexic, Arial, sans-serif',
+  atkinson: '"Atkinson Hyperlegible", Arial, sans-serif',
+  arial: 'Arial, Helvetica, sans-serif',
+  verdana: 'Verdana, Geneva, sans-serif',
+  monospace: 'ui-monospace, SFMono-Regular, Menlo, monospace'
+}
+
+const isEnabledFontSizeFeature = (feature) => (
+  Boolean(feature?.enabled)
+  && Number.isInteger(Number(feature?.font_size_px))
+  && Number(feature?.font_size_px) > 0
+)
+
+const isEnabledFontFamilyFeature = (feature) => (
+  Boolean(feature?.enabled)
+  && typeof feature?.font_family === 'string'
+  && feature.font_family.trim().length > 0
+)
+
+function applyAccessibilityPresentation(features = []) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const activeFontSize = features.find((feature) => isEnabledFontSizeFeature(feature))
+  if (activeFontSize) {
+    document.documentElement.style.fontSize = `${Number(activeFontSize.font_size_px)}px`
+  } else {
+    document.documentElement.style.removeProperty('font-size')
+  }
+
+  const activeFontFamily = features.find((feature) => isEnabledFontFamilyFeature(feature))
+  const resolvedFontFamily = activeFontFamily
+    ? (fontFamilyByFeature[String(activeFontFamily.font_family).trim()] || null)
+    : null
+  if (resolvedFontFamily) {
+    document.documentElement.style.fontFamily = resolvedFontFamily
+  } else {
+    document.documentElement.style.removeProperty('font-family')
+  }
+}
+
+watch(
+  () => featureStore.features,
+  (features) => {
+    applyAccessibilityPresentation(Array.isArray(features) ? features : [])
+  },
+  { deep: true, immediate: true }
+)
 
 onMounted(async () => {
   if (!auth.sessionChecked) {
