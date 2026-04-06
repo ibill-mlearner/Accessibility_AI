@@ -13,28 +13,28 @@ _COLORBLIND_FEATURE_SPECS_JSON = """
 [
   {
     "title": "Color family: Protanopia-safe",
-    "details": "Use cyan/magenta-leaning contrasts and avoid red-dependent status indicators.",
+    "details": "standard; Use cyan/magenta-leaning contrasts and avoid red-dependent status indicators.",
     "active": true,
     "displayable": true,
     "color_family": "protanopia-safe"
   },
   {
     "title": "Color family: Deuteranopia-safe",
-    "details": "Use blue/orange emphasis with strong lightness contrast and avoid red/green-only status indicators.",
+    "details": "standard; Use blue/orange emphasis with strong lightness contrast and avoid red/green-only status indicators.",
     "active": true,
     "displayable": true,
     "color_family": "deuteranopia-safe"
   },
   {
     "title": "Color family: Tritanopia-safe",
-    "details": "Use red/green contrasts with neutral backups and avoid blue/yellow-only distinctions.",
+    "details": "standard; Use red/green contrasts with neutral backups and avoid blue/yellow-only distinctions.",
     "active": true,
     "displayable": true,
     "color_family": "tritanopia-safe"
   },
   {
     "title": "Color family: Achromatopsia-safe",
-    "details": "Use grayscale-friendly palettes with clear luminance contrast and non-color visual cues.",
+    "details": "standard; Use grayscale-friendly palettes with clear luminance contrast and non-color visual cues.",
     "active": true,
     "displayable": true,
     "color_family": "achromatopsia-safe"
@@ -46,35 +46,35 @@ _FONT_FAMILY_FEATURE_SPECS_JSON = """
 [
   {
     "title": "Font family: OpenDyslexic",
-    "details": "Use OpenDyslexic-style typography to support dyslexia-friendly reading.",
+    "details": "standard; Use OpenDyslexic-style typography to support dyslexia-friendly reading.",
     "active": true,
     "displayable": true,
     "font_family": "opendyslexic"
   },
   {
     "title": "Font family: Atkinson Hyperlegible",
-    "details": "Use Atkinson Hyperlegible to improve character distinction and readability.",
+    "details": "standard; Use Atkinson Hyperlegible to improve character distinction and readability.",
     "active": true,
     "displayable": true,
     "font_family": "atkinson"
   },
   {
     "title": "Font family: Arial",
-    "details": "Use Arial for a familiar sans-serif readability baseline.",
+    "details": "standard; Use Arial for a familiar sans-serif readability baseline.",
     "active": true,
     "displayable": true,
     "font_family": "arial"
   },
   {
     "title": "Font family: Verdana",
-    "details": "Use Verdana for wider letterforms and improved low-resolution legibility.",
+    "details": "standard; Use Verdana for wider letterforms and improved low-resolution legibility.",
     "active": true,
     "displayable": true,
     "font_family": "verdana"
   },
   {
     "title": "Font family: Monospace",
-    "details": "Use monospace for consistent character widths and code-friendly readability.",
+    "details": "standard; Use monospace for consistent character widths and code-friendly readability.",
     "active": true,
     "displayable": true,
     "font_family": "monospace"
@@ -139,6 +139,21 @@ def ensure_colorblind_accessibility_features(app: Flask) -> None:
         has_changes = False
         has_changes = _sync_accommodation_specs(specs=_COLORBLIND_FEATURE_SPECS, key_field="color_family") or has_changes
         has_changes = _sync_accommodation_specs(specs=_FONT_FAMILY_FEATURE_SPECS, key_field="font_family") or has_changes
+        standardized_rows = (
+            db.session.query(Accommodation)
+            .filter(
+                (Accommodation.color_family.isnot(None))
+                | (Accommodation.font_family.isnot(None))
+                | (Accommodation.font_size_px.isnot(None))
+            )
+            .all()
+        )
+        for row in standardized_rows:
+            details = str(row.details or "").strip()
+            if details.lower().startswith("standard;"):
+                continue
+            row.details = f"standard; {details}" if details else "standard;"
+            has_changes = True
 
         if has_changes:
             db.session.commit()

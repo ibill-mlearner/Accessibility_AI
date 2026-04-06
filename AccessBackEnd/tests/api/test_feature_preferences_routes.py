@@ -20,6 +20,7 @@ def test_feature_preferences_routes_read_and_update_current_user_preferences(app
         db.session.add_all([
             Accommodation(title="Simplified language", details="A", active=True),
             Accommodation(title="Read-aloud cues", details="B", active=True),
+            Accommodation(title="Font size 18px", details="standard; Use larger text.", active=True, font_size_px=18),
         ])
         db.session.commit()
 
@@ -39,6 +40,7 @@ def test_feature_preferences_routes_read_and_update_current_user_preferences(app
     features_response = client.get('/api/v1/features')
     assert features_response.status_code == 200
     features_payload = features_response.get_json()
+    assert all(not str(item.get("details", "")).lower().startswith("standard;") for item in features_payload)
     assert all(item["displayable"] is True for item in features_payload)
     enabled_map = {int(item["id"]): bool(item["enabled"]) for item in features_payload}
     assert enabled_map[target_feature_id] is True
