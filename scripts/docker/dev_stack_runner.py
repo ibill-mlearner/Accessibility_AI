@@ -39,7 +39,7 @@ def wait_for_health(timeout_seconds: int = 90) -> None:
                 body = response.read().decode('utf-8', errors='replace')
                 log(f'health ready: {response.status} {body[:120]}')
                 return
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log(f'waiting for health endpoint: {exc}')
             time.sleep(1)
     raise SystemExit('backend health endpoint did not become ready in time')

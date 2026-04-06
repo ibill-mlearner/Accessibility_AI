@@ -159,7 +159,7 @@ def create_ai_interaction():
             chat_state,
             _resolve_initiated_by(payload),
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         current_app.logger.error("api.ai_interactions.run.failed request_id=%s error=%s", prepared["request_id"], str(exc))
         return (
             jsonify(

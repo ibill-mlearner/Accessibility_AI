@@ -50,7 +50,7 @@ def _wait_for_login_ready(timeout_seconds: int = 120) -> None:
                 print("[container-e2e] login endpoint probe reached backend (401 as expected)")
                 return
             print(f"[container-e2e] probe HTTP error: {exc.code}")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             print(f"[container-e2e] waiting for backend: {exc}")
         time.sleep(2)
     raise AssertionError("containerized backend did not become ready in time")

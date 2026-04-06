@@ -248,7 +248,7 @@ def _run_sqlite_accommodations_color_family_migration(app: Flask) -> None:
 def init_flask_database(app: Flask) -> None:
     """Explicitly create every configured SQLAlchemy table set for the app DB."""
 
-    from .. import models  # noqa: F401  # ensure model metadata is registered
+    from .. import models  # ensure model metadata is registered
     from ..extensions import db
     from ..models.base import Base
 

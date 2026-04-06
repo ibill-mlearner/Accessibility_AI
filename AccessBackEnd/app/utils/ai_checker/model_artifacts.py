@@ -37,7 +37,7 @@ def model_artifact_diagnostics(path: Path) -> dict[str, Any]:
             config_payload = json.loads(config_file.read_text(encoding="utf-8"))
             diagnostics["config_json_parseable"] = isinstance(config_payload, dict)
             diagnostics["config_model_type_present"] = isinstance(config_payload, dict) and bool(config_payload.get("model_type"))
-        except Exception:  # noqa: BLE001
+        except Exception:
             diagnostics["config_json_parseable"] = False
 
     found_tokenizers = [name for name in _TOKENIZER_CANDIDATES if (path / name).exists()]

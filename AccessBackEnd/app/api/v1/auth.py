@@ -51,7 +51,7 @@ def login_auth_user():
     # syncs the model to default model on login
     try:
         sync_ai_models_with_local_inventory(current_app)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         current_app.logger.warning("AI model sync failed during login: %s", exc)
 
     return jsonify({"message": "login successful",
