@@ -1,0 +1,11 @@
+.header-bar {
+  border-width: 1px;
+}
+
+.header-bar--invisible {
+  visibility: hidden;
+}
+
+.header-separator {
+  margin: 0 0.5rem;
+}

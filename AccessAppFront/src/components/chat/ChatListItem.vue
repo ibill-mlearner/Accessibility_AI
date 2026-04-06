@@ -45,8 +45,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
-// TODO(ui-refactor): Extract floating chat-menu state/position/close behavior into a reusable composable
-// (e.g., useFloatingChatMenu) so this component stays focused on rendering.
 defineProps({
   chat: {
     type: Object,
@@ -72,7 +70,6 @@ const floatingMenuStyle = computed(() => ({
   zIndex: 2000
 }))
 
-// TODO(ui-refactor): Move these menu lifecycle + positioning handlers into the composable noted above.
 function updateMenuPosition() {
   if (!menuButtonRef.value) return
   const rect = menuButtonRef.value.getBoundingClientRect()
@@ -129,36 +126,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-.chat-list-item__container {
-  min-height: 2.5rem;
-}
-
-.chat-list-item__title {
-  border-radius: 0.375rem;
-}
-
-.chat-list-item__title:hover,
-.chat-list-item__title:focus-visible {
-  background-color: rgba(0, 0, 0, 0.05) !important;
-  outline: none;
-}
-
-.chat-list-item__menu-button {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.chat-list-item:hover .chat-list-item__menu-button,
-.chat-list-item:focus-within .chat-list-item__menu-button,
-.chat-list-item.bg-purple-200 .chat-list-item__menu-button,
-.chat-list-item__menu-button[aria-expanded='true'] {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.chat-list-item__floating-menu {
-  min-width: 11.25rem;
-}
-</style>
+<style scoped src="../../styles/components/chat/chat-list-item.css"></style>

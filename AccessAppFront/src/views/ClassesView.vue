@@ -1,5 +1,5 @@
 <template>
-  <section class="d-flex flex-column gap-3">
+  <section class="classes-view d-flex flex-column gap-3">
     <header class="card shadow-sm">
       <div class="card-body">
         <h2 class="h4 mb-1">Classes</h2>
@@ -60,8 +60,6 @@ import ClassOptionCard from '../components/classes/ClassOptionCard.vue'
 import ClassDetailsEditor from '../components/classes/ClassDetailsEditor.vue'
 import ClassAdminActions from '../components/classes/ClassAdminActions.vue'
 
-// const props = defineProps({ role: { type: String, default: '' } })
-
 const auth = useAuthStore()
 const classStore = useClassStore()
 
@@ -81,5 +79,7 @@ const {
   handleCreateClass,
   handleUpdateClass,
   handleDeleteClass
-} = useClassesViewState({ /* props, */ auth, classStore })
+} = useClassesViewState({ auth, classStore })
 </script>
+
+<style scoped src="../styles/views/classes-view.css"></style>

@@ -5,7 +5,6 @@
         <p v-if="interactionError" class="alert alert-danger py-2 mb-0">{{ interactionError }}</p>
         <p v-if="interactionLoading" class="alert alert-info py-2 mb-0">Sending…</p>
         <template v-if="auth.role !== 'guest'">
-          <!-- save as note button @save-note removed during sprint 4 -->
           <ChatBubbleCard
             v-for="message in conversationMessages"
             :key="message.id"
@@ -59,36 +58,28 @@ const { timelineMessages, interactionError, hydrateTimelineForChat } = useChatTi
 const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError })
 const isReadAloudSupported = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
 
-
-
 const messageVariantMap = {
   assistant: 'system',
   system: 'system',
   user: 'user'
 }
 const selectedChat = computed(() => chatStore.chats.find((chat) => chat.id === chatStore.selectedChatId) || null)
-const conversationMessages = computed(() => 
-  timelineMessages.value.length ? timelineMessages.value.map((message) => 
-    ({ ...message, text: message.unsaved ? `${message.text} (unsaved)` : message.text })) : [{ 
-      id: selectedChat.value?.id ?? 'assistant-preview', 
-      role: 'assistant', 
-      text: selectedChat.value?.title || "System's response . . ." 
-    }, 
-    { 
-      id: 'user-preview', role: 'user', 
-      text: "User's prompt . . ." 
+const conversationMessages = computed(() =>
+  timelineMessages.value.length ? timelineMessages.value.map((message) =>
+    ({ ...message, text: message.unsaved ? `${message.text} (unsaved)` : message.text })) : [{
+      id: selectedChat.value?.id ?? 'assistant-preview',
+      role: 'assistant',
+      text: selectedChat.value?.title || "System's response . . ."
+    },
+    {
+      id: 'user-preview', role: 'user',
+      text: "User's prompt . . ."
     }])
 
 async function handleModelSelection(modelValue) {
   await chatStore.updateModelSelection(modelValue)
 }
 
-// This read-aloud block is intentionally a brute-force, test-first implementation to prove
-// end-to-end text-to-speech behavior from the chat card UI with the least amount of setup.
-// For now, we simply take the card text, cancel any active speech, and immediately push a new
-// utterance through the browser's built-in speech synthesis engine so we can verify that "any"
-// TTS path works in real usage before investing in more polished controls such as voice pickers,
-// playback state, queueing, pause/resume, or per-user accessibility preferences.
 function handleReadAloud(message) {
   if (!isReadAloudSupported || !message?.text?.trim()) return
 
@@ -102,33 +93,33 @@ function handleReadAloud(message) {
 
 async function saveCurrentChatAsNote() {
   if (!selectedChat.value) return
-  await noteStore.createNote({ 
-    id: Date.now(), 
-    class: classStore.selectedClass?.name || 'General', 
-    date: new Date().toISOString().slice(0, 10), 
-    chat: selectedChat.value.title || 'Current chat', 
-    content: selectedChat.value.title || '' 
+  await noteStore.createNote({
+    id: Date.now(),
+    class: classStore.selectedClass?.name || 'General',
+    date: new Date().toISOString().slice(0, 10),
+    chat: selectedChat.value.title || 'Current chat',
+    content: selectedChat.value.title || ''
   })
 }
+
 watch(() => chatStore.newChatRequestId, () => {
-    timelineMessages.value = []
-    interactionError.value = ''
-    interactionLoading.value = false
-  }
-)
+  timelineMessages.value = []
+  interactionError.value = ''
+  interactionLoading.value = false
+})
 
 watch(() => chatStore.selectedChatId, async (chatId) => {
-    interactionError.value = ''
-    await hydrateTimelineForChat(chatId)
-  },
-  { 
-    immediate: true 
-  }
+  interactionError.value = ''
+  await hydrateTimelineForChat(chatId)
+},
+{
+  immediate: true
+}
 )
 
 onMounted(async () => {
   const promptFromQuery = route.query?.prompt
-  
+
   if (typeof promptFromQuery === 'string' && promptFromQuery.trim()) {
     prompt.value = promptFromQuery
     if (route.path === '/' && Object.keys(route.query).length) {
@@ -141,20 +132,6 @@ onBeforeUnmount(() => {
   if (!isReadAloudSupported) return
   window.speechSynthesis.cancel()
 })
-
 </script>
 
-<style scoped>
-.home-thread {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.home-thread__messages {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-</style>
+<style scoped src="../styles/views/home-view.css"></style>

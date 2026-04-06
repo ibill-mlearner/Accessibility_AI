@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="profile-font-family-features">
     <p class="form-label small text-uppercase text-muted mb-2">Font family</p>
     <div class="d-flex flex-wrap gap-2">
       <label
@@ -20,7 +20,7 @@
           :checked="modelValue === option.value"
           @change="$emit('update:modelValue', option.value)"
         />
-        <span :style="{ fontFamily: option.family }">{{ option.label }}</span>
+        <span :class="fontFamilyClass(option.value)">{{ option.label }}</span>
       </label>
     </div>
     <p class="small text-muted mt-2 mb-0">
@@ -42,4 +42,9 @@ defineProps({
 })
 
 defineEmits(['update:modelValue'])
+function fontFamilyClass(value) {
+  return `profile-font-family-features__sample profile-font-family-features__sample--${value || "default"}`
+}
 </script>
+
+<style scoped src="../../styles/components/profile/profile-font-family-features.css"></style>

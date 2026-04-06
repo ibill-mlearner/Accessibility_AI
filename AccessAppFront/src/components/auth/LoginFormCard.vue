@@ -1,6 +1,6 @@
 <template>
-  <section class="card shadow-sm" style="max-width: 540px">
-    <div class="card-body d-grid" style="grid-template-columns: 1fr 1fr auto; gap: 8px">
+  <section class="card shadow-sm login-form-card">
+    <div class="card-body d-grid login-form-card__body">
       <input
         class="form-control"
         :value="email"
@@ -28,3 +28,5 @@ defineProps({
 
 defineEmits(['submit', 'update:email', 'update:password'])
 </script>
+
+<style scoped src="../../styles/components/auth/login-form-card.css"></style>

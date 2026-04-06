@@ -1,5 +1,5 @@
 <template>
-  <section class="card bg-light-subtle border-0">
+  <section class="card bg-light-subtle border-0 profile-session-card">
     <div class="card-body d-flex flex-column gap-2">
       <h3 class="h6 text-uppercase text-muted mb-0">Session</h3>
       <p class="mb-0">
@@ -23,3 +23,5 @@ defineProps({
   allowedActions: { type: Array, default: () => [] }
 })
 </script>
+
+<style scoped src="../../styles/components/profile/profile-session-card.css"></style>

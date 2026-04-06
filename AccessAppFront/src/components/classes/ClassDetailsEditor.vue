@@ -1,5 +1,5 @@
 <template>
-  <section class="card shadow-sm">
+  <section class="card shadow-sm class-details-editor">
     <div class="card-body d-flex flex-column gap-3">
       <div>
         <h3 class="h5 mb-1">Edit class details</h3>
@@ -74,3 +74,5 @@ function submitUpdate() {
   })
 }
 </script>
+
+<style scoped src="../../styles/components/classes/class-details-editor.css"></style>

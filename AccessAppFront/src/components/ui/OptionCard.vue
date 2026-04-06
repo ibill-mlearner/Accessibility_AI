@@ -1,5 +1,5 @@
 <template>
-  <article class="card-row">
+  <article class="card-row option-card">
     <div>
       <p>{{ description }}</p>
       <slot name="selector" />
@@ -13,3 +13,5 @@ defineProps({
   description: { type: String, default: '' }
 })
 </script>
+
+<style scoped src="../../styles/components/ui/option-card.css"></style>

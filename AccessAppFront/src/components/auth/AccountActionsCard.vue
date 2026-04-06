@@ -18,14 +18,4 @@ defineProps({
 defineEmits(['profile', 'logout'])
 </script>
 
-<style scoped>
-.account-actions-card {
-  flex: 0 0 auto;
-}
-
-.account-actions-card__buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-</style>
+<style scoped src="../../styles/components/auth/account-actions-card.css"></style>

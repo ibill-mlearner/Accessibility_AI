@@ -1,0 +1,12 @@
+.composer-bar__grid {
+  gap: 8px;
+  align-items: center;
+}
+
+.composer-bar__grid--with-login {
+  grid-template-columns: auto auto 1fr 20%;
+}
+
+.composer-bar__grid--no-login {
+  grid-template-columns: auto 1fr 20%;
+}

@@ -1,5 +1,5 @@
 <template>
-  <div style="max-width: 10rem;">
+  <div class="profile-font-size-select">
     <label for="profileFontSize" class="form-label small text-uppercase text-muted mb-1">Font size</label>
     <select
       id="profileFontSize"
@@ -33,3 +33,5 @@ function onChange(event) {
   emit('change')
 }
 </script>
+
+<style scoped src="../../styles/components/profile/profile-font-size-select.css"></style>

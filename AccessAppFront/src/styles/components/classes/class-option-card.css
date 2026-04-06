@@ -1,0 +1,12 @@
+.class-option-card-wrapper {
+  margin: 0;
+}
+
+button.card {
+  border-width: 2px;
+}
+
+button.card:focus-visible {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: 2px;
+}

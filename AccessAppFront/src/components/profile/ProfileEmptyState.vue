@@ -1,5 +1,5 @@
 <template>
-  <section class="card border-warning-subtle">
+  <section class="card border-warning-subtle profile-empty-state">
     <div class="card-body">
       <h3 class="h6 mb-2">Profile details unavailable</h3>
       <p class="mb-3 text-muted">We could not load complete profile data from your active session.</p>
@@ -11,3 +11,5 @@
 <script setup>
 defineEmits(['retry'])
 </script>
+
+<style scoped src="../../styles/components/profile/profile-empty-state.css"></style>

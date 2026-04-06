@@ -1,0 +1,19 @@
+.accessibility-thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.accessibility-thread__features {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.accessibility-thread__composer-spacer {
+  flex: 0 0 auto;
+  height: 86px;
+  opacity: 0;
+  pointer-events: none;
+}

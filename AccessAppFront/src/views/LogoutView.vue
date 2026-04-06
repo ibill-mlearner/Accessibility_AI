@@ -1,5 +1,5 @@
 <template>
-  <section class="card">
+  <section class="card logout-view">
     <div class="card-body text-center">
       <p class="h4 mb-0">You are logging out . . .</p>
     </div>
@@ -19,3 +19,5 @@ onMounted(() => {
   router.push('/')
 })
 </script>
+
+<style scoped src="../styles/views/logout-view.css"></style>

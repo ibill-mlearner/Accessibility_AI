@@ -1,0 +1,27 @@
+.feature-option-card-wrapper {
+  margin: 0;
+}
+
+.feature-option-card {
+  cursor: pointer;
+  border-width: 2px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.feature-option-card:focus-visible {
+  outline: 3px solid var(--bs-primary);
+  outline-offset: 2px;
+}
+
+.feature-option-card:hover {
+  box-shadow: var(--bs-box-shadow-sm);
+}
+
+.feature-option-card--active {
+  background-color: rgba(13, 110, 253, 0.08);
+}
+
+.feature-option-card__status {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
