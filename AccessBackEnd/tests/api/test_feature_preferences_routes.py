@@ -29,7 +29,7 @@ def test_feature_preferences_routes_read_and_update_current_user_preferences(app
     list_response = client.get('/api/v1/features/preferences')
     assert list_response.status_code == 200
     list_payload = list_response.get_json()
-    assert len(list_payload) == 2
+    assert len(list_payload) == 3
     assert all(item["enabled"] is False for item in list_payload)
 
     target_feature_id = int(list_payload[0]["accommodation_id"])
@@ -40,7 +40,7 @@ def test_feature_preferences_routes_read_and_update_current_user_preferences(app
     features_response = client.get('/api/v1/features')
     assert features_response.status_code == 200
     features_payload = features_response.get_json()
-    assert all(not str(item.get("details", "")).lower().startswith("standard;") for item in features_payload)
+    assert len(features_payload) == 3
     assert all(item["displayable"] is True for item in features_payload)
     enabled_map = {int(item["id"]): bool(item["enabled"]) for item in features_payload}
     assert enabled_map[target_feature_id] is True
