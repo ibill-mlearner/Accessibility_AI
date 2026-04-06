@@ -18,7 +18,7 @@
           name="profileFontFamily"
           :value="option.value"
           :checked="modelValue === option.value"
-          @change="$emit('update:modelValue', option.value)"
+          @change="onChange(option.value)"
         />
         <span :class="fontFamilyClass(option.value)">{{ option.label }}</span>
       </label>
@@ -41,7 +41,12 @@ defineProps({
   }
 })
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'change'])
+
+function onChange(value) {
+  emit('update:modelValue', value)
+  emit('change', value)
+}
 function fontFamilyClass(value) {
   return `profile-font-family-features__sample profile-font-family-features__sample--${value || "default"}`
 }

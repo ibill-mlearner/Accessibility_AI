@@ -88,6 +88,47 @@ export const useFeatureStore = defineStore('features', {
         throw new Error('Unable to update accessibility feature preference.')
       }
     },
+    async replaceFeaturePreferences(preferences = []) {
+      const key = 'replaceFeaturePreferences'
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+
+      try {
+        const normalized = preferences
+          .map((entry) => ({
+            accommodation_id: Number(entry?.accommodation_id),
+            enabled: Boolean(entry?.enabled)
+          }))
+          .filter((entry) => Number.isInteger(entry.accommodation_id) && entry.accommodation_id > 0)
+
+        const response = await api.put('/api/v1/features/preferences', {
+          preferences: normalized
+        })
+
+        const updated = Array.isArray(response?.data) ? response.data : normalized
+        const enabledById = new Map(
+          updated
+            .map((entry) => [Number(entry?.accommodation_id), Boolean(entry?.enabled)])
+            .filter(([id]) => Number.isInteger(id) && id > 0)
+        )
+
+        this.features = this.features.map((item) => (
+          enabledById.has(Number(item.id))
+            ? { ...item, enabled: Boolean(enabledById.get(Number(item.id))) }
+            : item
+        ))
+        this.setSelectedAccessibilityLinkIds(
+          this.features
+            .filter((feature) => feature.enabled)
+            .map((feature) => feature.id)
+        )
+
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+        return updated
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to replace accessibility feature preferences.')
+        throw new Error('Unable to replace accessibility feature preferences.')
+      }
+    },
     setSelectedAccessibilityLinkIds(linkIds = []) {
       let normalIds = []
 
