@@ -14,6 +14,13 @@ from ...schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSch
 from ...models import Accommodation, UserAccessibilityFeature
 from ...utils.api_checker import _apply_feature_mutations
 
+_STANDARD_FEATURE_PREFIX = "standard;"
+
+
+def _is_standardized_feature(feature: Accommodation) -> bool:
+    details = str(getattr(feature, "details", "") or "").strip().lower()
+    return details.startswith(_STANDARD_FEATURE_PREFIX)
+
 
 def _load_user_preference_map(user_id: int) -> dict[int, bool]:
     rows = (
@@ -34,7 +41,12 @@ def _serialize_feature_with_preference(feature: Accommodation, preference_map: d
 @api_v1_bp.get("/features")
 @login_required
 def list_features():
-    features = db.session.query(Accommodation).order_by(Accommodation.id.asc()).all()
+    features = (
+        db.session.query(Accommodation)
+        .order_by(Accommodation.id.asc())
+        .all()
+    )
+    features = [feature for feature in features if not _is_standardized_feature(feature)]
     preference_map = _load_user_preference_map(int(current_user.id))
     return jsonify([_serialize_feature_with_preference(feature, preference_map) for feature in features]), 200
 
@@ -91,7 +103,12 @@ def delete_feature(feature_id: int):
 @login_required
 def list_current_user_feature_preferences():
     preference_map = _load_user_preference_map(int(current_user.id))
-    features = db.session.query(Accommodation).order_by(Accommodation.id.asc()).all()
+    features = (
+        db.session.query(Accommodation)
+        .order_by(Accommodation.id.asc())
+        .all()
+    )
+    features = [feature for feature in features if not _is_standardized_feature(feature)]
     payload = [
         {
             "accommodation_id": int(feature.id),

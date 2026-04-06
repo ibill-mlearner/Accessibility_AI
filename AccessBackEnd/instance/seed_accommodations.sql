@@ -33,31 +33,31 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font size 14px', 'Use a smaller but still accessible text size.', 1, 1, 14, NULL, NULL
+SELECT 'Font size 14px', 'standard; Use a smaller but still accessible text size.', 1, 1, 14, NULL, NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_size_px = 14
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font size 16px', 'Use the default readable text size.', 1, 1, 16, NULL, NULL
+SELECT 'Font size 16px', 'standard; Use the default readable text size.', 1, 1, 16, NULL, NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_size_px = 16
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font size 18px', 'Use a larger text size for improved readability.', 1, 1, 18, NULL, NULL
+SELECT 'Font size 18px', 'standard; Use a larger text size for improved readability.', 1, 1, 18, NULL, NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_size_px = 18
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font size 20px', 'Use an extra-large text size for accessibility support.', 1, 1, 20, NULL, NULL
+SELECT 'Font size 20px', 'standard; Use an extra-large text size for accessibility support.', 1, 1, 20, NULL, NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_size_px = 20
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font size 24px', 'Use maximum readability text size.', 1, 1, 24, NULL, NULL
+SELECT 'Font size 24px', 'standard; Use maximum readability text size.', 1, 1, 24, NULL, NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_size_px = 24
 );
@@ -65,7 +65,7 @@ WHERE NOT EXISTS (
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
 SELECT
   'Color profile: Deuteranopia-safe palette',
-  'Use deuteranopia-safe substitutions and CSS variables. Accent primary RGB(0, 114, 178), accent secondary RGB(230, 159, 0), success RGB(0, 158, 115), warning RGB(240, 228, 66), error RGB(213, 94, 0). Prefer hue contrast from blue/orange families with moderate chroma and avoid red/green-only distinctions.',
+  'standard; Use deuteranopia-safe substitutions and CSS variables. Accent primary RGB(0, 114, 178), accent secondary RGB(230, 159, 0), success RGB(0, 158, 115), warning RGB(240, 228, 66), error RGB(213, 94, 0). Prefer hue contrast from blue/orange families with moderate chroma and avoid red/green-only distinctions.',
   1,
   0,
   NULL,
@@ -76,31 +76,31 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font family: Sans-serif', 'Prefer sans-serif typefaces for clearer character shapes at smaller sizes.', 1, 1, NULL, 'sans-serif', NULL
+SELECT 'Font family: Sans-serif', 'standard; Prefer sans-serif typefaces for clearer character shapes at smaller sizes.', 1, 1, NULL, 'sans-serif', NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_family = 'sans-serif'
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font family: Serif', 'Prefer serif typefaces for users who track word forms more easily with serifs.', 1, 1, NULL, 'serif', NULL
+SELECT 'Font family: Serif', 'standard; Prefer serif typefaces for users who track word forms more easily with serifs.', 1, 1, NULL, 'serif', NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_family = 'serif'
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Font family: Monospace', 'Use monospace fonts for consistent character spacing and code-heavy content.', 1, 1, NULL, 'monospace', NULL
+SELECT 'Font family: Monospace', 'standard; Use monospace fonts for consistent character spacing and code-heavy content.', 1, 1, NULL, 'monospace', NULL
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE font_family = 'monospace'
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Color family: Protanopia-safe', 'Use cyan/magenta-leaning contrasts and avoid red-dependent status indicators.', 1, 1, NULL, NULL, 'protanopia-safe'
+SELECT 'Color family: Protanopia-safe', 'standard; Use cyan/magenta-leaning contrasts and avoid red-dependent status indicators.', 1, 1, NULL, NULL, 'protanopia-safe'
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE color_family = 'protanopia-safe'
 );
 
 INSERT INTO accommodations (title, details, active, displayable, font_size_px, font_family, color_family)
-SELECT 'Color family: Tritanopia-safe', 'Use red/green contrasts with neutral backups and avoid blue-yellow-only distinctions.', 1, 1, NULL, NULL, 'tritanopia-safe'
+SELECT 'Color family: Tritanopia-safe', 'standard; Use red/green contrasts with neutral backups and avoid blue-yellow-only distinctions.', 1, 1, NULL, NULL, 'tritanopia-safe'
 WHERE NOT EXISTS (
   SELECT 1 FROM accommodations WHERE color_family = 'tritanopia-safe'
 );
