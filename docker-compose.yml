@@ -17,7 +17,6 @@ services:
       - backend-instance:/app/AccessBackEnd/instance
       - frontend-node-modules:/app/AccessAppFront/node_modules
     ports:
-      - "5000:5000"
       - "5173:5173"
 
 volumes:
