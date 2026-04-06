@@ -1,4 +1,9 @@
 import ai_pipeline
+import importlib.util
+
+
+def _accelerate_available() -> bool:
+    return importlib.util.find_spec("accelerate") is not None
 
 
 def run_single(prompt: str) -> None:
@@ -9,7 +14,10 @@ def run_single(prompt: str) -> None:
         download_locally=True,
     )
 
-    pipeline.model_loader.device_map = "auto"
+    if _accelerate_available():
+        pipeline.model_loader.device_map = "auto"
+    else:
+        pipeline.model_loader.device_map = None
     if hasattr(pipeline.model_loader, "dtype"):
         pipeline.model_loader.dtype = "auto"
     else:
