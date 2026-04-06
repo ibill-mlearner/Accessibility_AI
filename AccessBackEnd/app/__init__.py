@@ -120,7 +120,7 @@ def create_app(config_name: str | None = None) -> Flask:
                 sync_ai_models_with_local_inventory(app)
             else:
                 app.logger.info("Skipping AI model sync during app init because ai_models table is not created yet.")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             app.logger.warning("AI model sync skipped during app init: %s", exc)
     initialize_logging(app)
     app.logger.info("Loaded module configs: %s", ", ".join(sorted(module_configs.keys())))
