@@ -7,6 +7,7 @@ import pytest
 
 def _load_ai_pipeline_module():
     candidates = (
+        "ai_pipeline",
         "ai_pipeline_thin.ai_pipeline",
         "app.services.ai_pipeline_thin.ai_pipeline",
         "AccessBackEnd.app.services.ai_pipeline_thin.ai_pipeline",
