@@ -1,0 +1,8 @@
+.login-form-card {
+  max-width: 540px;
+}
+
+.login-form-card__body {
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+}

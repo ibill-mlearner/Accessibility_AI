@@ -1,5 +1,5 @@
 <template>
-  <section class="d-flex flex-column gap-3">
+  <section class="profile-view d-flex flex-column gap-3">
     <header class="card shadow-sm">
       <div class="card-body d-flex flex-column gap-3">
         <div class="d-flex flex-column flex-md-row align-items-md-start gap-3">
@@ -256,3 +256,5 @@ async function applyFontSizePreference() {
   await Promise.allSettled(updates)
 }
 </script>
+
+<style scoped src="../styles/views/profile-view.css"></style>

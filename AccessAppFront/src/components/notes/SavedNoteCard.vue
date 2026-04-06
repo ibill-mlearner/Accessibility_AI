@@ -27,3 +27,5 @@ defineProps({
 
 defineEmits(['delete'])
 </script>
+
+<style scoped src="../../styles/components/notes/saved-note-card.css"></style>

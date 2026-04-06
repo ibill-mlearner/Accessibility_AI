@@ -1,5 +1,5 @@
 <template>
-  <header class="card shadow-sm" :class="{ 'header-bar--invisible': !hasHeaderContext }" :aria-hidden="!hasHeaderContext">
+  <header class="card shadow-sm header-bar" :class="{ 'header-bar--invisible': !hasHeaderContext }" :aria-hidden="!hasHeaderContext">
     <h1>
       Local Model: {{ selectedModelLabel }}
       <span class="header-separator">|</span>
@@ -26,3 +26,5 @@ const selectedModelLabel = computed(() => {
 
 const hasHeaderContext = computed(() => Boolean(chatStore.hasActiveChat && classStore.selectedClass))
 </script>
+
+<style scoped src="../styles/components/header-bar.css"></style>

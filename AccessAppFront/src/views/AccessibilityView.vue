@@ -26,9 +26,6 @@ import { useAuthStore } from '../stores/authStore'
 import { useFeatureStore } from '../stores/featureStore'
 import FeatureOptionCard from '../components/classes/FeatureOptionCard.vue'
 
-// Development-only API trigger logging for integration debugging.
-// TODO(v1.0): Remove console logging before release.
-
 const fstore = useFeatureStore()
 const auth = useAuthStore()
 
@@ -44,24 +41,4 @@ function setFeatureEnabled(feature, enabled) {
 }
 </script>
 
-<style scoped>
-.accessibility-thread {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.accessibility-thread__features {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.accessibility-thread__composer-spacer {
-  flex: 0 0 auto;
-  height: 86px;
-  opacity: 0;
-  pointer-events: none;
-}
-</style>
+<style scoped src="../styles/views/accessibility-view.css"></style>

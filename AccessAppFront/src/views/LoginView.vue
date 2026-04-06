@@ -1,5 +1,5 @@
 <template>
-  <div class="d-flex flex-column gap-2">
+  <div class="login-view d-flex flex-column gap-2">
     <LoginFormCard v-model:email="email" v-model:password="password" @submit="doLogin" />
     <p class="mb-0 text-muted small">
       Seeded users must sign in with their full email address.
@@ -29,11 +29,9 @@ async function doLogin() {
     await auth.login({ email: email.value, password: password.value })
     await bootstrap.bootstrap()
     const nextPath = typeof route.query?.next === 'string' ? route.query.next : '/'
-    // `next` restores the intended destination, while `prompt` is only forwarded when
-    // present so we don't leave an empty query string on normal logins.
     const prompt = typeof route.query?.prompt === 'string' ? route.query.prompt : ''
     if (nextPath === '/') {
-        chatStore.prepareNewChat()
+      chatStore.prepareNewChat()
     }
     await router.push({ path: nextPath, query: prompt ? { prompt } : {} })
   } catch {
@@ -42,9 +40,4 @@ async function doLogin() {
 }
 </script>
 
-<style scoped>
-.auth-error {
-  margin-top: 0.75rem;
-  color: #b42318;
-}
-</style>
+<style scoped src="../styles/views/login-view.css"></style>

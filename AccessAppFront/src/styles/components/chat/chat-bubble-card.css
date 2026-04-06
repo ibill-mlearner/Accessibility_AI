@@ -1,0 +1,3 @@
+.chat-bubble-card {
+  max-width: min(80%, 680px);
+}

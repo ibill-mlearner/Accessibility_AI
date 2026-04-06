@@ -1,18 +1,14 @@
 <template>
   <div class="card shadow-sm">
     <div
-      class="card-body d-grid"
-      :style="{
-        gridTemplateColumns: showLogin
-          ? 'auto auto 1fr 20%'
-          : 'auto 1fr 20%',
-        gap: '8px',
-        alignItems: 'center'
-      }"
+      class="card-body d-grid composer-bar__grid"
+      :class="showLogin ? 'composer-bar__grid--with-login' : 'composer-bar__grid--no-login'"
     >
-      <button v-if="showLogin"
-        class="btn btn-outline-secondary" 
-        @click="$emit('login')">Login</button>
+      <button
+        v-if="showLogin"
+        class="btn btn-outline-secondary"
+        @click="$emit('login')"
+      >Login</button>
       <button
         class="btn btn-primary"
         :disabled="sendDisabled"
@@ -33,9 +29,11 @@
         @change="$emit('update:selected-model', $event.target.value)"
       >
         <option value="" disabled> {{ modelLoading ? 'Loading models...' : 'Select a model' }}</option>
-        <option v-for="option in modelOptions" 
-          :key="option.value" 
-          :value="option.value">
+        <option
+          v-for="option in modelOptions"
+          :key="option.value"
+          :value="option.value"
+        >
           {{ option.label }}
         </option>
       </select>
@@ -44,7 +42,8 @@
 </template>
 
 <script setup>
-import {computed} from 'vue'
+import { computed } from 'vue'
+
 const emit = defineEmits(['login', 'send', 'update:modelValue', 'update:selected-model'])
 const props = defineProps({
   showLogin: { type: Boolean, default: false },
@@ -59,6 +58,7 @@ const props = defineProps({
 const sendDisabled = computed(() => {
   return props.showModelSelect && (props.modelLoading || !String(props.selectedModel || '').trim())
 })
+
 const handleEnterKey = (event) => {
   if (event.shiftKey) return
 
@@ -68,3 +68,5 @@ const handleEnterKey = (event) => {
   }
 }
 </script>
+
+<style scoped src="../../styles/components/chat/composer-bar.css"></style>

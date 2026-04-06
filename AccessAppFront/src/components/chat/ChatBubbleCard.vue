@@ -1,9 +1,11 @@
 <template>
-  <article class="card shadow-sm" :class="variantClass" style="max-width: min(80%, 680px)">
+  <article class="card shadow-sm chat-bubble-card" :class="variantClass">
     <div class="card shadow-sm border border-3">
       <slot>{{ text }}</slot>
-      <div v-if="showActions" 
-        class="d-flex justify-content-between mt-1 gap-1">
+      <div
+        v-if="showActions"
+        class="d-flex justify-content-between mt-1 gap-1"
+      >
         <button
           class="btn btn-secondary px-2 py-1 btn-sm"
           :disabled="!readAloudEnabled"
@@ -34,5 +36,6 @@ const variantClass = computed(() => {
   if (props.variant === 'user') return 'ms-auto border-primary'
   return 'me-auto border-secondary'
 })
-
 </script>
+
+<style scoped src="../../styles/components/chat/chat-bubble-card.css"></style>

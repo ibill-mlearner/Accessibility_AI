@@ -44,28 +44,4 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped>
-.app-shell {
-  height: 100dvh;
-  overflow: hidden;
-}
-
-.app-shell__row,
-.app-shell__sidebar,
-.app-shell__main {
-  height: 100%;
-  min-height: 0;
-}
-
-.app-shell__main {
-  overflow: hidden;
-}
-
-.app-shell__content {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-</style>
+<style scoped src="./styles/views/app.css"></style>

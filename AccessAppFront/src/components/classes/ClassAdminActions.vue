@@ -1,5 +1,5 @@
 <template>
-  <section class="card shadow-sm" v-if="canCreate || canDelete">
+  <section v-if="canCreate || canDelete" class="card shadow-sm class-admin-actions">
     <div class="card-body d-flex flex-column gap-3">
       <div>
         <h3 class="h5 mb-1">Admin actions</h3>
@@ -32,7 +32,7 @@
 
       <div v-if="canDelete" class="d-flex flex-column gap-2">
         <p class="mb-0"><strong>Delete selected class</strong></p>
-        <p class="text-muted mb-0" v-if="!selectedClass">Select a class to delete.</p>
+        <p v-if="!selectedClass" class="text-muted mb-0">Select a class to delete.</p>
         <button
           class="btn btn-outline-danger align-self-start"
           type="button"
@@ -88,3 +88,5 @@ function emitDelete() {
   emit('delete', props.selectedClass.id)
 }
 </script>
+
+<style scoped src="../../styles/components/classes/class-admin-actions.css"></style>

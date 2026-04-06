@@ -1,0 +1,27 @@
+.profile-font-family-features {
+  width: 100%;
+}
+
+.profile-font-family-features__sample--default {
+  font-family: inherit;
+}
+
+.profile-font-family-features__sample--opendyslexic {
+  font-family: OpenDyslexic, Arial, sans-serif;
+}
+
+.profile-font-family-features__sample--atkinson {
+  font-family: "Atkinson Hyperlegible", Arial, sans-serif;
+}
+
+.profile-font-family-features__sample--arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.profile-font-family-features__sample--verdana {
+  font-family: Verdana, Geneva, sans-serif;
+}
+
+.profile-font-family-features__sample--monospace {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

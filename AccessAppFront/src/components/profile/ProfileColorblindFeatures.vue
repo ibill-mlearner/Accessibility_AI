@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="profile-colorblind-features">
     <p class="form-label small text-uppercase text-muted mb-2">Colorblind features</p>
     <div class="d-flex flex-wrap gap-2">
       <label
@@ -43,3 +43,5 @@ defineProps({
 
 defineEmits(['update:modelValue'])
 </script>
+
+<style scoped src="../../styles/components/profile/profile-colorblind-features.css"></style>

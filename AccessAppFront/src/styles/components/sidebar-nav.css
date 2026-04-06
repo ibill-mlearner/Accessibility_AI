@@ -1,0 +1,36 @@
+.sidebar-nav {
+  min-height: 0;
+}
+
+.sidebar-nav__brand {
+  font-size: 1.25rem;
+}
+
+.sidebar-nav__brand-logo {
+  width: 42px;
+  height: 42px;
+}
+
+.sidebar-nav__chat-list {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-nav__chat-list-title {
+  flex: 0 0 auto;
+  margin: 0.75rem 0.75rem 0.25rem;
+}
+
+.sidebar-nav__chat-list-items {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 0.75rem 0.75rem;
+  list-style: none;
+}
+
+.sidebar-nav__account-actions {
+  flex: 0 0 auto;
+}

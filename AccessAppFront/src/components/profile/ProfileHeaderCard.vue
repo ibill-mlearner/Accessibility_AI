@@ -1,5 +1,5 @@
 <template>
-  <section class="card bg-light-subtle border-0">
+  <section class="card bg-light-subtle border-0 profile-header-card">
     <div class="card-body">
       <h3 class="h6 text-uppercase text-muted mb-3">Account</h3>
       <dl class="row mb-0">
@@ -26,3 +26,5 @@ defineProps({
   isAuthenticated: { type: Boolean, default: false }
 })
 </script>
+
+<style scoped src="../../styles/components/profile/profile-header-card.css"></style>

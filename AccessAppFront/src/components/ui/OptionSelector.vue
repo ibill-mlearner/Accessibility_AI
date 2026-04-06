@@ -1,5 +1,5 @@
 <template>
-  <label>
+  <label class="option-selector">
     <input :type="type" :name="name" :checked="checked" @change="$emit('change', $event)" />
     {{ label }}
   </label>
@@ -15,3 +15,5 @@ defineProps({
 
 defineEmits(['change'])
 </script>
+
+<style scoped src="../../styles/components/ui/option-selector.css"></style>

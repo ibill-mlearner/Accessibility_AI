@@ -1,5 +1,5 @@
 <template>
-  <section class="d-flex flex-column gap-3">
+  <section class="saved-notes-view d-flex flex-column gap-3">
     <SavedNoteCard v-for="note in noteStore.notes" :key="note.id" :note="note" @delete="handleDeleteNote" />
   </section>
 </template>
@@ -27,3 +27,5 @@ function handleDeleteNote(noteId) {
   noteStore.deleteNote(noteId)
 }
 </script>
+
+<style scoped src="../styles/views/saved-notes-view.css"></style>
