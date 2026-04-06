@@ -10,9 +10,11 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { useClassStore } from '../stores/classStore'
 
+const authStore = useAuthStore()
 const chatStore = useChatStore()
 const classStore = useClassStore()
 
@@ -24,7 +26,7 @@ const selectedModelLabel = computed(() => {
   return selectedOption?.label || selectedValue
 })
 
-const hasHeaderContext = computed(() => Boolean(chatStore.hasActiveChat && classStore.selectedClass))
+const hasHeaderContext = computed(() => Boolean(authStore.isAuthenticated && classStore.selectedClass))
 </script>
 
 <style scoped src="../styles/components/header-bar.css"></style>
