@@ -5,27 +5,43 @@ Accessibility AI is a learning support app with:
 - a Vue frontend,
 - a local SQLite database for development.
 
+## One-command Windows install + run (Administrator)
+
+If you want a **single command** from your Windows machine that:
+1. downloads this project from GitHub (or updates it if already cloned),
+2. builds the Docker image,
+3. starts the app,
+
+run **PowerShell as Administrator** and execute:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $repoUrl='https://github.com/<YOUR_ORG>/<YOUR_REPO>.git'; $target=Join-Path $env:USERPROFILE 'Accessibility_AI'; if (Test-Path $target) { git -C $target pull --ff-only } else { git clone $repoUrl $target }; Set-Location $target; docker compose up --build"
+```
+
+### Before you run it
+
+- You should run this from **PowerShell (Run as Administrator)**.
+- Install and start **Docker Desktop** first.
+- Ensure **Git for Windows** is installed and available in PATH.
+- Replace `https://github.com/<YOUR_ORG>/<YOUR_REPO>.git` with your actual GitHub repo URL.
+
+After startup, open:
+- **App UI:** `http://localhost:5173`
+
+To stop:
+- Press `Ctrl + C` in the terminal where Compose is running.
+
+---
+
 ## Start here (run the app)
 
-If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
+If you already have the repo locally, start everything with:
 
 ```bash
 docker compose up --build
 ```
 
-If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
-
-```bash
-docker compose up --build
-```
-
-If you pulled new Docker-related changes, always rebuild once before plain `docker compose up`:
-
-```bash
-docker compose up --build
-```
-
-After the first successful build, you can restart the existing app container without rebuilding dependencies by running:
+After the first successful build, you can restart without rebuilding dependencies:
 
 ```bash
 docker compose up
@@ -36,7 +52,6 @@ That command does all of this automatically:
 2. Starts one container defined in `docker-compose.yml`.
 3. Runs the Docker image default command (`python3 /app/scripts/docker/dev_stack_runner.py`).
 4. The Python runner initializes DB, verifies backend health, runs a login smoke check, and then starts backend + frontend dev servers.
-
 
 Open in your browser:
 - **Use this for the app UI:** `http://localhost:5173`
@@ -50,9 +65,6 @@ Optional internal API check (from inside the container):
 ```bash
 docker compose exec app curl -sS http://127.0.0.1:5000/api/v1/health
 ```
-
-To stop:
-- Press `Ctrl + C` in the terminal where Compose is running.
 
 
 ### Docker reset (short version)
@@ -81,13 +93,13 @@ pytest AccessBackEnd/tests/integration/test_container_login_e2e.py -s
 
 ## Windows shortcut
 
-If you prefer a Windows command, use:
+If you prefer a Windows command from inside an existing clone, use:
 
 ```cmd
 scripts\docker\run_all.cmd
 ```
 
-This now runs the same single Docker Compose command (`docker compose up --build`) with no GPU prompts and no extra steps.
+This runs the same single Docker Compose command (`docker compose up --build`) with no GPU prompts and no extra steps.
 
 ## Architecture at a glance
 
