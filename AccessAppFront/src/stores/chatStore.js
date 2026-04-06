@@ -4,6 +4,10 @@ import { setActionStatus, setActionError } from '../stores/helpers/actionStatus'
 import { deriveSelectedId } from '../stores/helpers/selection'
 import { toResourceError } from '../stores/helpers/apiErrors'
 
+function normalizeChatTitle(title) {
+  return String(title || '').trim().replace(/\s+/g, ' ')
+}
+
 export const useChatStore = defineStore('chats', {
   state: () => ({
     selectedChatId: null,
@@ -178,12 +182,14 @@ export const useChatStore = defineStore('chats', {
     async createChat(payload) {
       const tempId = `temp-${Date.now()}`
       const key = `createChat:${tempId}`
-      const optimistic = { ...payload, id: tempId }
+      const sanitizedTitle = normalizeChatTitle(payload?.title || 'New Chat')
+      const normalizedPayload = { ...payload, title: sanitizedTitle }
+      const optimistic = { ...normalizedPayload, id: tempId }
       this.chats = [...this.chats, optimistic]
       this.selectedChatId = tempId
       setActionStatus(this.actionStatus, key, { loading: true, error: '', rollbackToken: tempId })
       try {
-        const response = await api.post('/api/v1/chats', payload)
+        const response = await api.post('/api/v1/chats', normalizedPayload)
         this.chats = this.chats.map((c) => (c.id === tempId ? response.data : c))
         this.selectedChatId = response.data.id
         await this.ensureModelSelectionForSession()
@@ -197,7 +203,11 @@ export const useChatStore = defineStore('chats', {
     async updateChat(chatId, patch) {
       const key = `updateChat:${chatId}`
       const snapshot = [...this.chats]
-      this.chats = this.chats.map((c) => (c.id === chatId ? { ...c, ...patch } : c))
+      const normalizedPatch = {
+        ...patch,
+        ...(Object.prototype.hasOwnProperty.call(patch || {}, 'title') ? { title: normalizeChatTitle(patch?.title) } : {})
+      }
+      this.chats = this.chats.map((c) => (c.id === chatId ? { ...c, ...normalizedPatch } : c))
       setActionStatus(this.actionStatus, key, { loading: true, error: '', rollbackToken: chatId })
       try {
         const current = this.chats.find((c) => c.id === chatId)
@@ -246,7 +256,11 @@ export const useChatStore = defineStore('chats', {
       const key = 'ensureActiveChat'
       setActionStatus(this.actionStatus, key, {loading: true, error: ''})
       try {
-        const response = await api.post('/api/v1/chats', payload)
+        const normalizedPayload = {
+          ...payload,
+          title: normalizeChatTitle(payload?.title || 'New Chat')
+        }
+        const response = await api.post('/api/v1/chats', normalizedPayload)
         this.chats = [...this.chats, response.data]
         this.selectedChatId = response.data.id
         await this.ensureModelSelectionForSession()
@@ -292,6 +306,36 @@ export const useChatStore = defineStore('chats', {
       } catch {
         setActionError(this.actionStatus, key, 'Unable to load chat interactions.')
         throw new Error('Unable to load chat interactions.')
+      }
+    },
+    async archiveChat(chatId) {
+      const key = `archiveChat:${chatId}`
+      const snapshot = [...this.chats]
+      this.chats = this.chats.filter((c) => c.id !== chatId)
+      this.selectedChatId = deriveSelectedId(this.selectedChatId, this.chats)
+      setActionStatus(this.actionStatus, key, { loading: true, error: '', rollbackToken: chatId })
+      try {
+        await api.patch(`/api/v1/chats/${chatId}/archive`)
+        this.selectedChatId = deriveSelectedId(this.selectedChatId, this.chats)
+        setActionStatus(this.actionStatus, key, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.chats = snapshot
+        this.selectedChatId = deriveSelectedId(this.selectedChatId, this.chats)
+        setActionError(this.actionStatus, key, 'Unable to archive chat.')
+      }
+    },
+    async editChatTitle(chatId, title) {
+      const key = `editChatTitle:${chatId}`
+      const snapshot = [...this.chats]
+      const normalizedTitle = normalizeChatTitle(title)
+      this.chats = this.chats.map((chat) => (chat.id === chatId ? { ...chat, title: normalizedTitle } : chat))
+      setActionStatus(this.actionStatus, key, { loading: true, error: '', rollbackToken: chatId })
+      try {
+        await api.patch(`/api/v1/chats/${chatId}/edit-title`, { title: normalizedTitle })
+        setActionStatus(this.actionStatus, key, { loading: false, error: '', rollbackToken: null })
+      } catch {
+        this.chats = snapshot
+        setActionError(this.actionStatus, key, 'Unable to edit chat title.')
       }
     }
   }

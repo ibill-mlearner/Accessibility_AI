@@ -46,6 +46,9 @@
           :chat="chat"
           :is-active="chat.id === chats.selectedChatId"
           @select="selectedChat"
+          @archive="archiveChat"
+          @delete="archiveChat"
+          @edit-title="editChatTitle"
         />
       </ul>
     </section>
@@ -86,6 +89,14 @@ function handleNewChatClick() {
 function selectedChat(id) {
   chats.selectedChatId = id
   router.push('/')
+}
+
+async function archiveChat(chatId) {
+  await chats.archiveChat(chatId)
+}
+
+async function editChatTitle(payload) {
+  await chats.editChatTitle(payload.chatId, payload.title)
 }
 </script>
 

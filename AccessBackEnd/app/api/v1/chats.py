@@ -20,6 +20,21 @@ from ...models import Chat, CourseClass
 from ...utils.chat_access import ChatAccessHelper
 from ...utils.api_checker import _apply_chat_mutations
 
+
+MAX_CHAT_TITLE_WORDS = 20
+
+
+def _normalize_chat_title(title: str) -> str:
+    return " ".join(str(title or "").strip().split())
+
+
+def _validate_chat_title_word_limit(title: str) -> str:
+    normalized_title = _normalize_chat_title(title)
+    if len(normalized_title.split()) > MAX_CHAT_TITLE_WORDS:
+        raise BadRequestError(f"title must be at most {MAX_CHAT_TITLE_WORDS} words")
+    return normalized_title
+
+
 @api_v1_bp.get("/chats")
 @login_required
 # Requires a valid Flask-Login session cookie on the incoming request.
@@ -30,6 +45,7 @@ def list_chats():
     chats = (
         db.session.query(Chat)
         .filter(Chat.user_id == user_id)
+        .filter(Chat.active.is_(True))
         .order_by(Chat.started_at.desc(), Chat.id.desc())
         .all()
     )
@@ -65,8 +81,9 @@ def create_chat():
     chat = Chat(
         class_id=int(class_id),
         user_id=owner_user_id,
-        title=payload.get("title") or "New Chat",
+        title=_validate_chat_title_word_limit(payload.get("title") or "New Chat"),
         model=payload.get("model") or current_app.config.get("AI_MODEL_NAME") or "unknown",
+        active=True,
     )
     started_at = _parse_optional_datetime(payload.get("started_at"))
     if started_at is not None:
@@ -81,7 +98,7 @@ def create_chat():
 @login_required
 def get_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat)
     if deny is not None:
         return deny
     return jsonify(_serialize_record("chat", chat)), 200
@@ -92,15 +109,48 @@ def get_chat(chat_id: int):
 @login_required
 def update_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat)
     if deny is not None:
         return deny
 
     payload = _validate_payload( 
         _deserialize_payload(
             "chat", _read_json_object()), ChatPayloadSchema(partial=True))
-    
+
+    if "title" in payload and payload["title"] is not None:
+        payload["title"] = _validate_chat_title_word_limit(payload["title"])
+
     _apply_chat_mutations(chat, payload)
+    db.session.commit()
+    return jsonify(_serialize_record("chat", chat)), 200
+
+
+@api_v1_bp.patch("/chats/<int:chat_id>/archive")
+@login_required
+def archive_chat(chat_id: int):
+    chat = _require_record("chat", Chat, chat_id)
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
+
+    chat.active = False
+    db.session.commit()
+    return jsonify(_serialize_record("chat", chat)), 200
+
+
+@api_v1_bp.patch("/chats/<int:chat_id>/edit-title")
+@login_required
+def edit_chat_title(chat_id: int):
+    chat = _require_record("chat", Chat, chat_id)
+    deny = _assert_chat_permissions(chat)
+    if deny is not None:
+        return deny
+
+    payload = _read_json_object()
+    if "title" not in payload:
+        raise BadRequestError("title is required")
+
+    chat.title = _validate_chat_title_word_limit(payload.get("title"))
     db.session.commit()
     return jsonify(_serialize_record("chat", chat)), 200
 
@@ -109,7 +159,7 @@ def update_chat(chat_id: int):
 @login_required
 def delete_chat(chat_id: int):
     chat = _require_record("chat", Chat, chat_id)
-    deny = _assert_chat_permissions(chat, message="user is not authorized for this chat")
+    deny = _assert_chat_permissions(chat)
     if deny is not None:
         return deny
 

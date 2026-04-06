@@ -8,6 +8,7 @@ class ChatPayloadSchema(Schema):
     user_id = fields.Int(required=False, allow_none=True)
     title = fields.Str(required=False, allow_none=True)
     model = fields.Str(required=False, allow_none=True)
+    active = fields.Bool(required=False, allow_none=True)
     started_at = fields.DateTime(required=False, allow_none=True)
 
 

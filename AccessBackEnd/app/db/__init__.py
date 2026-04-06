@@ -245,6 +245,40 @@ def _run_sqlite_accommodations_color_family_migration(app: Flask) -> None:
             app.logger.warning("Unable to migrate accommodations color_family schema: %s", exc)
 
 
+def _run_sqlite_chats_active_migration(app: Flask) -> None:
+    """Add chats.active for legacy SQLite databases."""
+
+    from ..extensions import db
+
+    migration_script = Path(__file__).resolve().parent / "migrations" / "sqlite_chats_active.sql"
+    if not migration_script.exists():
+        app.logger.warning("Chats active migration script missing at %s", migration_script)
+        return
+
+    with app.app_context():
+        engine = db.engine
+        if engine.dialect.name != "sqlite":
+            return
+
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        if "chats" not in existing_tables:
+            return
+        if _sqlite_has_column(engine, "chats", "active"):
+            return
+
+        script = migration_script.read_text(encoding="utf-8")
+        statements = [stmt.strip() for stmt in script.split(";") if stmt.strip()]
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("PRAGMA foreign_keys=OFF"))
+                for statement in statements:
+                    conn.execute(text(statement))
+                conn.execute(text("PRAGMA foreign_keys=ON"))
+        except SQLAlchemyError as exc:
+            app.logger.warning("Unable to migrate chats active schema: %s", exc)
+
+
 def init_flask_database(app: Flask) -> None:
     """Explicitly create every configured SQLAlchemy table set for the app DB."""
 
@@ -272,8 +306,10 @@ def ensure_sqlite_compat_schema(app: Flask) -> None:
     _run_sqlite_accommodations_displayable_migration(app)
     _run_sqlite_accommodations_font_family_migration(app)
     _run_sqlite_accommodations_color_family_migration(app)
+    _run_sqlite_chats_active_migration(app)
     column_updates: Iterable[tuple[str, str, str]] = (
         ("classes", "active", "BOOLEAN NOT NULL DEFAULT 1"),
+        ("chats", "active", "BOOLEAN NOT NULL DEFAULT 1"),
         ("chats", "ai_interaction_id", "INTEGER"),
     )
 
