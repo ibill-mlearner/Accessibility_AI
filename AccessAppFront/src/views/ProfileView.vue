@@ -1,30 +1,38 @@
 <template>
   <section class="profile-view d-flex flex-column gap-3">
-    <header class="card shadow-sm">
-      <div class="card-body d-flex flex-column gap-3">
-        <div class="d-flex flex-column flex-md-row align-items-md-start gap-3">
-          <div>
-            <h2 class="h4 mb-1">Profile</h2>
-            <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
+    <section class="row g-3">
+      <div :class="showAdminModelDownload ? 'col-12 col-xl-7' : 'col-12'">
+        <header class="card shadow-sm h-100">
+          <div class="card-body d-flex flex-column gap-3">
+            <div class="d-flex flex-column flex-md-row align-items-md-start gap-3">
+              <div>
+                <h2 class="h4 mb-1">Profile</h2>
+                <p class="text-muted mb-0">Your activity snapshot across chats and classes.</p>
+              </div>
+              <ProfileFontSizeSelect
+                v-model="selectedFontSize"
+                :options="fontSizeOptions"
+                @change="applyFontSizePreference"
+              />
+            </div>
+
+            <ProfileColorblindFeatures
+              v-model="selectedColorblindType"
+              :options="colorblindOptions"
+            />
+
+            <ProfileFontFamilyFeatures
+              v-model="selectedFontFamily"
+              :options="fontFamilyOptions"
+            />
           </div>
-          <ProfileFontSizeSelect
-            v-model="selectedFontSize"
-            :options="fontSizeOptions"
-            @change="applyFontSizePreference"
-          />
-        </div>
-
-        <ProfileColorblindFeatures
-          v-model="selectedColorblindType"
-          :options="colorblindOptions"
-        />
-
-        <ProfileFontFamilyFeatures
-          v-model="selectedFontFamily"
-          :options="fontFamilyOptions"
-        />
+        </header>
       </div>
-    </header>
+
+      <div v-if="showAdminModelDownload" class="col-12 col-xl-5">
+        <ProfileAdminModelDownloadCard @submit="handleAdminModelDownload" />
+      </div>
+    </section>
 
     <p v-if="isLoading" class="mb-0 text-muted">Loading profile details . . .</p>
     <p v-else-if="auth.authError" class="alert alert-warning mb-0">{{ auth.authError }}</p>
@@ -115,6 +123,7 @@ import { useFeatureStore } from '../stores/featureStore'
 import ProfileFontSizeSelect from '../components/profile/ProfileFontSizeSelect.vue'
 import ProfileColorblindFeatures from '../components/profile/ProfileColorblindFeatures.vue'
 import ProfileFontFamilyFeatures from '../components/profile/ProfileFontFamilyFeatures.vue'
+import ProfileAdminModelDownloadCard from '../components/profile/ProfileAdminModelDownloadCard.vue'
 
 const auth = useAuthStore()
 const chatStore = useChatStore()
@@ -146,6 +155,10 @@ const normalizedRole = computed(() => String(auth.role || '').toLowerCase())
 const allowedActions = computed(() => new Set(auth.allowedActions || []))
 const canTeachClasses = computed(() =>
   (normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
+  && allowedActions.value.has('classes:write')
+)
+const showAdminModelDownload = computed(() =>
+  normalizedRole.value === 'admin'
   && allowedActions.value.has('classes:write')
 )
 
@@ -254,6 +267,11 @@ async function applyFontSizePreference() {
     return featureStore.updateFeaturePreference(feature.id, isSelected)
   })
   await Promise.allSettled(updates)
+}
+
+async function handleAdminModelDownload(modelId) {
+  // Wiring point for AI pipeline model download workflow.
+  await Promise.resolve(modelId)
 }
 </script>
 
