@@ -183,16 +183,20 @@ const metrics = computed(() => {
 })
 
 const recentChats = computed(() => chatStore.chats.slice(0, 5))
+const isFontSizeFeature = (feature) => {
+  if (feature?.font_size_px === null || feature?.font_size_px === undefined || feature?.font_size_px === '') {
+    return false
+  }
+  const numericSize = Number(feature.font_size_px)
+  return Number.isInteger(numericSize) && numericSize > 0
+}
+const isFontFamilyFeature = (feature) => Boolean(feature?.font_family)
+const isColorFamilyFeature = (feature) => Boolean(feature?.color_family)
+const isDisplayableFeature = (feature) => feature?.displayable !== false
 const enabledFeatures = computed(() => featureStore.features.filter((feature) => feature?.enabled))
 const fontSizeFeatures = computed(() =>
   featureStore.features
-    .filter((feature) => {
-      if (feature?.font_size_px === null || feature?.font_size_px === undefined || feature?.font_size_px === '') {
-        return false
-      }
-      const numericSize = Number(feature.font_size_px)
-      return Number.isInteger(numericSize) && numericSize > 0
-    })
+    .filter((feature) => isFontSizeFeature(feature))
     .sort((left, right) => Number(left.font_size_px) - Number(right.font_size_px))
 )
 const fontSizeOptions = computed(() =>
@@ -202,19 +206,20 @@ const fontSizeOptions = computed(() =>
   }))
 )
 const visibleEnabledFeatures = computed(() =>
-  enabledFeatures.value.filter((feature) => !feature?.skipInProfile)
+  enabledFeatures.value.filter((feature) =>
+    !feature?.skipInProfile
+    && isDisplayableFeature(feature)
+    && !isFontSizeFeature(feature)
+    && !isFontFamilyFeature(feature)
+    && !isColorFamilyFeature(feature)
+  )
 )
 
 watch(
   () => featureStore.features,
   (features) => {
     const activeFontSize = features.find(
-      (feature) => feature?.enabled
-        && feature?.font_size_px !== null
-        && feature?.font_size_px !== undefined
-        && feature?.font_size_px !== ''
-        && Number.isInteger(Number(feature?.font_size_px))
-        && Number(feature?.font_size_px) > 0
+      (feature) => feature?.enabled && isFontSizeFeature(feature)
     )
     selectedFontSize.value = activeFontSize
       ? String(activeFontSize.font_size_px)

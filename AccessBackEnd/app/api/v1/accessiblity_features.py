@@ -14,14 +14,6 @@ from ...schemas.validation import FeaturePayloadSchema, PartialFeaturePayloadSch
 from ...models import Accommodation, UserAccessibilityFeature
 from ...utils.api_checker import _apply_feature_mutations
 
-_STANDARD_FEATURE_PREFIX = "standard;"
-
-
-def _is_standardized_feature(feature: Accommodation) -> bool:
-    details = str(getattr(feature, "details", "") or "").strip().lower()
-    return details.startswith(_STANDARD_FEATURE_PREFIX)
-
-
 def _load_user_preference_map(user_id: int) -> dict[int, bool]:
     rows = (
         db.session.query(UserAccessibilityFeature)
@@ -46,7 +38,6 @@ def list_features():
         .order_by(Accommodation.id.asc())
         .all()
     )
-    features = [feature for feature in features if not _is_standardized_feature(feature)]
     preference_map = _load_user_preference_map(int(current_user.id))
     return jsonify([_serialize_feature_with_preference(feature, preference_map) for feature in features]), 200
 
@@ -108,7 +99,6 @@ def list_current_user_feature_preferences():
         .order_by(Accommodation.id.asc())
         .all()
     )
-    features = [feature for feature in features if not _is_standardized_feature(feature)]
     payload = [
         {
             "accommodation_id": int(feature.id),
