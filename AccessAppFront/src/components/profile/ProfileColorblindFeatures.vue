@@ -18,7 +18,7 @@
           name="profileColorblindType"
           :value="option.value"
           :checked="modelValue === option.value"
-          @change="$emit('update:modelValue', option.value)"
+          @change="onChange(option.value)"
         />
         {{ option.label }}
       </label>
@@ -41,7 +41,12 @@ defineProps({
   }
 })
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'change'])
+
+function onChange(value) {
+  emit('update:modelValue', value)
+  emit('change', value)
+}
 </script>
 
 <style scoped src="../../styles/components/profile/profile-colorblind-features.css"></style>
