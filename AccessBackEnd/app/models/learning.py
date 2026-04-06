@@ -98,6 +98,7 @@ class Chat(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     model: Mapped[str] = mapped_column(String(80), nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
     class_id: Mapped[int] = mapped_column(ForeignKey("classes.id"), nullable=False, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     ai_interaction_id: Mapped[int | None] = mapped_column(ForeignKey("ai_interactions.id"), nullable=True, index=True)

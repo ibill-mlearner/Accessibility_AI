@@ -9,7 +9,7 @@
         type="button"
         @click="$emit('select', chat.id)"
       >
-        {{ chat.title }}
+        {{ trimmedTitle }}
       </button>
 
       <button
@@ -32,11 +32,22 @@
         role="menu"
         :style="floatingMenuStyle"
       >
-        <!-- Temporary demo options: placeholder location for future chat actions. -->
-        <li><span class="dropdown-item-text">Edit</span></li>
-        <li><span class="dropdown-item-text">Archive</span></li>
+        <li>
+          <button class="dropdown-item" type="button" role="menuitem" @click.stop="handleEditTitle">
+            Edit title
+          </button>
+        </li>
+        <li>
+          <button class="dropdown-item" type="button" role="menuitem" @click.stop="handleArchive">
+            Archive
+          </button>
+        </li>
         <li><hr class="dropdown-divider" /></li>
-        <li><span class="dropdown-item-text text-danger">Delete</span></li>
+        <li>
+          <button class="dropdown-item text-danger" type="button" role="menuitem" @click.stop="handleDelete">
+            Delete
+          </button>
+        </li>
       </ul>
     </Teleport>
   </li>
@@ -45,7 +56,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 
-defineProps({
+const props = defineProps({
   chat: {
     type: Object,
     required: true
@@ -56,7 +67,7 @@ defineProps({
   }
 })
 
-defineEmits(['select'])
+const emit = defineEmits(['select', 'archive', 'delete', 'edit-title'])
 
 const menuButtonRef = ref(null)
 const menuRef = ref(null)
@@ -69,6 +80,8 @@ const floatingMenuStyle = computed(() => ({
   left: `${menuPosition.value.left}px`,
   zIndex: 2000
 }))
+
+const trimmedTitle = computed(() => String(props.chat?.title || '').trim())
 
 function updateMenuPosition() {
   if (!menuButtonRef.value) return
@@ -92,6 +105,39 @@ function toggleMenu() {
   updateMenuPosition()
   isMenuOpen.value = true
   nextTick(() => updateMenuPosition())
+}
+
+function handleArchive() {
+  closeMenu()
+  emit('archive', props.chat.id)
+}
+
+function handleDelete() {
+  closeMenu()
+  emit('delete', props.chat.id)
+}
+
+function handleEditTitle() {
+  const existingTitle = trimmedTitle.value
+  const nextTitle = window.prompt('Edit chat title', existingTitle)
+  if (nextTitle === null) {
+    closeMenu()
+    return
+  }
+
+  const normalizedTitle = String(nextTitle || '').trim().replace(/\s+/g, ' ')
+  if (!normalizedTitle) {
+    closeMenu()
+    return
+  }
+
+  if (normalizedTitle.split(' ').length > 20) {
+    window.alert('Chat titles must be 20 words or fewer.')
+    return
+  }
+
+  closeMenu()
+  emit('edit-title', { chatId: props.chat.id, title: normalizedTitle })
 }
 
 function handleGlobalClick(event) {

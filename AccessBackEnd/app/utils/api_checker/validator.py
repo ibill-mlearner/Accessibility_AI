@@ -89,6 +89,7 @@ class ApiMonolithHelper:
             "user_id": record.user_id,
             "title": record.title,
             "model": record.model,
+            "active": record.active,
             "start": started,
             "started_at": started,
         }

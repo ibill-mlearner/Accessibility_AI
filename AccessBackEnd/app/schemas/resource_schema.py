@@ -22,6 +22,7 @@ class ChatRecord(TypedDict, total=False):
     user_id: int
     title: str
     model: str
+    active: bool
     started_at: str
 
 
