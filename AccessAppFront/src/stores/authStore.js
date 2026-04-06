@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import api from '../services/api'
 import { useChatStore } from './chatStore'
+import { useClassStore } from './classStore'
+import { useFeatureStore } from './featureStore'
 
 function buildGuestState() {
   return {
@@ -30,6 +32,8 @@ export const useAuthStore = defineStore('auth', {
 
     }, clearAuthState() {
         const chatStore = useChatStore()
+        const classStore = useClassStore()
+        const featureStore = useFeatureStore()
         const guestState = buildGuestState()
         this.role = guestState.role
         this.user = guestState.user
@@ -40,6 +44,12 @@ export const useAuthStore = defineStore('auth', {
         this.allowedActions = guestState.allowedActions
         this.sessionChecked = guestState.sessionChecked
         chatStore.resetChatState()
+        classStore.resetClassState()
+        featureStore.resetFeatureState()
+        if (typeof document !== 'undefined') {
+            document.documentElement.style.removeProperty('font-size')
+            document.documentElement.style.removeProperty('font-family')
+        }
 
     }, async initFromSession() {
         return this.me()
