@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 from app.db import init_flask_database
 from app.extensions import db
@@ -66,6 +67,44 @@ def test_ensure_colorblind_accessibility_features_updates_existing_deuteranopia_
         assert "blue/orange" in row.details
 
 
+def test_ensure_colorblind_accessibility_features_handles_duplicate_color_family_without_title_collision(app):
+    with app.app_context():
+        init_flask_database(app)
+        db.session.add_all(
+            [
+                Accommodation(
+                    title="Color family: Deuteranopia-safe",
+                    details="Stale details",
+                    active=True,
+                    displayable=False,
+                    color_family="deuteranopia-safe",
+                ),
+                Accommodation(
+                    title="Color profile: Deuteranopia-safe palette",
+                    details="Legacy duplicate row",
+                    active=True,
+                    displayable=True,
+                    color_family="deuteranopia-safe",
+                ),
+            ]
+        )
+        db.session.commit()
+
+        ensure_colorblind_accessibility_features(app)
+
+        rows = (
+            db.session.query(Accommodation)
+            .filter_by(color_family="deuteranopia-safe")
+            .order_by(Accommodation.id.asc())
+            .all()
+        )
+        assert len(rows) == 2
+
+        canonical = next(row for row in rows if row.title == "Color family: Deuteranopia-safe")
+        assert canonical.displayable is True
+        assert "blue/orange" in canonical.details
+
+
 def test_ensure_colorblind_accessibility_features_updates_existing_font_family_row(app):
     with app.app_context():
         init_flask_database(app)
@@ -129,3 +168,41 @@ def test_build_runtime_app_calls_colorblind_feature_sync(monkeypatch):
         "run_init_db_flow",
         "ensure_colorblind_accessibility_features",
     ]
+
+
+def test_build_runtime_app_logs_when_colorblind_feature_sync_fails(monkeypatch, caplog):
+    app = backend_manage.create_app("testing")
+
+    def _apply_runtime_ai_overrides(_app, _args):
+        return None
+
+    def _run_init_db_flow(_app):
+        return None
+
+    def _ensure_colorblind_features(_app):
+        raise RuntimeError("sync boom")
+
+    monkeypatch.setattr(backend_manage, "create_app", lambda _config: app)
+    monkeypatch.setattr(backend_manage, "apply_runtime_ai_overrides", _apply_runtime_ai_overrides)
+    monkeypatch.setattr(backend_manage, "run_init_db_flow", _run_init_db_flow)
+    monkeypatch.setattr(
+        backend_manage,
+        "ensure_colorblind_accessibility_features",
+        _ensure_colorblind_features,
+    )
+
+    args = argparse.Namespace(
+        config="testing",
+        ai_provider=None,
+        ai_endpoint=None,
+        host="0.0.0.0",
+        port=5000,
+        init_db=True,
+        init_only=False,
+    )
+
+    with caplog.at_level(logging.ERROR):
+        runtime_app = backend_manage.build_runtime_app(args)
+
+    assert runtime_app is app
+    assert "Accessibility feature sync utility did not run" in caplog.text

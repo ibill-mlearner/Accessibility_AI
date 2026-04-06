@@ -145,7 +145,10 @@ def build_runtime_app(args: argparse.Namespace):
     if args.init_db:
         run_init_db_flow(app)
 
-    ensure_colorblind_accessibility_features(app)
+    try:
+        ensure_colorblind_accessibility_features(app)
+    except Exception as exc:  # pragma: no cover - defensive startup guard
+        app.logger.exception("Accessibility feature sync utility did not run: %s", exc)
 
     return app
 
