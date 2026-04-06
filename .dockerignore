@@ -1,6 +1,12 @@
 # Default-deny docker build context to prevent local large files from being sent.
 **
 
+# Keep local tooling metadata out of Docker build context explicitly (even if this file is edited later).
+.git
+.git/**
+.idea
+.idea/**
+
 # Build metadata
 !Dockerfile
 !.dockerignore
@@ -26,6 +32,7 @@
 
 # Docker runtime bootstrap
 !scripts/docker/dev_stack_runner.py
+
 # Explicitly exclude local model caches/checkpoints
 AccessBackEnd/app/services/ai_pipeline_thin/models/
 AccessBackEnd/instance/models/
