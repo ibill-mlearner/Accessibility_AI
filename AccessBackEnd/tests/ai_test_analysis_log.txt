@@ -598,3 +598,6 @@ test=tests/ai/test_ai_pipeline_v2_service.py::test_ensure_pipe_passes_device_map
 [2026-03-17T07:35:10.709132+00:00] session_start cwd=E:\Tests\Accessibility_AI\AccessBackEnd\tests\ai
 test=tests/ai/test_ai_pipeline_v2_service.py::test_ensure_pipe_passes_device_map_when_accelerate_available outcome=passed duration_s=0.0004
 [2026-03-17T07:35:13.957552+00:00] session_finish exitstatus=0
+[2026-03-31T15:53:13.353655+00:00] session_start cwd=E:\Tests\Accessibility_AI
+test=tests/utilities/test_dockerignore_guards.py::test_dockerignore_uses_default_deny_allowlist_strategy outcome=passed duration_s=0.0005
+[2026-03-31T15:53:13.368654+00:00] session_finish exitstatus=0
