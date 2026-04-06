@@ -19,6 +19,7 @@
             <ProfileColorblindFeatures
               v-model="selectedColorblindType"
               :options="colorblindOptions"
+              @change="applyColorblindPreference"
             />
 
             <ProfileFontFamilyFeatures
@@ -193,6 +194,14 @@ const isFontSizeFeature = (feature) => {
 }
 const isFontFamilyFeature = (feature) => Boolean(feature?.font_family)
 const isColorFamilyFeature = (feature) => Boolean(feature?.color_family)
+const colorblindValueToFeatureValue = (value) => {
+  if (!value || value === 'none') return ''
+  return `${value}-safe`
+}
+const colorblindFeatureValueToSelection = (value) => {
+  if (!value) return 'none'
+  return String(value).replace(/-safe$/, '')
+}
 const isDisplayableFeature = (feature) => feature?.displayable !== false
 const enabledFeatures = computed(() => featureStore.features.filter((feature) => feature?.enabled))
 const fontSizeFeatures = computed(() =>
@@ -203,6 +212,10 @@ const fontSizeFeatures = computed(() =>
 const fontFamilyFeatures = computed(() =>
   featureStore.features
     .filter((feature) => isFontFamilyFeature(feature))
+)
+const colorFamilyFeatures = computed(() =>
+  featureStore.features
+    .filter((feature) => isColorFamilyFeature(feature))
 )
 const fontSizeOptions = computed(() =>
   fontSizeFeatures.value.map((feature) => ({
@@ -229,6 +242,17 @@ watch(
     selectedFontSize.value = activeFontSize
       ? String(activeFontSize.font_size_px)
       : (fontSizeOptions.value[0]?.value ?? '')
+  },
+  { immediate: true, deep: true }
+)
+
+watch(
+  () => featureStore.features,
+  (features) => {
+    const activeColorFamily = features.find(
+      (feature) => feature?.enabled && isColorFamilyFeature(feature)
+    )
+    selectedColorblindType.value = colorblindFeatureValueToSelection(activeColorFamily?.color_family)
   },
   { immediate: true, deep: true }
 )
@@ -308,6 +332,15 @@ async function applyFontFamilyPreference() {
   const updates = fontFamilyFeatures.value.map((feature) => ({
     accommodation_id: Number(feature.id),
     enabled: selectedValue !== 'default' && String(feature.font_family) === selectedValue
+  }))
+  await featureStore.replaceFeaturePreferences(updates)
+}
+
+async function applyColorblindPreference() {
+  const selectedValue = colorblindValueToFeatureValue(String(selectedColorblindType.value || '').trim())
+  const updates = colorFamilyFeatures.value.map((feature) => ({
+    accommodation_id: Number(feature.id),
+    enabled: Boolean(selectedValue) && String(feature.color_family) === selectedValue
   }))
   await featureStore.replaceFeaturePreferences(updates)
 }
