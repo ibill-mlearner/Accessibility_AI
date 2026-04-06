@@ -4,7 +4,6 @@
 # Build metadata
 !Dockerfile
 !.dockerignore
-!package.json
 
 # Backend runtime files
 !AccessBackEnd/manage.py
