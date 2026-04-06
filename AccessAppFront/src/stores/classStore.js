@@ -25,6 +25,11 @@ export const useClassStore = defineStore('classes', {
     }
   },
   actions: {
+    resetClassState() {
+      this.selectedClassId = null
+      this.classes = []
+      this.actionStatus = {}
+    },
     reconcileSelection() {
       this.selectedClassId = deriveSelectedId(this.selectedClassId, this.roleClasses)
     },

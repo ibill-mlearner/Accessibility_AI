@@ -23,6 +23,11 @@ export const useFeatureStore = defineStore('features', {
     }
   },
   actions: {
+    resetFeatureState() {
+      this.features = []
+      this.selectedAccessibilityLinkIds = []
+      this.actionStatus = {}
+    },
     async fetchFeatures() {
       const key = 'fetchFeatures'
       setActionStatus(this.actionStatus, key, { loading: true, error: '' })
