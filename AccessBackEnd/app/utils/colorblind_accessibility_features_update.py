@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import defaultdict
 
 from flask import Flask
 from sqlalchemy import inspect
@@ -93,20 +94,35 @@ def _sync_accommodation_specs(
     key_values = [str(item[key_field]) for item in specs]
     model_field = getattr(Accommodation, key_field)
     existing_rows = db.session.query(Accommodation).filter(model_field.in_(key_values)).all()
-    existing_by_key = {str(getattr(row, key_field)): row for row in existing_rows if getattr(row, key_field)}
+    existing_by_key: dict[str, list[Accommodation]] = defaultdict(list)
+    existing_by_title = {row.title: row for row in existing_rows}
+    for row in existing_rows:
+        row_key = getattr(row, key_field)
+        if row_key:
+            existing_by_key[str(row_key)].append(row)
 
     has_changes = False
     for spec in specs:
         spec_key = str(spec[key_field])
-        row = existing_by_key.get(spec_key)
+        desired_title = str(spec["title"])
+        matching_rows = existing_by_key.get(spec_key, [])
+        row = next((candidate for candidate in matching_rows if candidate.title == desired_title), None)
+        if row is None and matching_rows:
+            row = matching_rows[0]
         if row is None:
             db.session.add(Accommodation(**spec))
             has_changes = True
             continue
 
         for field_name, desired_value in spec.items():
+            if field_name == "title":
+                conflicting_row = existing_by_title.get(str(desired_value))
+                if conflicting_row is not None and conflicting_row.id != row.id:
+                    continue
             if getattr(row, field_name) != desired_value:
                 setattr(row, field_name, desired_value)
+                if field_name == "title":
+                    existing_by_title[str(desired_value)] = row
                 has_changes = True
 
     return has_changes
