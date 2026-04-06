@@ -9,6 +9,7 @@ from sqlalchemy.engine import make_url
 
 from app import build_ai_service, create_app
 from app.db import init_flask_database
+from app.utils.colorblind_accessibility_features_update import ensure_colorblind_accessibility_features
 
 INSTANCE_DIR = Path(__file__).resolve().parent / "instance"
 SEED_SQL_FILES: tuple[Path, ...] = (
@@ -143,6 +144,8 @@ def build_runtime_app(args: argparse.Namespace):
 
     if args.init_db:
         run_init_db_flow(app)
+
+    ensure_colorblind_accessibility_features(app)
 
     return app
 
