@@ -12,7 +12,6 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY package.json package-lock.json /app/
 COPY AccessBackEnd/requirements.txt /tmp/backend-requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r /tmp/backend-requirements.txt
