@@ -71,7 +71,7 @@ AccessBackEnd/app/**/.mypy_cache/
 AccessBackEnd/app/**/node_modules/
 AccessBackEnd/app/**/dist/
 AccessBackEnd/app/**/build/
-AccessBackEnd/app/**/models/
+# AccessBackEnd/app/**/models/ seems to be causing a bug
 AccessBackEnd/app/**/checkpoints/
 AccessBackEnd/app/**/artifacts/
 # ...Front
