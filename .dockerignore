@@ -1,26 +1,24 @@
 # Default-deny docker build context to prevent local large files from being sent.
 **
 
-# Keep local tooling metadata out of Docker build context explicitly (even if this file is edited later).
+# Keep local tooling metadata out of Docker build context explicitly
 .git
 .git/**
 .idea
 .idea/**
 
-# Build metadata
+# Docker requirements
 !Dockerfile
 !.dockerignore
 
-# Backend runtime files
-!AccessBackEnd/manage.py
-!AccessBackEnd/requirements.txt
-!AccessBackEnd/app/
-!AccessBackEnd/app/**
-!AccessBackEnd/instance/
-!AccessBackEnd/instance/*.sql
-!AccessBackEnd/instance/config.py
+# Scripts
+!scritpts/
+!scripts/docker
+!scripts/docker/dev_stack_runner.py
 
-# Frontend runtime files
+# Frontend ACL
+!AccessAppFront/
+AccessAppFront/**
 !AccessAppFront/package.json
 !AccessAppFront/package-lock.json
 !AccessAppFront/index.html
@@ -30,9 +28,56 @@
 !AccessAppFront/public/
 !AccessAppFront/public/**
 
-# Docker runtime bootstrap
-!scripts/docker/dev_stack_runner.py
+# Backend ACL
+!AccessBackEnd/
+AccessBackEnd/**
+!AccessBackEnd/manage.py
+!AccessBackEnd/requirements.txt
 
-# Explicitly exclude local model caches/checkpoints
-AccessBackEnd/app/services/ai_pipeline_thin/models/
-AccessBackEnd/instance/models/
+# Application ACL
+!AccessBackEnd/app/
+!AccessBackEnd/app/**
+
+# Instance files ACL
+!AccessBackEnd/instance/
+AccessBackEnd/instance/**
+!AccessBackEnd/instance/config.py
+!AccessBackEnd/instance/*.sql
+
+# Artifact ACL
+# ... Back
+AccessBackEnd/app/**/__pycache__/
+AccessBackEnd/app/**/*.pyc
+AccessBackEnd/app/**/*.pyo
+AccessBackEnd/app/**/*.pyd
+AccessBackEnd/app/**/*.log
+AccessBackEnd/app/**/*.sqlite
+AccessBackEnd/app/**/*.sqlite3
+AccessBackEnd/app/**/*.db
+AccessBackEnd/app/**/*.db-*
+AccessBackEnd/app/**/*.h5
+AccessBackEnd/app/**/*.pt
+AccessBackEnd/app/**/*.pth
+AccessBackEnd/app/**/*.bin
+AccessBackEnd/app/**/*.onnx
+AccessBackEnd/app/**/*.ckpt
+AccessBackEnd/app/**/*.safetensors
+AccessBackEnd/app/**/*.npy
+AccessBackEnd/app/**/*.npz
+AccessBackEnd/app/**/*.parquet
+AccessBackEnd/app/**/.cache/
+AccessBackEnd/app/**/.pytest_cache/
+AccessBackEnd/app/**/.mypy_cache/
+AccessBackEnd/app/**/node_modules/
+AccessBackEnd/app/**/dist/
+AccessBackEnd/app/**/build/
+AccessBackEnd/app/**/models/
+AccessBackEnd/app/**/checkpoints/
+AccessBackEnd/app/**/artifacts/
+# ...Front
+AccessAppFront/src/**/node_modules/
+AccessAppFront/src/**/dist/
+AccessAppFront/src/**/build/
+AccessAppFront/src/**/.cache/
+AccessAppFront/src/**/*.map
+AccessAppFront/public/**/*.map
