@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { buildFirstChatTitle, createId, readAssistantText, withSingleRetry } from '../utils/helpers'
 import { useFeatureStore } from '../stores/featureStore'
+import { filterSiteWideFeatures } from '../utils/accessibilityFeatureScope'
 
 export function useSendPrompt({ 
   auth, 
@@ -94,7 +95,10 @@ export function useSendPrompt({
     chatId, 
     classIdForChat
   }) {
-    const selectedAccessibilityLinkIds = featureStore.selectedLinkIds
+    const selectedSet = new Set(featureStore.selectedLinkIds)
+    const selectedAccessibilityLinkIds = filterSiteWideFeatures(featureStore.features)
+      .map((feature) => Number(feature?.id))
+      .filter((id) => Number.isInteger(id) && selectedSet.has(id))
 
     return {
       prompt: cleanPrompt,
