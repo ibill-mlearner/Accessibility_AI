@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+from time import perf_counter
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -199,6 +200,26 @@ class AIPipelineGateway:
             "local": {"models": [{"id": model_name}], "count": 1},
             "huggingface_local": {"models": [{"id": model_name}], "count": 1},
         }
+
+    def download_model(self, model_id: str) -> dict[str, Any]:
+        resolved_model = str(model_id or "").strip()
+        if not resolved_model:
+            raise ValueError("model_id is required")
+
+        ai_tool = self._load_ai_tool()
+        api = ai_tool.AIPipelineInterface()
+        download_service = api.AIPipelineModelDownloadService()
+        started_at = perf_counter()
+        payload = download_service.download(model_id=resolved_model, provider="huggingface")
+        elapsed_seconds = perf_counter() - started_at
+
+        result = payload if isinstance(payload, dict) else {}
+        if "model_id" not in result:
+            result["model_id"] = resolved_model
+        if "provider" not in result:
+            result["provider"] = "huggingface"
+        result["elapsed_seconds"] = round(elapsed_seconds, 2)
+        return result
 
     def provider_health(self) -> dict[str, Any]:
         if has_app_context():
