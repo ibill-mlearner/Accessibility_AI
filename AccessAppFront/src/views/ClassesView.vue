@@ -28,27 +28,35 @@
       />
     </section>
 
-    <ClassDetailsEditor
-      v-if="canEditClass"
-      :selected-class="classStore.selectedClass"
-      :can-edit="canEditClass"
-      :is-admin="canCreateClass"
-      :instructors="classStore.instructors"
-      :is-saving="updateLoading"
-      @save="handleUpdateClass"
-    />
+    <section class="class-management-layout row g-3">
+      <div v-if="canEditClass" class="col-12 col-lg-6">
+        <div class="class-management-card-wrap h-100">
+          <ClassDetailsEditor
+            v-if="canEditClass"
+            :selected-class="classStore.selectedClass"
+            :can-edit="canEditClass"
+            :is-saving="updateLoading"
+            :can-delete="canDeleteClass"
+            :is-deleting="deleteLoading"
+            @save="handleUpdateClass"
+            @delete="handleDeleteClass"
+          />
+        </div>
+      </div>
+
+      <div class="col-12 col-lg-6">
+        <div class="class-management-card-wrap h-100">
+          <ClassAdminActions
+            :can-create="canCreateClass"
+            :instructors="classStore.instructors"
+            :is-submitting="createLoading"
+            @create="handleCreateClass"
+          />
+        </div>
+      </div>
+    </section>
 
     <p v-if="updateError" class="alert alert-warning mb-0">{{ updateError }}</p>
-
-    <ClassAdminActions
-      :selected-class="classStore.selectedClass"
-      :can-create="canCreateClass"
-      :can-delete="canDeleteClass"
-      :instructors="classStore.instructors"
-      :is-submitting="createLoading || deleteLoading"
-      @create="handleCreateClass"
-      @delete="handleDeleteClass"
-    />
 
     <p v-if="createError" class="alert alert-warning mb-0">{{ createError }}</p>
     <p v-if="deleteError" class="alert alert-warning mb-0">{{ deleteError }}</p>

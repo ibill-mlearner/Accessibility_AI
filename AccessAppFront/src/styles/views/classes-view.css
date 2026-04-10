@@ -1,3 +1,11 @@
 .classes-view {
   width: 100%;
 }
+
+.class-management-layout {
+  align-items: stretch;
+}
+
+.class-management-card-wrap {
+  width: 100%;
+}
