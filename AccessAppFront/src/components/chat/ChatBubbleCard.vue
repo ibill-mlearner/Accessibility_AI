@@ -2,36 +2,35 @@
   <article class="card shadow-sm chat-bubble-card" :class="variantClass">
     <div class="card shadow-sm border border-3">
       <slot>{{ text }}</slot>
-      <div
+      <ReadAloudControls
         v-if="showActions"
-        class="d-flex justify-content-between mt-1 gap-1"
-      >
-        <button
-          class="btn btn-secondary px-2 py-1 btn-sm"
-          :disabled="!readAloudEnabled"
-          :aria-disabled="!readAloudEnabled"
-          @click="$emit('read-aloud')"
-        >
-          {{ readAloudEnabled ? 'Read Aloud' : 'Read Aloud Unavailable' }}
-        </button>
-        <!-- Intentionally hidden during sprint 4 -->
-        <!-- <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button> -->
-      </div>
+        :read-aloud-enabled="readAloudEnabled"
+        :is-reading="isReading"
+        :volume="volume"
+        @toggle="$emit('read-aloud-toggle')"
+        @stop="$emit('read-aloud-stop')"
+        @volume="$emit('read-aloud-volume', $event)"
+      />
+      <!-- Intentionally hidden during sprint 4 -->
+      <!-- <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button> -->
     </div>
   </article>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import ReadAloudControls from './ReadAloudControls.vue'
 
 const props = defineProps({
   text: { type: String, default: '' },
   variant: { type: String, default: 'system' },
   showActions: { type: Boolean, default: false },
-  readAloudEnabled: { type: Boolean, default: true }
+  readAloudEnabled: { type: Boolean, default: true },
+  isReading: { type: Boolean, default: false },
+  volume: { type: Number, default: 1 }
 })
 
-defineEmits(['read-aloud'/*, 'save-note'*/])
+defineEmits(['read-aloud-toggle', 'read-aloud-stop', 'read-aloud-volume'/*, 'save-note'*/])
 const variantClass = computed(() => {
   if (props.variant === 'user') return 'ms-auto border-primary'
   return 'me-auto border-secondary'
