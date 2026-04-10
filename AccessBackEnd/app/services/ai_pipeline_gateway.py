@@ -208,9 +208,10 @@ class AIPipelineGateway:
 
         ai_tool = self._load_ai_tool()
         api = ai_tool.AIPipelineInterface()
-        download_service = api.AIPipelineModelDownloadService()
+        service = api.AIPipelineModelDownloadService()
+
         started_at = perf_counter()
-        payload = download_service.download(model_id=resolved_model, provider="huggingface")
+        payload = service.download(model_id=resolved_model, provider="huggingface")
         elapsed_seconds = perf_counter() - started_at
 
         result = payload if isinstance(payload, dict) else {}

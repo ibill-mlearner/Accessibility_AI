@@ -12,7 +12,7 @@
             :variant="messageVariantMap[message.role] || message.role"
             :show-actions="message.role === 'assistant'"
             :read-aloud-enabled="isReadAloudSupported"
-            :is-reading="activeReadAloudMessageId === message.id && isReadAloudPlaying"
+            :is-reading="activeReadAloudMessageId === message.id && speech.isSpeaking"
             :volume="readAloudVolume"
             :selected-voice="selectedReadAloudVoice"
             :voice-options="readAloudVoiceOptions"
@@ -50,6 +50,7 @@ import { useNoteStore } from '../stores/noteStore'
 import { useAutoScroll } from '../composables/useAutoScroll'
 import { useChatTimeline } from '../composables/useChatTimeline'
 import { useSendPrompt } from '../composables/useSendPrompt'
+import { useSpeechSynthesis } from '../composables/useSpeechSynthesis'
 
 import ChatBubbleCard from '../components/chat/ChatBubbleCard.vue'
 import ComposerBar from '../components/chat/ComposerBar.vue'
@@ -63,12 +64,11 @@ const noteStore = useNoteStore()
 const { messageListRef, scrollToLatestTurn } = useAutoScroll()
 const { timelineMessages, interactionError, hydrateTimelineForChat } = useChatTimeline(chatStore)
 const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError })
-const isReadAloudSupported = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
-
+const speech = useSpeechSynthesis()
+const isReadAloudSupported = computed(() => speech.isSupported)
 const activeReadAloudMessageId = ref(null)
-const isReadAloudPlaying = ref(false)
+const activeReadAloudText = ref('')
 const readAloudVolume = ref(1)
-const currentUtterance = ref(null)
 const selectedReadAloudVoice = ref('Samantha')
 const readAloudVoiceOptions = [
   { label: 'Samantha', value: 'Samantha' },
@@ -98,56 +98,27 @@ async function handleModelSelection(modelValue) {
   await chatStore.updateModelSelection(modelValue)
 }
 
-function clearReadAloudState() {
-  activeReadAloudMessageId.value = null
-  isReadAloudPlaying.value = false
-  currentUtterance.value = null
-}
-
 function handleReadAloudToggle(message) {
-  if (!isReadAloudSupported || !message?.text?.trim()) return
+  if (!isReadAloudSupported.value || !message?.text?.trim()) return
 
   const isSameMessage = activeReadAloudMessageId.value === message.id
-  if (isSameMessage && window.speechSynthesis.speaking) {
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume()
-      isReadAloudPlaying.value = true
-    } else {
-      window.speechSynthesis.pause()
-      isReadAloudPlaying.value = false
-    }
+  if (isSameMessage && speech.isSpeaking.value) {
+    speech.stop()
+    activeReadAloudMessageId.value = null
+    activeReadAloudText.value = ''
     return
   }
 
-  window.speechSynthesis.cancel()
-
-  const utterance = new window.SpeechSynthesisUtterance(message.text)
-  utterance.lang = 'en-US'
-  utterance.volume = readAloudVolume.value
-  const preferredVoice = window.speechSynthesis.getVoices().find((voice) => voice.name === selectedReadAloudVoice.value)
-  if (preferredVoice) utterance.voice = preferredVoice
-
-  utterance.onstart = () => {
-    activeReadAloudMessageId.value = message.id
-    isReadAloudPlaying.value = true
-  }
-
-  utterance.onend = () => {
-    clearReadAloudState()
-  }
-
-  utterance.onerror = () => {
-    clearReadAloudState()
-  }
-
-  currentUtterance.value = utterance
-  window.speechSynthesis.speak(utterance)
+  speech.start(message.text, selectedReadAloudVoice.value, readAloudVolume.value)
+  activeReadAloudMessageId.value = message.id
+  activeReadAloudText.value = message.text
 }
 
 function handleReadAloudStop() {
-  if (!isReadAloudSupported) return
-  window.speechSynthesis.cancel()
-  clearReadAloudState()
+  if (!isReadAloudSupported.value) return
+  speech.stop()
+  activeReadAloudMessageId.value = null
+  activeReadAloudText.value = ''
 }
 
 function handleReadAloudVolume(nextVolume) {
@@ -155,14 +126,14 @@ function handleReadAloudVolume(nextVolume) {
   if (Number.isNaN(normalizedVolume)) return
 
   readAloudVolume.value = Math.min(1, Math.max(0, normalizedVolume))
-
-  if (currentUtterance.value) {
-    currentUtterance.value.volume = readAloudVolume.value
-  }
 }
 
 function handleReadAloudVoice(nextVoiceName) {
   selectedReadAloudVoice.value = String(nextVoiceName || '').trim() || 'Samantha'
+
+  if (!speech.isSpeaking.value || !activeReadAloudText.value) return
+
+  speech.start(activeReadAloudText.value, selectedReadAloudVoice.value, readAloudVolume.value)
 }
 
 async function saveCurrentChatAsNote() {
@@ -205,8 +176,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (!isReadAloudSupported) return
-  window.speechSynthesis.cancel()
+  speech.stop()
 })
 </script>
 
