@@ -12,6 +12,14 @@ from .interfaces import (
 from .model_artifacts import AIModelArtifactOps, has_valid_model_artifacts, local_model_dir, model_artifact_diagnostics
 from .mutations import AIInteractionMutations
 from .operations import sync_ai_models_with_local_inventory
+from .interaction_helpers import (
+    derive_selection_from_chat,
+    normalize_interaction_response,
+    persist_interaction,
+    prepare_interaction_inputs,
+    resolve_chat_id,
+    resolve_initiated_by,
+)
 from .validators import AIInteractionValidator
 
 
@@ -45,4 +53,10 @@ __all__ = [
     "has_valid_model_artifacts",
     "local_model_dir",
     "sync_ai_models_with_local_inventory",
+    "derive_selection_from_chat",
+    "normalize_interaction_response",
+    "persist_interaction",
+    "prepare_interaction_inputs",
+    "resolve_chat_id",
+    "resolve_initiated_by",
 ]

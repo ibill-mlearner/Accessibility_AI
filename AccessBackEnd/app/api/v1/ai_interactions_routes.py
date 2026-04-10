@@ -6,7 +6,7 @@ from flask_login import login_required
 from ...models import AIInteraction, Chat
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...services.ai_pipeline_gateway import AIPipelineGateway
-from ...utils.ai_interaction_helpers import (
+from ...utils.ai_checker.interaction_helpers import (
     derive_selection_from_chat,
     normalize_interaction_response,
     persist_interaction,

@@ -6,11 +6,11 @@ from flask import current_app, jsonify
 from flask_login import current_user
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..db.repositories.interaction_repo import AIInteractionRepository
-from ..models import AIInteraction, AIModel, Chat, UserAccessibilityFeature
-from ..models.ai import AccommodationSystemPrompt
-from .ai_checker.mutations import AIInteractionMutations
-from .ai_checker.validators import AIInteractionValidator
+from ...db.repositories.interaction_repo import AIInteractionRepository
+from ...models import AIInteraction, AIModel, Chat, UserAccessibilityFeature
+from ...models.ai import AccommodationSystemPrompt
+from .mutations import AIInteractionMutations
+from .validators import AIInteractionValidator
 
 
 def derive_selection_from_chat(chat: Chat | None) -> tuple[str, str]:
