@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+from time import perf_counter
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -199,6 +200,41 @@ class AIPipelineGateway:
             "local": {"models": [{"id": model_name}], "count": 1},
             "huggingface_local": {"models": [{"id": model_name}], "count": 1},
         }
+
+    def download_model(self, model_id: str) -> dict[str, Any]:
+        resolved_model = str(model_id or "").strip()
+        if not resolved_model:
+            raise ValueError("model_id is required")
+
+        ai_tool = self._load_ai_tool()
+        api = ai_tool.AIPipelineInterface()
+        started_at = perf_counter()
+        try:
+            service = api.AIPipelineModelDownloadService()
+            payload = service.download(model_id=resolved_model, provider="huggingface")
+        except AttributeError:
+            model_loader = ai_tool.ModelLoader(
+                model_name=resolved_model,
+                device_map=None,
+                torch_dtype="auto",
+                download_locally=True,
+            )
+            tokenizer_loader = ai_tool.TokenizerLoader(
+                model_name=resolved_model,
+                download_locally=True,
+            )
+            model_loader.build()
+            tokenizer_loader.build()
+            payload = {"provider": "huggingface", "model_id": resolved_model, "status": "downloaded"}
+        elapsed_seconds = perf_counter() - started_at
+
+        result = payload if isinstance(payload, dict) else {}
+        if "model_id" not in result:
+            result["model_id"] = resolved_model
+        if "provider" not in result:
+            result["provider"] = "huggingface"
+        result["elapsed_seconds"] = round(elapsed_seconds, 2)
+        return result
 
     def provider_health(self) -> dict[str, Any]:
         if has_app_context():

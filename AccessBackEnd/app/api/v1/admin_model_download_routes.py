@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask import jsonify
+from flask import current_app, jsonify
 
 from .routes import api_v1_bp
 from ...api.errors import BadRequestError
@@ -25,9 +25,27 @@ def submit_admin_model_download_request_v1():
             "details": getattr(exc, "details", {}),
         }), 400
 
+    ai_service = current_app.extensions.get("ai_service")
+    download_result = None
+    if ai_service is None or not hasattr(ai_service, "download_model"):
+        return jsonify({
+            "error": "ai_service not configured for model downloads",
+            "details": {},
+        }), 500
+
+    try:
+        download_result = ai_service.download_model(model_id)
+    except Exception as exc:
+        current_app.logger.warning("admin model download failed for model_id=%s: %s", model_id, exc)
+        return jsonify({
+            "error": "model download failed",
+            "details": {"model_id": model_id},
+        }), 502
+
     return jsonify({
         "ok": True,
-        "message": "Hey, you reached me.",
+        "message": "Model download attempted.",
         "model_id": model_id,
-        "status": "queued_stub"
+        "status": "downloaded",
+        "download": download_result,
     }), 200
