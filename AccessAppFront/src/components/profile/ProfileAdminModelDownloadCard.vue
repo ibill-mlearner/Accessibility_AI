@@ -6,6 +6,12 @@
         <p class="mb-0 text-muted small">
           Queue a model download for the AI pipeline inventory.
         </p>
+        <p class="mb-0 mt-2 text-muted small">Suggested Hugging Face models:</p>
+        <ul class="mb-0 text-muted small ps-3">
+          <li>3B: Qwen/Qwen2.5-3B-Instruct</li>
+          <li>1.5B: Qwen/Qwen2.5-1.5B-Instruct</li>
+          <li>500M: Qwen/Qwen2.5-0.5B-Instruct</li>
+        </ul>
       </div>
 
       <form class="d-flex flex-column gap-2" @submit.prevent="submitModelDownload">
