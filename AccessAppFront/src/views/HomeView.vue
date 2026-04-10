@@ -14,9 +14,12 @@
             :read-aloud-enabled="isReadAloudSupported"
             :is-reading="activeReadAloudMessageId === message.id && isReadAloudPlaying"
             :volume="readAloudVolume"
+            :selected-voice="selectedReadAloudVoice"
+            :voice-options="readAloudVoiceOptions"
             @read-aloud-toggle="handleReadAloudToggle(message)"
             @read-aloud-stop="handleReadAloudStop"
             @read-aloud-volume="handleReadAloudVolume"
+            @read-aloud-voice="handleReadAloudVoice"
           />
         </template>
       </div>
@@ -66,6 +69,12 @@ const activeReadAloudMessageId = ref(null)
 const isReadAloudPlaying = ref(false)
 const readAloudVolume = ref(1)
 const currentUtterance = ref(null)
+const selectedReadAloudVoice = ref('Samantha')
+const readAloudVoiceOptions = [
+  { label: 'Samantha', value: 'Samantha' },
+  { label: 'Google US English', value: 'Google US English' },
+  { label: 'Microsoft Zira - English (United States)', value: 'Microsoft Zira - English (United States)' }
+]
 
 const messageVariantMap = {
   assistant: 'system',
@@ -115,6 +124,8 @@ function handleReadAloudToggle(message) {
   const utterance = new window.SpeechSynthesisUtterance(message.text)
   utterance.lang = 'en-US'
   utterance.volume = readAloudVolume.value
+  const preferredVoice = window.speechSynthesis.getVoices().find((voice) => voice.name === selectedReadAloudVoice.value)
+  if (preferredVoice) utterance.voice = preferredVoice
 
   utterance.onstart = () => {
     activeReadAloudMessageId.value = message.id
@@ -148,6 +159,10 @@ function handleReadAloudVolume(nextVolume) {
   if (currentUtterance.value) {
     currentUtterance.value.volume = readAloudVolume.value
   }
+}
+
+function handleReadAloudVoice(nextVoiceName) {
+  selectedReadAloudVoice.value = String(nextVoiceName || '').trim() || 'Samantha'
 }
 
 async function saveCurrentChatAsNote() {

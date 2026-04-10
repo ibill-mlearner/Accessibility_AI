@@ -2,6 +2,19 @@
   <div class="chat-bubble-card__actions">
     <span class="chat-bubble-card__actions-label">Read aloud</span>
     <div class="chat-bubble-card__controls" :aria-disabled="!readAloudEnabled">
+      <label class="chat-bubble-card__volume-wrap">
+        <span class="chat-bubble-card__volume-label">Voice</span>
+        <select
+          class="form-select form-select-sm"
+          :value="selectedVoice"
+          :disabled="!readAloudEnabled"
+          @change="$emit('voice', $event.target.value)"
+        >
+          <option v-for="voiceOption in voiceOptions" :key="voiceOption.value" :value="voiceOption.value">
+            {{ voiceOption.label }}
+          </option>
+        </select>
+      </label>
       <button
         class="btn btn-secondary btn-sm chat-bubble-card__control-btn"
         :disabled="!readAloudEnabled"
@@ -39,10 +52,15 @@
 defineProps({
   readAloudEnabled: { type: Boolean, default: true },
   isReading: { type: Boolean, default: false },
-  volume: { type: Number, default: 1 }
+  volume: { type: Number, default: 1 },
+  selectedVoice: { type: String, default: 'Samantha' },
+  voiceOptions: {
+    type: Array,
+    default: () => ([])
+  }
 })
 
-defineEmits(['toggle', 'stop', 'volume'])
+defineEmits(['toggle', 'stop', 'volume', 'voice'])
 </script>
 
 <style scoped src="../../styles/components/chat/chat-bubble-card.css"></style>
