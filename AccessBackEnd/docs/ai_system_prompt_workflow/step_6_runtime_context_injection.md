@@ -1,42 +1,21 @@
-# Step 6 — Runtime context injection before provider invocation
+# Step 6 — Route-to-gateway runtime injection
 
-## Purpose
+## File → Method → Next method
 
-Map composed prompt fields into runtime context used by provider adapters.
+- **File:** `AccessBackEnd/app/api/v1/ai_interactions_routes.py`
+- **Method:** `_run(ai_service, payload, prepared, chat_id, initiated_by)`
+- **Called by:** `create_ai_interaction()`
+- **Calls next:** `AIPipelineGateway.run_interaction(...)`
 
-## Primary execution path
+## What this step does (only)
 
-- `AIPipelineService.run(request)`.
+1. Adds runtime model selection onto `prepared["context_payload"]`.
+2. Calls `ai_service.run_interaction(...)` with:
+   - `prepared["prompt"]`
+   - `prepared["messages"]`
+   - `prepared["system_prompt"]`
+   - `prepared["context_payload"]`
 
-## Detailed logic levels
+## Output
 
-1. **Resolve prompt fallback defensively**
-   - Pipeline re-resolves prompt (`_resolve_prompt`) in case upstream input was incomplete.
-
-2. **Clone/normalize context object**
-   - Uses a mutable context copy to avoid side effects on caller-provided objects.
-
-3. **Inject request id when absent**
-   - Adds `context["request_id"]` for traceability if not already present.
-
-4. **Inject messages when absent**
-   - Adds `context["messages"] = request.messages` if available and not already set.
-
-5. **Inject composed system instructions**
-   - If `request.system_prompt` exists, writes it to `context["system_instructions"]`.
-
-6. **Invoke selected provider with prompt + context**
-   - Calls provider invocation path with the canonical prompt and enriched runtime context.
-
-## Inputs consumed in this step
-
-- `AIPipelineRequest` fields (`prompt`, `messages`, `system_prompt`, `context`)
-
-## Outputs produced in this step
-
-- Provider-ready runtime context with composed system instructions attached.
-
-## Why this step matters for system prompt workflow
-
-- It is the handoff boundary between composition logic and transport logic.
-- Provider adapters depend on `context["system_instructions"]` being present and pre-composed.
+- Normalized provider response.
