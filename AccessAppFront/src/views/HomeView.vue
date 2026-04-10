@@ -12,7 +12,11 @@
             :variant="messageVariantMap[message.role] || message.role"
             :show-actions="message.role === 'assistant'"
             :read-aloud-enabled="isReadAloudSupported"
-            @read-aloud="handleReadAloud(message)"
+            :is-reading="activeReadAloudMessageId === message.id && isReadAloudPlaying"
+            :volume="readAloudVolume"
+            @read-aloud-toggle="handleReadAloudToggle(message)"
+            @read-aloud-stop="handleReadAloudStop"
+            @read-aloud-volume="handleReadAloudVolume"
           />
         </template>
       </div>
@@ -34,7 +38,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
@@ -58,6 +62,11 @@ const { timelineMessages, interactionError, hydrateTimelineForChat } = useChatTi
 const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError })
 const isReadAloudSupported = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function'
 
+const activeReadAloudMessageId = ref(null)
+const isReadAloudPlaying = ref(false)
+const readAloudVolume = ref(1)
+const currentUtterance = ref(null)
+
 const messageVariantMap = {
   assistant: 'system',
   system: 'system',
@@ -80,15 +89,65 @@ async function handleModelSelection(modelValue) {
   await chatStore.updateModelSelection(modelValue)
 }
 
-function handleReadAloud(message) {
+function clearReadAloudState() {
+  activeReadAloudMessageId.value = null
+  isReadAloudPlaying.value = false
+  currentUtterance.value = null
+}
+
+function handleReadAloudToggle(message) {
   if (!isReadAloudSupported || !message?.text?.trim()) return
 
+  const isSameMessage = activeReadAloudMessageId.value === message.id
+  if (isSameMessage && window.speechSynthesis.speaking) {
+    if (window.speechSynthesis.paused) {
+      window.speechSynthesis.resume()
+      isReadAloudPlaying.value = true
+    } else {
+      window.speechSynthesis.pause()
+      isReadAloudPlaying.value = false
+    }
+    return
+  }
+
   window.speechSynthesis.cancel()
+
   const utterance = new window.SpeechSynthesisUtterance(message.text)
   utterance.lang = 'en-US'
-  utterance.rate = 1
-  utterance.pitch = 1
+  utterance.volume = readAloudVolume.value
+
+  utterance.onstart = () => {
+    activeReadAloudMessageId.value = message.id
+    isReadAloudPlaying.value = true
+  }
+
+  utterance.onend = () => {
+    clearReadAloudState()
+  }
+
+  utterance.onerror = () => {
+    clearReadAloudState()
+  }
+
+  currentUtterance.value = utterance
   window.speechSynthesis.speak(utterance)
+}
+
+function handleReadAloudStop() {
+  if (!isReadAloudSupported) return
+  window.speechSynthesis.cancel()
+  clearReadAloudState()
+}
+
+function handleReadAloudVolume(nextVolume) {
+  const normalizedVolume = Number(nextVolume)
+  if (Number.isNaN(normalizedVolume)) return
+
+  readAloudVolume.value = Math.min(1, Math.max(0, normalizedVolume))
+
+  if (currentUtterance.value) {
+    currentUtterance.value.volume = readAloudVolume.value
+  }
 }
 
 async function saveCurrentChatAsNote() {
@@ -106,10 +165,12 @@ watch(() => chatStore.newChatRequestId, () => {
   timelineMessages.value = []
   interactionError.value = ''
   interactionLoading.value = false
+  handleReadAloudStop()
 })
 
 watch(() => chatStore.selectedChatId, async (chatId) => {
   interactionError.value = ''
+  handleReadAloudStop()
   await hydrateTimelineForChat(chatId)
 },
 {

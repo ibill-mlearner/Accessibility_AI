@@ -1,3 +1,44 @@
 .chat-bubble-card {
   max-width: min(80%, 680px);
 }
+
+.chat-bubble-card__actions {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.chat-bubble-card__actions-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.chat-bubble-card__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.chat-bubble-card__control-btn {
+  min-width: 5rem;
+  padding: 0.4rem 0.9rem;
+}
+
+.chat-bubble-card__volume-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0;
+}
+
+.chat-bubble-card__volume-label {
+  font-size: 0.82rem;
+  color: var(--bs-secondary-color, #6c757d);
+}
+
+.chat-bubble-card__volume {
+  width: 7rem;
+  margin: 0;
+}
