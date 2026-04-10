@@ -12,6 +12,7 @@ def _register_route_modules() -> None:
     from . import accommodation_system_prompt_links
     from . import ai_interactions_routes
     from . import ai_model_catalog_routes
+    from . import admin_model_download_routes
     from . import auth
     from . import chats
     from . import classes_file

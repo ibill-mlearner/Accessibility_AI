@@ -32,7 +32,7 @@
       </div>
 
       <div v-if="showAdminModelDownload" class="col-12 col-xl-5">
-        <ProfileAdminModelDownloadCard @submit="handleAdminModelDownload" />
+        <ProfileAdminModelDownloadCard />
       </div>
     </section>
 
@@ -345,10 +345,6 @@ async function applyColorblindPreference() {
   await featureStore.replaceFeaturePreferences(updates)
 }
 
-async function handleAdminModelDownload(modelId) {
-  // Wiring point for AI pipeline model download workflow.
-  await Promise.resolve(modelId)
-}
 </script>
 
 <style scoped src="../styles/views/profile-view.css"></style>

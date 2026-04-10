@@ -15,14 +15,19 @@
           v-model="modelIdInput"
           class="form-control"
           type="text"
-          placeholder="e.g. meta-llama/Llama-3.1-8B-Instruct"
+          placeholder="e.g. Qwen/Qwen2.5-0.5B-Instruct"
           :disabled="isSubmitting"
           required
         >
 
-        <button class="btn btn-outline-primary align-self-start" type="submit" :disabled="isSubmitting || !trimmedModelId">
-          {{ isSubmitting ? 'Submitting . . .' : 'Download model' }}
-        </button>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-outline-primary" type="submit" :disabled="isSubmitting || !trimmedModelId">
+            {{ isSubmitting ? 'Submitting . . .' : 'Download model' }}
+          </button>
+          <button v-if="isSubmitting" class="btn btn-outline-secondary" type="button" @click="cancelModelDownload">
+            Cancel
+          </button>
+        </div>
       </form>
 
       <div class="d-flex flex-column gap-1" aria-live="polite">
@@ -44,67 +49,17 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { useAdminModelDownload } from '../../composables/useAdminModelDownload'
 
-const emit = defineEmits(['submit'])
-
-const modelIdInput = ref('')
-const isSubmitting = ref(false)
-const progressValue = ref(0)
-const progressStatus = ref('Idle')
-let progressTimer = null
-
-const trimmedModelId = computed(() => modelIdInput.value.trim())
-
-function clearProgressTimer() {
-  if (progressTimer) {
-    globalThis.clearInterval(progressTimer)
-    progressTimer = null
-  }
-}
-
-function startProgressSimulation() {
-  clearProgressTimer()
-  progressValue.value = 10
-  progressStatus.value = 'Submitting request . . .'
-
-  progressTimer = globalThis.setInterval(() => {
-    if (progressValue.value >= 90) {
-      clearProgressTimer()
-      return
-    }
-    progressValue.value += 10
-  }, 300)
-}
-
-function finishProgress(message) {
-  clearProgressTimer()
-  progressValue.value = 100
-  progressStatus.value = message
-}
-
-async function submitModelDownload() {
-  if (!trimmedModelId.value || isSubmitting.value) {
-    return
-  }
-
-  isSubmitting.value = true
-  startProgressSimulation()
-
-  try {
-    await emit('submit', trimmedModelId.value)
-    finishProgress('Download request submitted.')
-    modelIdInput.value = ''
-  } catch {
-    finishProgress('Unable to submit download request.')
-  } finally {
-    isSubmitting.value = false
-  }
-}
-
-onBeforeUnmount(() => {
-  clearProgressTimer()
-})
+const {
+  modelIdInput,
+  isSubmitting,
+  progressValue,
+  progressStatus,
+  trimmedModelId,
+  cancelModelDownload,
+  submitModelDownload,
+} = useAdminModelDownload()
 </script>
 
 <style scoped src="../../styles/components/profile/profile-admin-model-download-card.css"></style>

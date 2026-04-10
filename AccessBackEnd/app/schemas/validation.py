@@ -85,3 +85,11 @@ class AIInteractionPayloadSchema(Schema):
     )
     selected_accessibility_link_ids = fields.List(fields.Int(), required=False)
     use_user_feature_preferences = fields.Bool(required=False, load_default=False)
+
+
+class AdminModelDownloadPayloadSchema(Schema):
+
+    class Meta:
+        unknown = EXCLUDE
+
+    model_id = fields.Str(required=True)
