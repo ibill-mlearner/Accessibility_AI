@@ -9,40 +9,10 @@ from .interfaces import (
     AIInteractionValidatorInterface,
     AIModelArtifactOpsInterface,
 )
-from .mutations import AIInteractionMutations
-from .operations import AIInteractionOps
-from .validators import AIInteractionValidator
 from .model_artifacts import AIModelArtifactOps, has_valid_model_artifacts, local_model_dir, model_artifact_diagnostics
-
-from .operations import (
-    _extract_response_text,
-    _truncate_debug_payload,
-    _strip_prompt_template_echo,
-    _normalize_interaction_response,
-    _resolve_selected_model,
-    _extract_available_model_ids,
-    _resolve_initiated_by,
-    _resolve_system_instructions,
-    _resolve_provider,
-    _resolve_ai_model_id,
-    _resolve_prompt_link_id,
-    _resolve_chat_id,
-    _build_interaction_persistence_payload,
-    _sync_chat_latest_interaction,
-    _resolve_session_model_selection,
-    _persist_ai_interaction,
-    compose_system_prompt,
-    validate_runtime_model_selection,
-    classify_upstream_error,
-    build_prompt_and_messages,
-    build_context_and_system_instructions,
-    prepare_interaction_inputs,
-    ensure_runtime_model_selection,
-    create_pipeline_request,
-    resolve_model_override,
-    run_pipeline,
-    sync_ai_models_with_local_inventory,
-)
+from .mutations import AIInteractionMutations
+from .operations import sync_ai_models_with_local_inventory
+from .validators import AIInteractionValidator
 
 
 class AIInteractionMonolith(AIInteractionMonolithInterface):
@@ -67,7 +37,6 @@ __all__ = [
     "AIInteractionMutationsInterface",
     "AIInteractionMonolithInterface",
     "AIInteractionMutations",
-    "AIInteractionOps",
     "AIInteractionMonolith",
     "AIInteractionValidator",
     "AIModelArtifactOpsInterface",
@@ -75,31 +44,5 @@ __all__ = [
     "model_artifact_diagnostics",
     "has_valid_model_artifacts",
     "local_model_dir",
-    "_extract_response_text",
-    "_truncate_debug_payload",
-    "_strip_prompt_template_echo",
-    "_normalize_interaction_response",
-    "_resolve_selected_model",
-    "_extract_available_model_ids",
-    "_resolve_initiated_by",
-    "_resolve_system_instructions",
-    "_resolve_provider",
-    "_resolve_ai_model_id",
-    "_resolve_prompt_link_id",
-    "_resolve_chat_id",
-    "_build_interaction_persistence_payload",
-    "_sync_chat_latest_interaction",
-    "_resolve_session_model_selection",
-    "_persist_ai_interaction",
-    "compose_system_prompt",
-    "validate_runtime_model_selection",
-    "classify_upstream_error",
-    "build_prompt_and_messages",
-    "build_context_and_system_instructions",
-    "prepare_interaction_inputs",
-    "ensure_runtime_model_selection",
-    "create_pipeline_request",
-    "resolve_model_override",
-    "run_pipeline",
     "sync_ai_models_with_local_inventory",
 ]
