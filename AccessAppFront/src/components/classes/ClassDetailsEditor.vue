@@ -21,24 +21,21 @@
           :disabled="!canEdit || isSaving"
         />
 
-        <label v-if="isAdmin" class="form-label mb-0" for="class-instructor-input">Instructor email</label>
-        <select
-          v-if="isAdmin"
-          id="class-instructor-input"
-          v-model.number="form.instructor_id"
-          class="form-select"
-          :disabled="!canEdit || isSaving"
-          required
-        >
-          <option :value="null" disabled>Select an instructor</option>
-          <option v-for="instructor in instructors" :key="instructor.id" :value="instructor.id">
-            {{ instructor.email }}
-          </option>
-        </select>
-
         <button class="btn btn-primary align-self-start" type="submit" :disabled="!canEdit || isSaving">
           {{ isSaving ? 'Saving . . .' : 'Save details' }}
         </button>
+
+        <div v-if="canDelete" class="d-flex flex-column gap-2 pt-2">
+          <p class="mb-0"><strong>Delete selected class</strong></p>
+          <button
+            class="btn btn-outline-danger align-self-start"
+            type="button"
+            :disabled="!selectedClass || isDeleting"
+            @click="emitDelete"
+          >
+            {{ isDeleting ? 'Working . . .' : 'Delete class' }}
+          </button>
+        </div>
       </form>
     </div>
   </section>
@@ -50,17 +47,16 @@ import { reactive, watch } from 'vue'
 const props = defineProps({
   selectedClass: { type: Object, default: null },
   canEdit: { type: Boolean, default: false },
-  isAdmin: { type: Boolean, default: false },
-  instructors: { type: Array, default: () => [] },
-  isSaving: { type: Boolean, default: false }
+  isSaving: { type: Boolean, default: false },
+  canDelete: { type: Boolean, default: false },
+  isDeleting: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['save'])
+const emit = defineEmits(['save', 'delete'])
 
 const form = reactive({
   name: '',
-  description: '',
-  instructor_id: null
+  description: ''
 })
 
 watch(
@@ -68,22 +64,28 @@ watch(
   (value) => {
     form.name = value?.name || ''
     form.description = value?.description || ''
-    form.instructor_id = value?.instructor_id ?? null
   },
   { immediate: true }
 )
 
 function submitUpdate() {
   if (!props.selectedClass || !props.canEdit) return
-  if (props.isAdmin && !form.instructor_id) return
   emit('save', {
     id: props.selectedClass.id,
     patch: {
       name: form.name.trim(),
-      description: form.description.trim(),
-      ...(props.isAdmin ? { instructor_id: form.instructor_id } : {})
+      description: form.description.trim()
     }
   })
+}
+
+function emitDelete() {
+  if (!props.selectedClass || !props.canDelete) return
+  const confirmed = typeof window === 'undefined'
+    ? true
+    : window.confirm(`Delete class \"${props.selectedClass.name || props.selectedClass.id}\"?`)
+  if (!confirmed) return
+  emit('delete', props.selectedClass.id)
 }
 </script>
 
