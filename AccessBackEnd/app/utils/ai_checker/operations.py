@@ -46,15 +46,6 @@ class AIInteractionOps:
         normalized = AIInteractionOps._normalize_interaction_response(result)
         return normalized["assistant_text"]
 
-    # moved to AIInteractionMutations.truncate_debug_payload.
-    # @staticmethod
-    # def _truncate_debug_payload(value: Any, *, limit: int = 1200) -> str:
-    #     return AIInteractionMutations.truncate_debug_payload(value, limit=limit)
-
-    # moved to AIInteractionMutations.strip_prompt_template_echo to reduce helper duplication.
-    # @staticmethod
-    # def _strip_prompt_template_echo(text: str) -> str:
-    #     return AIInteractionMutations.strip_prompt_template_echo(text)
 
     @staticmethod
     def _normalize_interaction_response(result: Any) -> dict[str, Any]:
