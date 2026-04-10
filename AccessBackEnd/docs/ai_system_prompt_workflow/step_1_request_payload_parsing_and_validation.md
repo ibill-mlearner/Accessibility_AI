@@ -1,41 +1,16 @@
 # Step 1 — Request payload parsing and validation
 
-## Purpose
+## File → Method → Next method
 
-This step creates a safe, normalized input boundary before any prompt/system-instruction logic runs.
+- **File:** `AccessBackEnd/app/api/v1/ai_interactions_routes.py`
+- **Method:** `create_ai_interaction()`
+- **Calls next:** `prepare_interaction_inputs(payload)` in `AccessBackEnd/app/utils/ai_checker/operations.py`
 
-## Entry point and call chain
+## What this step does (only)
 
-- Route: `POST /api/v1/ai/interactions`.
-- Parser entry: `AIInteractionRequestParser.parse_payload()`.
-- Validation schema: `AIInteractionPayloadSchema`.
+1. Reads JSON and validates shape (`_validate_interaction_payload`).
+2. Hands a validated `payload` into `prepare_interaction_inputs(payload)`.
 
-## Detailed logic levels
+## Output
 
-1. **Raw request body read**
-   - The parser reads a JSON object from the request.
-   - Logging captures path and available keys for traceability.
-
-2. **Schema validation pass**
-   - The payload is validated against `AIInteractionPayloadSchema`.
-   - Structural and type-level mismatches are rejected early.
-
-3. **Failure path**
-   - If schema validation fails, a `BadRequestError` path is triggered.
-   - Validation failures are logged with request key context.
-
-4. **Success path**
-   - A validated payload is returned and used by downstream composition helpers.
-
-## Inputs consumed in this step
-
-- JSON payload submitted by caller.
-
-## Outputs produced in this step
-
-- A validated `payload: dict[str, object]` with known structure.
-
-## Why this step matters for system prompt workflow
-
-- Every downstream step (prompt extraction, DB instruction sourcing, and system prompt composition) depends on key presence and shape.
-- Early schema rejection prevents composition helpers from operating on malformed input.
+- `payload: dict` ready for prompt resolution.

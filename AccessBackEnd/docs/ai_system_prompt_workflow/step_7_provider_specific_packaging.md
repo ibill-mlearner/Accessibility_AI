@@ -1,46 +1,19 @@
-# Step 7 — Provider-specific packaging of user + system content
+# Step 7 — Gateway/provider packaging
 
-## Purpose
+## File → Method → Next method
 
-Transform canonical prompt/context inputs into the wire format required by each provider.
+- **File:** `AccessBackEnd/app/services/ai_pipeline_gateway.py`
+- **Method:** `AIPipelineGateway.run_interaction(prompt, context, **kwargs)`
+- **Calls next:** `AIPipelineGateway.run(..., system_content=kwargs.get("system_prompt"))`
+- **Calls next:** provider adapter constructor `AIPipeline(..., system_content=resolved_system_content, prompt_value=prompt, ...)`
 
-## Scope
+## What this step does (only)
 
-This step does **not** re-compose system prompt sources. It only transports the already composed `context["system_instructions"]`.
+1. Forwards composed `system_prompt` into `run(... system_content=...)`.
+2. If missing, `run()` falls back to `_build_system_content()`.
+3. `_build_system_content()` starts with `AI_SYSTEM_GUARDRAIL_PROMPT` and appends DB prompt text.
+4. Sends `system_content` + `prompt_value` to the provider adapter.
 
-## Detailed logic levels
+## Output
 
-### A) Ollama provider packaging
-
-1. Build chat `messages` payload with explicit roles.
-2. Include a baseline assistant contract as a system message.
-3. Include composed `context["system_instructions"]` as a system message when present.
-4. Include resolved user prompt as a user message.
-5. Optionally append context summary as another system message.
-
-Result:
-- System and user content are sent as separate role messages.
-
-### B) Hugging Face provider packaging
-
-1. Build a text template with named sections.
-2. Inject composed system instructions into `System instructions section`.
-3. Inject resolved user prompt into `User prompt`.
-4. Inject context summary + output contract fields.
-
-Result:
-- System and user content are delivered inside one rendered prompt template.
-
-## Inputs consumed in this step
-
-- `prompt`
-- `context["system_instructions"]`
-- optional context metadata/messages
-
-## Outputs produced in this step
-
-- Provider-specific request payload/body.
-
-## Why this step matters for system prompt workflow
-
-- It preserves one composition source of truth while allowing transport-level differences across providers.
+- Provider request payload ready for generation.

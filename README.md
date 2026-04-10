@@ -5,101 +5,33 @@ Accessibility AI is a learning support app with:
 - a Vue frontend,
 - a local SQLite database for development.
 
-## One-command Windows install + run (Administrator)
+## One-command Windows install script
 
-If you want a **single command** from your Windows machine that:
-1. downloads this project from GitHub (or updates it if already cloned),
-2. builds the Docker image,
-3. starts the app,
+If you are installing this project on a Windows machine with Docker installed, open PowerShell or Command Prompt in the folder where you want the project to live and run the command block below. It clones the repo into `./Accessibility_AI`, then starts the app with Docker Compose.
 
-run **PowerShell as Administrator** and execute:
+Requirements:
+- Docker Desktop (or Docker Engine) is installed and running.
+- Git is installed and available in your terminal.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; $repoUrl='https://github.com/<YOUR_ORG>/<YOUR_REPO>.git'; $target=Join-Path $env:USERPROFILE 'Accessibility_AI'; if (Test-Path $target) { git -C $target pull --ff-only } else { git clone $repoUrl $target }; Set-Location $target; docker compose up --build"
-```
+### Windows (PowerShell or Command Prompt)
 
-### Before you run it
-
-- You should run this from **PowerShell (Run as Administrator)**.
-- Install and start **Docker Desktop** first.
-- Ensure **Git for Windows** is installed and available in PATH.
-- Replace `https://github.com/<YOUR_ORG>/<YOUR_REPO>.git` with your actual GitHub repo URL.
-
-After startup, open:
-- **App UI:** `http://localhost:5173`
-
-To stop:
-- Press `Ctrl + C` in the terminal where Compose is running.
-
----
-
-## Start here (run the app)
-
-If you already have the repo locally, start everything with:
+Open PowerShell or Command Prompt in the folder where you want the project, then copy/paste this block:
 
 ```bash
+git clone --branch main --single-branch https://github.com/ibill-mlearner/Accessibility_AI.git
+cd Accessibility_AI
 docker compose up --build
 ```
 
-After the first successful build, you can restart without rebuilding dependencies:
+### Linux
+
+Open a terminal in the folder where you want the project, then run:
 
 ```bash
-docker compose up
-```
-
-That command does all of this automatically:
-1. Builds the image from the root `Dockerfile`.
-2. Starts one container defined in `docker-compose.yml`.
-3. Runs the Docker image default command (`python3 /app/scripts/docker/dev_stack_runner.py`).
-4. The Python runner initializes DB, verifies backend health, runs a login smoke check, and then starts backend + frontend dev servers.
-
-Open in your browser:
-- **Use this for the app UI:** `http://localhost:5173`
-
-Important:
-- The backend API is intentionally not published to your host in Docker Compose.
-- Frontend API calls go through the Vite dev server proxy (`/api` -> `127.0.0.1:5000` inside container).
-- Docker logs may also show a container IP; still use `localhost:5173` from your host machine.
-
-Optional internal API check (from inside the container):
-```bash
-docker compose exec app curl -sS http://127.0.0.1:5000/api/v1/health
-```
-
-
-### Docker reset (short version)
-
-If build context still shows multi-GB transfer after pulling updates, that is usually local files leaking into context (not the number of git commits). This repo now uses a default-deny `.dockerignore` allowlist to avoid that.
-
-If you want a clean seeded DB (for example, to wipe old test chats), reset containers + volumes and start again. This clears the persisted `backend-instance` volume and recreates the app from scratch.
-
-```bash
-docker compose down --remove-orphans --volumes
+git clone --branch main --single-branch https://github.com/ibill-mlearner/Accessibility_AI.git
+cd Accessibility_AI
 docker compose up --build
 ```
-
-### Seeded login for local Docker
-
-After startup, sign in with:
-- Email: `admin.seed@example.com`
-- Password: `Password123!`
-
-Run the containerized login E2E test (requires Docker):
-
-```bash
-pytest AccessBackEnd/tests/integration/test_container_login_e2e.py -s
-```
-
-
-## Windows shortcut
-
-If you prefer a Windows command from inside an existing clone, use:
-
-```cmd
-scripts\docker\run_all.cmd
-```
-
-This runs the same single Docker Compose command (`docker compose up --build`) with no GPU prompts and no extra steps.
 
 ## Architecture at a glance
 

@@ -1,42 +1,27 @@
 import { ref } from 'vue'
 
-const DEFAULT_PLACEHOLDER = ''
-
 export function useSpeechSynthesis() {
   const synthesis = typeof window !== 'undefined' && 'speechSynthesis' in window
     ? window.speechSynthesis
     : null
 
+  const isSupported = Boolean(synthesis) && typeof window.SpeechSynthesisUtterance === 'function'
   const isSpeaking = ref(false)
-  const lastPlaceholderIndex = ref(-1)
 
-  function resolveTextToSpeak(text, placeholder = DEFAULT_PLACEHOLDER) {
-    const content = String(text || '')
-    const marker = String(placeholder || '').trim()
+  function start(text, voiceName = 'Samantha', volume = 1) {
+    if (!isSupported) return false
 
-    if (!marker) {
-      lastPlaceholderIndex.value = -1
-      return ''
-    }
-
-    const markerIndex = content.indexOf(marker)
-    lastPlaceholderIndex.value = markerIndex
-
-    if (markerIndex === -1) return ''
-
-    return content.slice(markerIndex + marker.length).trim()
-  }
-
-  function start(text, placeholder = DEFAULT_PLACEHOLDER) {
-    if (!synthesis) return false
-
-    const content = resolveTextToSpeak(text, placeholder)
+    const content = String(text || '').trim()
     if (!content) return false
 
     synthesis.cancel()
 
-    const utterance = new SpeechSynthesisUtterance(content)
+    const utterance = new window.SpeechSynthesisUtterance(content)
     utterance.lang = 'en-US'
+    utterance.volume = Math.min(1, Math.max(0, Number(volume) || 0))
+
+    const preferredVoice = synthesis.getVoices().find((voice) => voice.name === voiceName)
+    if (preferredVoice) utterance.voice = preferredVoice
 
     utterance.onstart = () => {
       isSpeaking.value = true
@@ -55,14 +40,14 @@ export function useSpeechSynthesis() {
   }
 
   function stop() {
-    if (!synthesis) return
+    if (!isSupported) return
     synthesis.cancel()
     isSpeaking.value = false
   }
 
   return {
+    isSupported,
     isSpeaking,
-    lastPlaceholderIndex,
     start,
     stop
   }

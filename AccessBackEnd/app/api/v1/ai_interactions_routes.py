@@ -1,10 +1,20 @@
-import time
+from __future__ import annotations
 
 from flask import current_app, jsonify
+from flask_login import login_required
 
-from flask_login import current_user, login_required
-
-from ...utils.ai_checker import _normalize_interaction_response, _persist_ai_interaction, _resolve_chat_id, _resolve_initiated_by, prepare_interaction_inputs
+from ...models import AIInteraction, Chat
+from ...schemas.validation import AIInteractionPayloadSchema
+from ...services.ai_pipeline_gateway import AIPipelineGateway
+from ...utils.ai_checker.interaction_helpers import (
+    derive_selection_from_chat,
+    normalize_interaction_response,
+    persist_interaction,
+    prepare_interaction_inputs,
+    resolve_chat_id,
+    resolve_initiated_by,
+)
+from ...utils.chat_access import ChatAccessHelper
 from .routes import (
     _assert_chat_permissions,
     _publish,
@@ -15,39 +25,19 @@ from .routes import (
     api_v1_bp,
     db,
 )
-from ...models import AIInteraction, Chat
-from ...schemas.validation import AIInteractionPayloadSchema
-from ...utils.chat_access import ChatAccessHelper
-from ...services.ai_pipeline_gateway import AIPipelineGateway
 
 
+# Backwards-compatible test hook.
+_derive_selection_from_chat = derive_selection_from_chat
 
 
 def _log_payload(raw: dict, payload: dict) -> None:
-    current_app.logger.debug(
-        "api.ai.interactions.payload.raw path=%s json_keys=%s",
-        "/api/v1/ai/interactions",
-        sorted(raw.keys())
-    )
-    current_app.logger.debug(
-        "api.ai.interactions.payload.validated keys=%s",
-        sorted(payload.keys())
-    )
+    current_app.logger.debug("api.ai.interactions.payload.raw path=%s json_keys=%s", "/api/v1/ai/interactions", sorted(raw.keys()))
+    current_app.logger.debug("api.ai.interactions.payload.validated keys=%s", sorted(payload.keys()))
 
 
 def _log_request(payload: dict) -> None:
-    user_identity = (
-        getattr(current_user, "email", None)
-        or getattr(current_user, "id", None)
-        or "anonymous"
-    )
-    current_app.logger.debug(
-        "api.ai_interactions.request method=%s path=%s user=%s json_keys=%s",
-        "POST",
-        "/api/v1/ai/interactions",
-        user_identity,
-        sorted(payload.keys()),
-    )
+    current_app.logger.debug("api.ai_interactions.request method=%s path=%s json_keys=%s", "POST", "/api/v1/ai/interactions", sorted(payload.keys()))
 
 
 def _log_interaction_start(payload: dict, request_id: str, prompt: str) -> None:
@@ -77,13 +67,7 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
     )
 
 
-def _run(
-    ai_service: AIPipelineGateway,
-    payload: dict,
-    prepared: dict,
-    chat_id: int | None,
-    initiated_by: str,
-):
+def _run(ai_service: AIPipelineGateway, payload: dict, prepared: dict, chat_id: int | None, initiated_by: str):
     result = ai_service.run_interaction(
         prepared["prompt"],
         context=prepared["context_payload"],
@@ -95,7 +79,7 @@ def _run(
         class_id=payload.get("class_id"),
         user_id=payload.get("user_id"),
     )
-    return _normalize_interaction_response(result)
+    return normalize_interaction_response(result)
 
 
 def _warn_if_empty_response(request_id: str, normalized_result: dict) -> None:
@@ -109,9 +93,6 @@ def _warn_if_empty_response(request_id: str, normalized_result: dict) -> None:
         )
 
 
-def _persist_interaction(payload: dict, prompt: str, normalized_result: dict):
-    return _persist_ai_interaction(payload, prompt, normalized_result)
-
 def _validate_interaction_payload() -> tuple[dict, dict]:
     raw = _read_json_object()
     payload = _validate_payload(raw, AIInteractionPayloadSchema())
@@ -123,21 +104,12 @@ def _validate_interaction_payload() -> tuple[dict, dict]:
 @api_v1_bp.post("/ai/interactions")
 @login_required
 def create_ai_interaction():
-    """Run a single AI interaction.
-
-    Runtime model resolution order is:
-    1) explicit request override (`provider`/`model_id`) when allowed/valid,
-    2) persisted session selection (`/api/v1/ai/selection`),
-    3) app config default (`AI_PROVIDER` + `AI_MODEL_NAME`).
-
-    Per-request/per-session resolution does not mutate app config at runtime.
-    """
     _raw, payload = _validate_interaction_payload()
-    prepared = prepare_interaction_inputs(payload)
+    prepared = prepare_interaction_inputs(payload, db_session=db.session)
     _log_interaction_start(payload, prepared["request_id"], prepared["prompt"])
     _publish_request_summary(prepared["prompt"], prepared["messages"], payload, prepared["system_prompt"], bool(prepared["system_prompt"]))
 
-    chat_state = _resolve_chat_id(payload)
+    chat_state = resolve_chat_id(payload)
     if chat_state is not None:
         chat = _require_record("chat", Chat, chat_state)
         deny = _assert_chat_permissions(chat)
@@ -145,79 +117,31 @@ def create_ai_interaction():
             return deny
 
     ai_service: AIPipelineGateway = current_app.extensions["ai_service"]
-    prepared["context_payload"]["runtime_model_selection"] = {
-        "provider": payload.get("provider") or current_app.config.get("AI_PROVIDER"),
-        "model_id": payload.get("model_id") or current_app.config.get("AI_MODEL_NAME"),
-        "source": "request_or_config",
-    }
-
     try:
-        normalized_result = _run(
-            ai_service,
-            payload,
-            prepared,
-            chat_state,
-            _resolve_initiated_by(payload),
-        )
+        normalized_result = _run(ai_service, payload, prepared, chat_state, resolve_initiated_by(payload))
     except Exception as exc:
         current_app.logger.error("api.ai_interactions.run.failed request_id=%s error=%s", prepared["request_id"], str(exc))
-        return (
-            jsonify(
-                {
-                    "error": {
-                        "code": "runtime_unavailable",
-                        "message": "There was a problem with the model contact the administrator.",
-                        "details": {"exception": exc.__class__.__name__},
-                    }
-                }
-            ),
-            503,
-        )
-    _warn_if_empty_response(prepared["request_id"], normalized_result)
-    persistence_error = _persist_interaction(payload, prepared["prompt"], normalized_result)
-    if persistence_error is not None:
-        current_app.logger.debug(
-            "api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s",
-            prepared["request_id"],
-            payload.get("chat_id"),
-            True,
-        )
-        return persistence_error
-    current_app.logger.debug(
-        "api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s",
-        prepared["request_id"],
-        payload.get("chat_id"),
-        len(normalized_result.get("assistant_text") or ""),
-    )
-    return jsonify(normalized_result), 200
+        return jsonify({"error": {"code": "runtime_unavailable", "message": "There was a problem with the model contact the administrator.", "details": {"exception": exc.__class__.__name__}}}), 503
 
+    _warn_if_empty_response(prepared["request_id"], normalized_result)
+    persistence_error = persist_interaction(payload=payload, prompt=prepared["prompt"], normalized_result=normalized_result, db_session=db.session, require_record=_require_record)
+    if persistence_error is not None:
+        current_app.logger.debug("api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s", prepared["request_id"], payload.get("chat_id"), True)
+        return persistence_error
+
+    current_app.logger.debug("api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s", prepared["request_id"], payload.get("chat_id"), len(normalized_result.get("assistant_text") or ""))
+    return jsonify(normalized_result), 200
 
 
 @api_v1_bp.get("/chats/<int:chat_id>/ai/interactions")
 @login_required
 def list_chat_ai_interactions(chat_id: int):
-    """List AI interactions for a target chat when visible to the authenticated user."""
-    current_app.logger.debug(
-        "api.ai_interactions.list.request method=%s path=%s user_id=%s",
-        "GET",
-        f"/api/v1/chats/{chat_id}/ai/interactions",
-        ChatAccessHelper.get_authenticated_user_id(),
-    )
+    current_app.logger.debug("api.ai_interactions.list.request method=%s path=%s user_id=%s", "GET", f"/api/v1/chats/{chat_id}/ai/interactions", ChatAccessHelper.get_authenticated_user_id())
     chat = _require_record("chat", Chat, chat_id)
     deny = _assert_chat_permissions(chat)
     if deny is not None:
         return deny
 
-    interactions = (
-        db.session.query(AIInteraction)
-        .filter(AIInteraction.chat_id == chat_id)
-        .order_by(AIInteraction.created_at.asc(), AIInteraction.id.asc())
-        .all()
-    )
-    current_app.logger.debug(
-        "api.ai_interactions.list.response chat_id=%s status=%s count=%s",
-        chat_id,
-        200,
-        len(interactions),
-    )
+    interactions = db.session.query(AIInteraction).filter(AIInteraction.chat_id == chat_id).order_by(AIInteraction.created_at.asc(), AIInteraction.id.asc()).all()
+    current_app.logger.debug("api.ai_interactions.list.response chat_id=%s status=%s count=%s", chat_id, 200, len(interactions))
     return jsonify([_serialize_record("ai_interaction", interaction) for interaction in interactions]), 200
