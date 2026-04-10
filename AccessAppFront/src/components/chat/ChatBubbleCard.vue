@@ -7,9 +7,12 @@
         :read-aloud-enabled="readAloudEnabled"
         :is-reading="isReading"
         :volume="volume"
+        :selected-voice="selectedVoice"
+        :voice-options="voiceOptions"
         @toggle="$emit('read-aloud-toggle')"
         @stop="$emit('read-aloud-stop')"
         @volume="$emit('read-aloud-volume', $event)"
+        @voice="$emit('read-aloud-voice', $event)"
       />
       <!-- Intentionally hidden during sprint 4 -->
       <!-- <button class="btn btn-secondary px-2 py-1 btn-sm" @click="$emit('save-note')">Save as Note</button> -->
@@ -27,10 +30,15 @@ const props = defineProps({
   showActions: { type: Boolean, default: false },
   readAloudEnabled: { type: Boolean, default: true },
   isReading: { type: Boolean, default: false },
-  volume: { type: Number, default: 1 }
+  volume: { type: Number, default: 1 },
+  selectedVoice: { type: String, default: 'Samantha' },
+  voiceOptions: {
+    type: Array,
+    default: () => ([])
+  }
 })
 
-defineEmits(['read-aloud-toggle', 'read-aloud-stop', 'read-aloud-volume'/*, 'save-note'*/])
+defineEmits(['read-aloud-toggle', 'read-aloud-stop', 'read-aloud-volume', 'read-aloud-voice'/*, 'save-note'*/])
 const variantClass = computed(() => {
   if (props.variant === 'user') return 'ms-auto border-primary'
   return 'me-auto border-secondary'
