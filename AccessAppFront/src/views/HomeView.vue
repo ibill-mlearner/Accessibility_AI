@@ -11,15 +11,15 @@
             :text="message.text"
             :variant="messageVariantMap[message.role] || message.role"
             :show-actions="message.role === 'assistant'"
-            :read-aloud-enabled="isReadAloudSupported"
-            :is-reading="activeReadAloudMessageId === message.id && speech.isSpeaking"
-            :volume="readAloudVolume"
-            :selected-voice="selectedReadAloudVoice"
-            :voice-options="readAloudVoiceOptions"
-            @read-aloud-toggle="handleReadAloudToggle(message)"
-            @read-aloud-stop="handleReadAloudStop"
-            @read-aloud-volume="handleReadAloudVolume"
-            @read-aloud-voice="handleReadAloudVoice"
+            :read-aloud-enabled="speech.isSupported"
+            :is-reading="speech.activeReadAloudMessageId === message.id && speech.isSpeaking"
+            :volume="speech.readAloudVolume"
+            :selected-voice="speech.selectedReadAloudVoice"
+            :voice-options="speech.readAloudVoiceOptions"
+            @read-aloud-toggle="speech.handleReadAloudToggle(message)"
+            @read-aloud-stop="speech.handleReadAloudStop"
+            @read-aloud-volume="speech.handleReadAloudVolume"
+            @read-aloud-voice="speech.handleReadAloudVoice"
           />
         </template>
       </div>
@@ -41,12 +41,11 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
 import { useClassStore } from '../stores/classStore'
-import { useNoteStore } from '../stores/noteStore'
 import { useAutoScroll } from '../composables/useAutoScroll'
 import { useChatTimeline } from '../composables/useChatTimeline'
 import { useSendPrompt } from '../composables/useSendPrompt'
@@ -60,21 +59,10 @@ const route = useRoute()
 const auth = useAuthStore()
 const chatStore = useChatStore()
 const classStore = useClassStore()
-const noteStore = useNoteStore()
 const { messageListRef, scrollToLatestTurn } = useAutoScroll()
 const { timelineMessages, interactionError, hydrateTimelineForChat } = useChatTimeline(chatStore)
 const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError })
 const speech = useSpeechSynthesis()
-const isReadAloudSupported = computed(() => speech.isSupported)
-const activeReadAloudMessageId = ref(null)
-const activeReadAloudText = ref('')
-const readAloudVolume = ref(1)
-const selectedReadAloudVoice = ref('Samantha')
-const readAloudVoiceOptions = [
-  { label: 'Samantha', value: 'Samantha' },
-  { label: 'Google US English', value: 'Google US English' },
-  { label: 'Microsoft Zira - English (United States)', value: 'Microsoft Zira - English (United States)' }
-]
 
 const messageVariantMap = {
   assistant: 'system',
@@ -98,65 +86,16 @@ async function handleModelSelection(modelValue) {
   await chatStore.updateModelSelection(modelValue)
 }
 
-function handleReadAloudToggle(message) {
-  if (!isReadAloudSupported.value || !message?.text?.trim()) return
-
-  const isSameMessage = activeReadAloudMessageId.value === message.id
-  if (isSameMessage && speech.isSpeaking.value) {
-    speech.stop()
-    activeReadAloudMessageId.value = null
-    activeReadAloudText.value = ''
-    return
-  }
-
-  speech.start(message.text, selectedReadAloudVoice.value, readAloudVolume.value)
-  activeReadAloudMessageId.value = message.id
-  activeReadAloudText.value = message.text
-}
-
-function handleReadAloudStop() {
-  if (!isReadAloudSupported.value) return
-  speech.stop()
-  activeReadAloudMessageId.value = null
-  activeReadAloudText.value = ''
-}
-
-function handleReadAloudVolume(nextVolume) {
-  const normalizedVolume = Number(nextVolume)
-  if (Number.isNaN(normalizedVolume)) return
-
-  readAloudVolume.value = Math.min(1, Math.max(0, normalizedVolume))
-}
-
-function handleReadAloudVoice(nextVoiceName) {
-  selectedReadAloudVoice.value = String(nextVoiceName || '').trim() || 'Samantha'
-
-  if (!speech.isSpeaking.value || !activeReadAloudText.value) return
-
-  speech.start(activeReadAloudText.value, selectedReadAloudVoice.value, readAloudVolume.value)
-}
-
-async function saveCurrentChatAsNote() {
-  if (!selectedChat.value) return
-  await noteStore.createNote({
-    id: Date.now(),
-    class: classStore.selectedClass?.name || 'General',
-    date: new Date().toISOString().slice(0, 10),
-    chat: selectedChat.value.title || 'Current chat',
-    content: selectedChat.value.title || ''
-  })
-}
-
 watch(() => chatStore.newChatRequestId, () => {
   timelineMessages.value = []
   interactionError.value = ''
   interactionLoading.value = false
-  handleReadAloudStop()
+  speech.handleReadAloudStop()
 })
 
 watch(() => chatStore.selectedChatId, async (chatId) => {
   interactionError.value = ''
-  handleReadAloudStop()
+  speech.handleReadAloudStop()
   await hydrateTimelineForChat(chatId)
 },
 {
@@ -176,7 +115,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  speech.stop()
+  speech.handleReadAloudStop()
 })
 </script>
 

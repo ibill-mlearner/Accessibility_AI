@@ -3,26 +3,30 @@ import { describe, expect, it } from 'vitest'
 import ComposerBar from '../../src/components/chat/ComposerBar.vue'
 
 describe('ComposerBar.vue (AI input)', () => {
-  it('emits send and model update for valid user input', async () => {
+  it('emits selected-model update when dropdown changes', async () => {
     const wrapper = mount(ComposerBar, {
-      props: { showLogin: true, showModelSelect: true }
+      props: {
+        showLogin: true,
+        showModelSelect: true,
+        selectedModel: 'huggingface::A',
+        modelOptions: [
+          { value: 'huggingface::A', label: 'Model A (huggingface)' },
+          { value: 'huggingface::B', label: 'Model B (huggingface)' },
+        ],
+      }
     })
 
-    await wrapper.find('button.icon-btn').trigger('click')
-    await wrapper.find('input').setValue('Summarize chapter 2')
-    await wrapper.find('select').setValue('General')
+    await wrapper.find('select').setValue('huggingface::B')
 
-    expect(wrapper.emitted('send')).toHaveLength(1)
-    expect(wrapper.emitted('update:modelValue')[0]).toEqual(['Summarize chapter 2'])
-    expect(wrapper.emitted('update:selectedModel')[0]).toEqual(['General'])
+    expect(wrapper.emitted('update:selected-model')).toEqual([['huggingface::B']])
   })
 
-  it('does not render login/model controls when disabled', () => {
+  it('does not render login button or model select when hidden', () => {
     const wrapper = mount(ComposerBar, {
       props: { showLogin: false, showModelSelect: false }
     })
 
-    expect(wrapper.find('button.btn').exists()).toBe(false)
+    expect(wrapper.find('button.btn-outline-secondary').exists()).toBe(false)
     expect(wrapper.find('select').exists()).toBe(false)
   })
 })

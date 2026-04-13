@@ -16,7 +16,6 @@ from .interaction_helpers import (
     derive_selection_from_chat,
     normalize_interaction_response,
     persist_interaction,
-    prepare_interaction_inputs,
     resolve_chat_id,
     resolve_initiated_by,
 )
@@ -56,7 +55,6 @@ __all__ = [
     "derive_selection_from_chat",
     "normalize_interaction_response",
     "persist_interaction",
-    "prepare_interaction_inputs",
     "resolve_chat_id",
     "resolve_initiated_by",
 ]

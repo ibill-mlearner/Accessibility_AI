@@ -9,6 +9,7 @@ from flask import current_app, has_app_context
 
 from ..extensions import db
 from ..models import AIModel, Accommodation, AccommodationSystemPrompt, SystemPrompt
+from ..db.model_file_loader import ModelFileLoader
 
 
 class AIPipelineGateway:
@@ -192,13 +193,30 @@ class AIPipelineGateway:
 
     def list_available_models(self) -> dict[str, Any]:
         if has_app_context():
-            model_name = str(current_app.config.get("AI_MODEL_NAME") or "").strip() or self._resolve_active_model_name()
+            loader = ModelFileLoader(current_app)
+            loader.query_folder_and_update_database()
+            return loader.deliver_models_from_database()
         else:
             model_name = self._configured_model_name
+            model_ids = [model_name] if model_name else []
+
+        deduped_model_ids: list[str] = []
+        seen_model_ids: set[str] = set()
+        for candidate in model_ids:
+            normalized = str(candidate or "").strip()
+            if not normalized or normalized in seen_model_ids:
+                continue
+            seen_model_ids.add(normalized)
+            deduped_model_ids.append(normalized)
+
+        if not deduped_model_ids and model_name:
+            deduped_model_ids = [model_name]
+
+        models_payload = [{"id": model_id} for model_id in deduped_model_ids]
         return {
             "model_defaults": {"provider": "huggingface", "model_name": model_name},
-            "local": {"models": [{"id": model_name}], "count": 1},
-            "huggingface_local": {"models": [{"id": model_name}], "count": 1},
+            "local": {"models": models_payload, "count": len(models_payload)},
+            "huggingface_local": {"models": models_payload, "count": len(models_payload)},
         }
 
     def download_model(self, model_id: str) -> dict[str, Any]:
@@ -208,10 +226,24 @@ class AIPipelineGateway:
 
         ai_tool = self._load_ai_tool()
         api = ai_tool.AIPipelineInterface()
-        service = api.AIPipelineModelDownloadService()
-
         started_at = perf_counter()
-        payload = service.download(model_id=resolved_model, provider="huggingface")
+        try:
+            service = api.AIPipelineModelDownloadService()
+            payload = service.download(model_id=resolved_model, provider="huggingface")
+        except AttributeError:
+            model_loader = ai_tool.ModelLoader(
+                model_name=resolved_model,
+                device_map=None,
+                torch_dtype="auto",
+                download_locally=True,
+            )
+            tokenizer_loader = ai_tool.TokenizerLoader(
+                model_name=resolved_model,
+                download_locally=True,
+            )
+            model_loader.build()
+            tokenizer_loader.build()
+            payload = {"provider": "huggingface", "model_id": resolved_model, "status": "downloaded"}
         elapsed_seconds = perf_counter() - started_at
 
         result = payload if isinstance(payload, dict) else {}

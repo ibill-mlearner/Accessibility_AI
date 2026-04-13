@@ -3,14 +3,15 @@ from __future__ import annotations
 from flask import current_app, jsonify
 from flask_login import login_required
 
+from ...db.prompt_context_assembler import PromptContextAssembler
 from ...models import AIInteraction, Chat
+from ...models.db_schema import DB_MODELS
 from ...schemas.validation import AIInteractionPayloadSchema
 from ...services.ai_pipeline_gateway import AIPipelineGateway
 from ...utils.ai_checker.interaction_helpers import (
     derive_selection_from_chat,
     normalize_interaction_response,
     persist_interaction,
-    prepare_interaction_inputs,
     resolve_chat_id,
     resolve_initiated_by,
 )
@@ -63,6 +64,7 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
             "has_guardrail_system_prompt": bool(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT")),
             "has_db_system_instructions": system_instructions,
             "has_composed_system_prompt": bool(system_prompt),
+            "config_model_id": str(current_app.config.get("AI_MODEL_NAME") or "").strip(),
         },
     )
 
@@ -105,16 +107,54 @@ def _validate_interaction_payload() -> tuple[dict, dict]:
 @login_required
 def create_ai_interaction():
     _raw, payload = _validate_interaction_payload()
-    prepared = prepare_interaction_inputs(payload, db_session=db.session)
+    assembler = PromptContextAssembler(session=db.session, models=DB_MODELS)
+    selected_feature_ids = payload.get("selected_accessibility_link_ids")
+    user_id = int(payload["user_id"]) if payload.get("user_id") is not None else None
+    chat_state = resolve_chat_id(payload)
+    feature_context = assembler.build_feature_context(user_id=user_id or 0, selected_feature_ids=selected_feature_ids)
+    conversation_context = (
+        assembler.build_conversation_context(user_id=user_id, chat_id=chat_state)
+        if user_id is not None
+        else {"messages": payload.get("messages", []), "chat_id": chat_state, "available_chats": []}
+    )
+    messages = payload.get("messages", []) if payload.get("messages") else conversation_context["messages"]
+    prompt = str(payload.get("prompt") or "").strip()
+    system_prompt = assembler.build_composed_system_prompt(
+        guardrail_prompt=str(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT") or "").strip(),
+        feature_context=feature_context,
+        request_scoped_system_prompt=str(payload.get("system_prompt") or "").strip(),
+    ) or None
+    runtime_model_selection = {
+        "provider": current_app.config.get("AI_PROVIDER"),
+        "model_id": current_app.config.get("AI_MODEL_NAME"),
+        "source": "config_default",
+    }
+    prepared = {
+        "prompt": prompt,
+        "messages": messages,
+        "context_payload": {
+            **payload.get("context", {}),
+            "messages": messages,
+            "runtime_model_selection": runtime_model_selection,
+        },
+        "system_prompt": system_prompt,
+        "request_id": str(payload.get("request_id") or "n/a"),
+    }
     _log_interaction_start(payload, prepared["request_id"], prepared["prompt"])
     _publish_request_summary(prepared["prompt"], prepared["messages"], payload, prepared["system_prompt"], bool(prepared["system_prompt"]))
 
-    chat_state = resolve_chat_id(payload)
     if chat_state is not None:
         chat = _require_record("chat", Chat, chat_state)
         deny = _assert_chat_permissions(chat)
         if deny is not None:
             return deny
+        chat_provider, chat_model_id = _derive_selection_from_chat(chat)
+        if chat_model_id:
+            prepared["context_payload"]["runtime_model_selection"] = {
+                "provider": chat_provider or runtime_model_selection.get("provider"),
+                "model_id": chat_model_id,
+                "source": "chat_model",
+            }
 
     ai_service: AIPipelineGateway = current_app.extensions["ai_service"]
     try:

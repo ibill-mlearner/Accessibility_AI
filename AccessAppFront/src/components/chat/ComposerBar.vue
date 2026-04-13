@@ -1,5 +1,5 @@
 <template>
-  <div class="card shadow-sm">
+  <div class="card shadow-sm composer-bar">
     <div
       class="card-body d-grid composer-bar__grid"
       :class="showLogin ? 'composer-bar__grid--with-login' : 'composer-bar__grid--no-login'"
