@@ -188,6 +188,13 @@ def get_ai_catalog():
         span["cache_hit"] = True
         response_payload = cached["payload"]
     else:
+        inventory_payload = ai_service.list_available_models() if hasattr(ai_service, "list_available_models") else {}
+        available_by_provider = _extract_available_model_ids(inventory_payload)
+        available_hf_model_ids = {
+            normalize_model_id(model_id)
+            for model_id in available_by_provider.get("huggingface", set())
+            if normalize_model_id(model_id)
+        }
         query_start = time.perf_counter()
         records = (
             db.session.query(AIModel)
@@ -205,16 +212,35 @@ def get_ai_catalog():
 
         provider_grouped: dict[str, list[dict[str, Any]]] = {}
         ordered_models: list[dict[str, Any]] = []
+        by_provider_model_id: dict[tuple[str, str], Any] = {}
+
         for record in records:
             provider = str(record.provider or "").strip().lower()
+            model_id = normalize_model_id(record.model_id)
+            if available_hf_model_ids and provider == "huggingface" and model_id not in available_hf_model_ids:
+                continue
             model_payload = {
-                "id": record.model_id,
+                "id": model_id or record.model_id,
                 "source": record.source,
                 "path": record.path,
                 "active": bool(record.active),
             }
+            by_provider_model_id[(provider, model_payload["id"])] = model_payload
             provider_grouped.setdefault(provider, []).append(model_payload)
             ordered_models.append({"provider": provider, **model_payload})
+
+        if available_hf_model_ids:
+            for available_model_id in sorted(available_hf_model_ids):
+                if ("huggingface", available_model_id) in by_provider_model_id:
+                    continue
+                model_payload = {
+                    "id": available_model_id,
+                    "source": "live_inventory",
+                    "path": "",
+                    "active": True,
+                }
+                provider_grouped.setdefault("huggingface", []).append(model_payload)
+                ordered_models.append({"provider": "huggingface", **model_payload})
 
         available_models = {normalize_model_id(str(model.get("id") or "")) for model in ordered_models if normalize_model_id(str(model.get("id") or ""))}
 

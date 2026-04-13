@@ -12,8 +12,18 @@ from .validators import AIInteractionValidator
 def _discover_model_ids(models_root: Path) -> list[str]:
     if not models_root.exists() or not models_root.is_dir():
         return []
-    return sorted(child.name for child in models_root.iterdir() if child.is_dir())
-
+    discovered: list[str] = []
+    seen: set[str] = set()
+    for child in sorted(models_root.iterdir(), key=lambda item: item.name):
+        if not child.is_dir():
+            continue
+        normalized = AIInteractionValidator.to_clean_model_id(child.name)
+        model_id = normalized or str(child.name).strip()
+        if not model_id or model_id in seen:
+            continue
+        seen.add(model_id)
+        discovered.append(model_id)
+    return discovered
 
 def _resolve_local_models_root(app: Flask) -> Path:
     project_root = Path(app.root_path).resolve().parents[1]
@@ -42,11 +52,22 @@ def _resolve_installed_pipeline_models_root() -> Path | None:
         return None
     return models_root
 
-
-def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | None]:
+def discover_local_model_inventory(app: Flask) -> dict[str, str | Path | list[str]]:
     provider = AIInteractionValidator.to_clean_text(app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
     models_root = _resolve_local_models_root(app)
     discovered_model_ids = _discover_model_ids(models_root)
+    return {
+        "provider": provider,
+        "models_root": models_root,
+        "model_ids": discovered_model_ids,
+    }
+
+
+def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | None]:
+    inventory = discover_local_model_inventory(app)
+    provider = str(inventory["provider"])
+    models_root = Path(inventory["models_root"])
+    discovered_model_ids = list(inventory["model_ids"])
     default_model_id = str(app.config.get("AI_MODEL_NAME") or "").strip()
 
     records = db.session.query(AIModel).filter(AIModel.provider == provider).all()
@@ -94,4 +115,5 @@ def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | Non
     }
 
 
-__all__ = ["sync_ai_models_with_local_inventory"]
+__all__ = ["discover_local_model_inventory",
+           "sync_ai_models_with_local_inventory"]

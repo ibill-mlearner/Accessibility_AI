@@ -64,6 +64,7 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
             "has_guardrail_system_prompt": bool(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT")),
             "has_db_system_instructions": system_instructions,
             "has_composed_system_prompt": bool(system_prompt),
+            "config_model_id": str(current_app.config.get("AI_MODEL_NAME") or "").strip(),
         },
     )
 
