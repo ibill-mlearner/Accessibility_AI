@@ -46,6 +46,10 @@ def normalize_interaction_response(result: Any) -> dict[str, Any]:
 
 
 def resolve_system_instructions(payload: dict[str, Any], *, db_session: Any) -> str:
+    # INTEGRATION POINT (PromptContextAssemblerInterface.build_feature_context):
+    # This function currently assembles accessibility instructions inline.
+    # Replace/wrap with the DB prompt context assembler so feature filtering and
+    # instruction shaping come from one shared interface implementation.
     selected_feature_ids = payload.get("selected_accessibility_link_ids")
     if not isinstance(selected_feature_ids, list) or not selected_feature_ids:
         return ""
@@ -71,6 +75,11 @@ def resolve_system_instructions(payload: dict[str, Any], *, db_session: Any) -> 
 
 
 def prepare_interaction_inputs(payload: dict[str, Any], *, db_session: Any) -> dict[str, Any]:
+    # INTEGRATION POINT (PromptContextAssemblerInterface):
+    # This helper currently combines prompt fallback, message context, and
+    # guardrail/system instruction composition. It is the primary seam for
+    # introducing build_feature_context/build_conversation_context/
+    # build_composed_system_prompt in the live API flow.
     prompt = str(payload.get("prompt") or "").strip()
     raw_messages = payload.get("messages")
     messages = raw_messages if isinstance(raw_messages, list) else []
