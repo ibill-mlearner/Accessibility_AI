@@ -50,3 +50,38 @@ class InteractionRepositoryFactory(Protocol):
 
     def __call__(self, interaction_model: type) -> AIInteractionRepositoryInterface:
         ...
+
+
+class PromptContextAssemblerInterface(Protocol):
+    """Interface for prompt-context composition helpers backed by DB data.
+
+    Notes:
+    - Intended for API/runtime composition and developer debugging utilities.
+    - Keeps feature, conversation, and system-prompt composition under one
+      contract so call-sites can swap implementations without changing behavior.
+    """
+
+    feature_context: dict[str, Any]
+    conversation_context: dict[str, Any]
+    composed_system_prompt: str
+
+    def build_feature_context(
+        self,
+        *,
+        user_id: int,
+        selected_feature_ids: list[int] | None = None,
+        exclude_standard_profiles: bool = True,
+    ) -> dict[str, Any]:
+        """Build accessibility feature context payload for prompt composition."""
+
+    def build_conversation_context(self, *, user_id: int, chat_id: int | None = None) -> dict[str, Any]:
+        """Build conversation payload (chat selection + messages) for prompt composition."""
+
+    def build_composed_system_prompt(
+        self,
+        *,
+        guardrail_prompt: str,
+        feature_context: dict[str, Any] | None = None,
+        request_scoped_system_prompt: str = "",
+    ) -> str:
+        """Build final system prompt text from guardrail + feature + request-level inputs."""

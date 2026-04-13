@@ -105,6 +105,11 @@ def _validate_interaction_payload() -> tuple[dict, dict]:
 @login_required
 def create_ai_interaction():
     _raw, payload = _validate_interaction_payload()
+    # INTEGRATION POINT (PromptContextAssemblerInterface):
+    # This is the earliest API entry where request payload + DB session are available.
+    # Route-level integration can inject/use a prompt context assembler before calling
+    # prepare_interaction_inputs so feature/conversation/system prompt context is
+    # composed through the shared DB interface contract.
     prepared = prepare_interaction_inputs(payload, db_session=db.session)
     _log_interaction_start(payload, prepared["request_id"], prepared["prompt"])
     _publish_request_summary(prepared["prompt"], prepared["messages"], payload, prepared["system_prompt"], bool(prepared["system_prompt"]))
