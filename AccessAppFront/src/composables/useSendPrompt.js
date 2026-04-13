@@ -17,12 +17,6 @@ export function useSendPrompt({
   const featureStore = useFeatureStore()
   const SAFE_MODEL_CONTACT_ERROR_MESSAGE = 'There was a problem with the model contact the administrator.'
 
-
-  function logSendCheckpoint(label, details = {}) {
-    if (!import.meta.env.DEV) return
-    console.info(`[useSendPrompt] ${label}`, details)
-  }
-
   async function redirectGuest(cleanPrompt) {
     if (auth.role !== 'guest') return false
     interactionError.value = 'Please log in to send a prompt.'
@@ -40,16 +34,8 @@ export function useSendPrompt({
     return classIdForChat
   }
 
-  function resolveModelSelection() {
-    const selectedModelValue = String(chatStore.selectedModel || '').trim()
-    const [selectedProvider = '', ...modelParts] = selectedModelValue.split('::')
-    const selectedModelId = modelParts.join('::').trim()
-
-    return {
-      selectedModelValue,
-      selectedProvider: selectedProvider.trim(),
-      selectedModelId
-    }
+  function resolveSelectedModelValue() {
+    return String(chatStore.selectedModel || '').trim()
   }
 
   async function ensureChat({ 
@@ -280,13 +266,13 @@ export function useSendPrompt({
     const classIdForChat = resolveClassIdForChat()
     if (!classIdForChat) return null
 
-    const modelSelection = resolveModelSelection()
+    const selectedModelValue = resolveSelectedModelValue()
 
     return { 
       draftPrompt, 
       cleanPrompt, 
       classIdForChat, 
-      modelSelection 
+      selectedModelValue
     }
   }
 
@@ -344,41 +330,18 @@ export function useSendPrompt({
   async function executeSendFlow({ 
     cleanPrompt, 
     classIdForChat, 
-    modelSelection, 
+    selectedModelValue,
     draftPrompt 
   }) {
-    logSendCheckpoint('before ensureActiveChat', {
-      cleanPromptLength: cleanPrompt.length,
-      classIdForChat,
-      selectedModelValue: modelSelection.selectedModelValue
-    })
     const ensuredChat = await ensureChat({
       cleanPrompt,
       classIdForChat,
-      selectedModelValue: modelSelection.selectedModelValue
-    })
-
-    logSendCheckpoint('after ensureActiveChat', {
-      chatId: ensuredChat?.id
-    })
-
-    logSendCheckpoint('before createMessage (user)', {
-      chatId: ensuredChat?.id
+      selectedModelValue
     })
 
     await saveUserMessage({ 
       chatId: ensuredChat.id, 
       cleanPrompt })
-
-    logSendCheckpoint('after createMessage (user)', {
-      chatId: ensuredChat?.id
-    })
-
-    logSendCheckpoint('before requestAiInteraction', {
-      chatId: ensuredChat?.id,
-      provider: modelSelection.selectedProvider,
-      modelId: modelSelection.selectedModelId
-    })
 
     const aiResponse = await requestAssistantResponse({
       cleanPrompt,
@@ -387,23 +350,9 @@ export function useSendPrompt({
       draftPrompt
     })
 
-    logSendCheckpoint('after requestAiInteraction', {
-      chatId: ensuredChat?.id,
-      responseReceived: Boolean(aiResponse)
-    })
-
     if (!aiResponse) return
 
-    logSendCheckpoint('before createMessage (assistant)', {
-      chatId: ensuredChat?.id
-    })
-
     await processSuccessfulAiResponse({ aiResponse, ensuredChat, draftPrompt })
-
-    logSendCheckpoint('after createMessage (assistant)', {
-      chatId: ensuredChat?.id
-    })
-    
   }
 
 
