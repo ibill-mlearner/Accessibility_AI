@@ -55,7 +55,7 @@ def _resolve_installed_pipeline_models_root() -> Path | None:
 
 
 def discover_local_model_inventory(app: Flask) -> dict[str, str | Path | list[str]]:
-    provider = AIInteractionValidator.to_clean_text(app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
+    provider = AIInteractionValidator.to_clean_text(app.config.get("AI_PROVIDER"), lower=True)
     models_root = _resolve_local_models_root(app)
     discovered_model_ids = _discover_model_ids(models_root)
     return {

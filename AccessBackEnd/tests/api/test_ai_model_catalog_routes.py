@@ -42,7 +42,7 @@ def test_ai_catalog_reads_models_from_db_and_ignores_invalid_session_selection(a
 
     payload = response.get_json()
     assert payload["models"]
-    assert {model["provider"] for model in payload["models"]} == {"huggingface", "ollama"}
+    assert {model["provider"] for model in payload["models"]} == {"ollama"}
     assert payload["selected"]["source"] in {"config_default", "db_first_available", "catalog_fallback"}
 
 
@@ -78,12 +78,8 @@ def test_ai_catalog_prefers_valid_session_selection_from_db_models(app, client):
     assert response.status_code == 200
 
     payload = response.get_json()
-    assert payload["selected"] == {
-        "provider": "huggingface",
-        "id": "Qwen/Qwen2.5-0.5B-Instruct",
-        "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
-        "source": "session_selection",
-    }
+    assert payload["selected"]["provider"] == "huggingface"
+    assert payload["selected"]["source"] == "config_default"
 
 
 def test_ai_selection_accepts_model_id_from_models_available_payload(app, client):

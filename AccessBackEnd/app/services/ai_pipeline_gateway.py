@@ -9,7 +9,7 @@ from flask import current_app, has_app_context
 
 from ..extensions import db
 from ..models import AIModel, Accommodation, AccommodationSystemPrompt, SystemPrompt
-from ..utils.ai_checker.operations import discover_local_model_inventory
+from ..db.model_file_loader import ModelFileLoader
 
 
 class AIPipelineGateway:
@@ -193,21 +193,9 @@ class AIPipelineGateway:
 
     def list_available_models(self) -> dict[str, Any]:
         if has_app_context():
-            configured_model_name = str(current_app.config.get("AI_MODEL_NAME") or "").strip()
-            model_name = configured_model_name or self._resolve_active_model_name()
-            provider = str(current_app.config.get("AI_PROVIDER") or "huggingface").strip().lower() or "huggingface"
-            inventory = discover_local_model_inventory(current_app)
-            model_ids = [str(model_id).strip() for model_id in inventory.get("model_ids", []) if str(model_id or "").strip()]
-            if not model_ids:
-                records = (
-                    db.session.query(AIModel)
-                    .filter(AIModel.provider == provider)
-                    .order_by(AIModel.active.desc(), AIModel.updated_at.desc(), AIModel.id.desc())
-                    .all()
-                )
-                model_ids = [str(record.model_id).strip() for record in records if str(record.model_id or "").strip()]
-            if not model_ids and model_name:
-                model_ids = [model_name]
+            loader = ModelFileLoader(current_app)
+            loader.query_folder_and_update_database()
+            return loader.deliver_models_from_database()
         else:
             model_name = self._configured_model_name
             model_ids = [model_name] if model_name else []

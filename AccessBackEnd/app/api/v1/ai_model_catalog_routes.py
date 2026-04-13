@@ -218,7 +218,7 @@ def get_ai_catalog():
         for record in records:
             provider = str(record.provider or "").strip().lower()
             model_id = normalize_model_id(record.model_id)
-            if available_hf_model_ids and provider == "huggingface" and model_id not in available_hf_model_ids:
+            if provider == "huggingface" and model_id not in available_hf_model_ids:
                 continue
             model_payload = {
                 "id": model_id or record.model_id,
@@ -282,15 +282,33 @@ def get_ai_catalog():
 def set_ai_selection():
     """Update the active runtime model selection for this backend process."""
     payload = _read_json_object()
-    selected_provider = AIInteractionValidator.to_clean_text(payload.get("provider"), lower=True) or AIInteractionValidator.to_clean_text(current_app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
+    selected_provider = AIInteractionValidator.to_clean_text(payload.get("provider"), lower=True) or AIInteractionValidator.to_clean_text(current_app.config.get("AI_PROVIDER"), lower=True)
     selected_model_id = AIInteractionValidator.to_clean_model_id(payload.get("model_id"))
+    if not selected_provider:
+        return jsonify({"error": {"code": "invalid_model_selection", "message": "provider is required", "details": {}}}), 400
     if not selected_model_id:
         return jsonify({"error": {"code": "invalid_model_selection", "message": "model_id is required", "details": {}}}), 400
 
+    print("ai.selection.config.before", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
     current_app.config["AI_PROVIDER"] = selected_provider
     current_app.config["AI_MODEL_NAME"] = selected_model_id
+    print("ai.selection.config.after", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
 
     records = db.session.query(AIModel).all()
+    print(
+        "ai.selection.db.records.queried",
+        [
+            {
+                "id": int(record.id),
+                "provider": record.provider,
+                "model_id": record.model_id,
+                "active": bool(record.active),
+                "source": record.source,
+                "path": record.path,
+            }
+            for record in records
+        ],
+    )
     selected_record = None
     for record in records:
         is_selected = record.provider == selected_provider and record.model_id == selected_model_id
@@ -305,6 +323,14 @@ def set_ai_selection():
             active=True,
         )
         db.session.add(selected_record)
+    print(
+        "ai.selection.db.record.pending",
+        {
+            "provider": selected_provider,
+            "model_id": selected_model_id,
+            "selected_record_exists": bool(selected_record and selected_record.id is not None),
+        },
+    )
     db.session.commit()
 
     _invalidate_ai_catalog_cache()
