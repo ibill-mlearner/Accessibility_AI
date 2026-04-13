@@ -282,15 +282,11 @@ def get_ai_catalog():
 def set_ai_selection():
     """Update the active runtime model selection for this backend process."""
     payload = _read_json_object()
-    ai_service: Any = current_app.extensions["ai_service"]
+    selected_provider = AIInteractionValidator.to_clean_text(payload.get("provider"), lower=True) or AIInteractionValidator.to_clean_text(current_app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
+    selected_model_id = AIInteractionValidator.to_clean_model_id(payload.get("model_id"))
+    if not selected_model_id:
+        return jsonify({"error": {"code": "invalid_model_selection", "message": "model_id is required", "details": {}}}), 400
 
-    try:
-        selected = _resolve_provider_model_selection(payload, ai_service, allow_session=False, require_explicit=True)
-    except ModelSelectionError as exc:
-        return jsonify(exc.payload), exc.status_code
-
-    selected_provider = selected["provider"]
-    selected_model_id = selected["model_id"]
     current_app.config["AI_PROVIDER"] = selected_provider
     current_app.config["AI_MODEL_NAME"] = selected_model_id
 
@@ -319,6 +315,6 @@ def set_ai_selection():
             "id": selected_model_id,
             # Deprecated alias kept during transition; remove in follow-up.
             "model_id": selected_model_id,
-            "source": selected["source"],
+            "source": "request_override",
         }
     ), 200

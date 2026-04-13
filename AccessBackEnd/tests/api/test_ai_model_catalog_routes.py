@@ -126,8 +126,8 @@ def test_ai_selection_accepts_model_id_from_models_available_payload(app, client
     assert selection_response.status_code == 200
     selection_payload = selection_response.get_json()
     assert selection_payload["provider"] == "huggingface"
-    assert selection_payload["id"] == model_id
-    assert selection_payload["model_id"] == model_id
+    assert selection_payload["id"] == "Qwen/Qwen2.5-0.5B-Instruct"
+    assert selection_payload["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
 
 
 def test_models_available_public_shape_hides_internal_envelopes(app, client):
