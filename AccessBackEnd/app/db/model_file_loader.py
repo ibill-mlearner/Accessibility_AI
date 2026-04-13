@@ -101,7 +101,14 @@ class ModelFileLoader:
             .order_by(AIModel.active.desc(), AIModel.model_id.asc())
             .all()
         )
-        models = [{"id": str(row.model_id)} for row in rows if str(row.model_id or "").strip()]
+        models = []
+        for row in rows:
+            model_id = str(row.model_id or "").strip()
+            if not model_id:
+                continue
+            if model_id == ".locks":
+                continue
+            models.append({"id": model_id})
         return {
             "model_defaults": {"provider": provider, "model_name": str(self._app.config.get("AI_MODEL_NAME") or "").strip()},
             "local": {"models": models, "count": len(models)},

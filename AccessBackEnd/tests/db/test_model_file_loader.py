@@ -43,6 +43,9 @@ def test_model_file_loader_queries_folder_updates_db_and_delivers_payload(app, m
             AIModel.provider == "huggingface",
             AIModel.model_id == "Qwen/Qwen2.5-0.5B-Instruct",
         ).one()
+        db.session.add(AIModel(provider="huggingface", model_id=".locks", source="instance_models", active=False))
+        db.session.commit()
+        delivered = loader.deliver_models_from_database()
 
     assert sync_payload["provider"] == "huggingface"
     assert sync_payload["discovered"] == 1
