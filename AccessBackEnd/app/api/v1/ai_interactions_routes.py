@@ -64,6 +64,7 @@ def _publish_request_summary(prompt: str, messages: list[dict], payload: dict, s
             "has_guardrail_system_prompt": bool(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT")),
             "has_db_system_instructions": system_instructions,
             "has_composed_system_prompt": bool(system_prompt),
+            "config_model_id": str(current_app.config.get("AI_MODEL_NAME") or "").strip(),
         },
     )
 
@@ -123,17 +124,18 @@ def create_ai_interaction():
         feature_context=feature_context,
         request_scoped_system_prompt=str(payload.get("system_prompt") or "").strip(),
     ) or None
+    runtime_model_selection = {
+        "provider": current_app.config.get("AI_PROVIDER"),
+        "model_id": current_app.config.get("AI_MODEL_NAME"),
+        "source": "config_default",
+    }
     prepared = {
         "prompt": prompt,
         "messages": messages,
         "context_payload": {
             **payload.get("context", {}),
             "messages": messages,
-            "runtime_model_selection": {
-                "provider": payload.get("provider") or current_app.config.get("AI_PROVIDER"),
-                "model_id": payload.get("model_id") or current_app.config.get("AI_MODEL_NAME"),
-                "source": "request_or_config",
-            },
+            "runtime_model_selection": runtime_model_selection,
         },
         "system_prompt": system_prompt,
         "request_id": str(payload.get("request_id") or "n/a"),
@@ -146,6 +148,13 @@ def create_ai_interaction():
         deny = _assert_chat_permissions(chat)
         if deny is not None:
             return deny
+        chat_provider, chat_model_id = _derive_selection_from_chat(chat)
+        if chat_model_id:
+            prepared["context_payload"]["runtime_model_selection"] = {
+                "provider": chat_provider or runtime_model_selection.get("provider"),
+                "model_id": chat_model_id,
+                "source": "chat_model",
+            }
 
     ai_service: AIPipelineGateway = current_app.extensions["ai_service"]
     try:

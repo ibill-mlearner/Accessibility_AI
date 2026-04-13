@@ -14,8 +14,19 @@ from .validators import AIInteractionValidator
 
 
 def derive_selection_from_chat(chat: Chat | None) -> tuple[str, str]:
-    _ = chat
-    return "", ""
+    if chat is None:
+        return "", ""
+    raw_model = str(getattr(chat, "model", "") or "").strip()
+    if not raw_model:
+        return "", ""
+
+    if "::" in raw_model:
+        provider_token, model_token = raw_model.split("::", 1)
+        provider = AIInteractionValidator.to_clean_text(provider_token, lower=True)
+        model_id = AIInteractionValidator.to_clean_model_id(model_token)
+        return provider, model_id
+
+    return "", AIInteractionValidator.to_clean_model_id(raw_model)
 
 
 def resolve_chat_id(payload: dict[str, Any]) -> int | None:
