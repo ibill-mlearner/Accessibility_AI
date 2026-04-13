@@ -288,6 +288,8 @@ def set_ai_selection():
         return jsonify({"error": {"code": "invalid_model_selection", "message": "provider is required", "details": {}}}), 400
     if not selected_model_id:
         return jsonify({"error": {"code": "invalid_model_selection", "message": "model_id is required", "details": {}}}), 400
+    if selected_provider == "huggingface" and "/" not in selected_model_id:
+        return jsonify({"error": {"code": "invalid_model_selection", "message": "model_id must be a canonical Hugging Face id", "details": {"model_id": selected_model_id}}}), 400
 
     print("ai.selection.config.before", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
     current_app.config["AI_PROVIDER"] = selected_provider

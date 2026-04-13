@@ -16,6 +16,16 @@ def test_derive_selection_from_chat_returns_empty_without_chat(app):
     assert model_id == ""
 
 
+def test_derive_selection_from_chat_parses_provider_and_model(app):
+    class _Chat:
+        model = "huggingface::Qwen/Qwen2.5-0.5B-Instruct"
+
+    with app.app_context():
+        provider, model_id = _derive_selection_from_chat(_Chat())
+    assert provider == "huggingface"
+    assert model_id == "Qwen/Qwen2.5-0.5B-Instruct"
+
+
 def test_publish_request_summary_includes_config_model_id(app, monkeypatch):
     from app.api.v1 import ai_interactions_routes as routes
 
@@ -80,3 +90,61 @@ def test_create_ai_interaction_uses_config_model_selection(app, client):
     assert runtime_selection["provider"] == "huggingface"
     assert runtime_selection["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
     assert runtime_selection["source"] == "config_default"
+
+
+def test_create_ai_interaction_prefers_chat_model_selection(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import Chat, CourseClass, DBUser
+
+    class _StubService:
+        last_context = None
+
+        def run_interaction(self, prompt, context=None, **kwargs):
+            self.last_context = context or {}
+            runtime = self.last_context.get("runtime_model_selection") if isinstance(self.last_context, dict) else {}
+            return {
+                "assistant_text": "ok",
+                "confidence": None,
+                "notes": [],
+                "meta": {
+                    "provider": (runtime or {}).get("provider") or "huggingface",
+                    "model_id": (runtime or {}).get("model_id") or "fallback",
+                    "model": (runtime or {}).get("model_id") or "fallback",
+                },
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+        app.config["AI_PROVIDER"] = "huggingface"
+        app.config["AI_MODEL_NAME"] = "HuggingFaceTB/SmolLM2-360M-Instruct"
+
+    _register(client, "chat-model@example.com")
+    app.extensions["ai_service"] = _StubService()
+
+    with app.app_context():
+        user = db.session.query(DBUser).filter(DBUser.email == "chat-model@example.com").one()
+        class_record = CourseClass(name="Test Class", description="desc", instructor_id=int(user.id), active=True)
+        db.session.add(class_record)
+        db.session.flush()
+        chat = Chat(
+            title="chat",
+            class_id=int(class_record.id),
+            user_id=int(user.id),
+            model="huggingface::Qwen/Qwen2.5-0.5B-Instruct",
+            active=True,
+        )
+        db.session.add(chat)
+        db.session.commit()
+        chat_id = int(chat.id)
+
+    interaction_response = client.post(
+        "/api/v1/ai/interactions",
+        json={"prompt": "hello", "chat_id": chat_id},
+    )
+    assert interaction_response.status_code == 200
+
+    runtime_selection = app.extensions["ai_service"].last_context["runtime_model_selection"]
+    assert runtime_selection["provider"] == "huggingface"
+    assert runtime_selection["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
+    assert runtime_selection["source"] == "chat_model"
