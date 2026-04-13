@@ -9,6 +9,7 @@ from flask import current_app, has_app_context
 
 from ..extensions import db
 from ..models import AIModel, Accommodation, AccommodationSystemPrompt, SystemPrompt
+from ..utils.ai_checker.operations import discover_local_model_inventory
 
 
 class AIPipelineGateway:
@@ -192,17 +193,21 @@ class AIPipelineGateway:
 
     def list_available_models(self) -> dict[str, Any]:
         if has_app_context():
-            model_name = str(current_app.config.get("AI_MODEL_NAME") or "").strip() or self._resolve_active_model_name()
+            configured_model_name = str(current_app.config.get("AI_MODEL_NAME") or "").strip()
+            model_name = configured_model_name or self._resolve_active_model_name()
             provider = str(current_app.config.get("AI_PROVIDER") or "huggingface").strip().lower() or "huggingface"
-            records = (
-                db.session.query(AIModel)
-                .filter(AIModel.provider == provider)
-                .order_by(AIModel.active.desc(), AIModel.updated_at.desc(), AIModel.id.desc())
-                .all()
-            )
-            model_ids = [str(record.model_id).strip() for record in records if str(record.model_id or "").strip()]
-            if model_name and model_name not in model_ids:
-                model_ids.insert(0, model_name)
+            inventory = discover_local_model_inventory(current_app)
+            model_ids = [str(model_id).strip() for model_id in inventory.get("model_ids", []) if str(model_id or "").strip()]
+            if not model_ids:
+                records = (
+                    db.session.query(AIModel)
+                    .filter(AIModel.provider == provider)
+                    .order_by(AIModel.active.desc(), AIModel.updated_at.desc(), AIModel.id.desc())
+                    .all()
+                )
+                model_ids = [str(record.model_id).strip() for record in records if str(record.model_id or "").strip()]
+            if not model_ids and model_name:
+                model_ids = [model_name]
         else:
             model_name = self._configured_model_name
             model_ids = [model_name] if model_name else []

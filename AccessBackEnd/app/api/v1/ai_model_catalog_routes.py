@@ -188,6 +188,14 @@ def get_ai_catalog():
         span["cache_hit"] = True
         response_payload = cached["payload"]
     else:
+        inventory_payload = ai_service.list_available_models() if hasattr(ai_service, "list_available_models") else {}
+        available_by_provider = _extract_available_model_ids(inventory_payload)
+        available_hf_model_ids = {
+            normalize_model_id(model_id)
+            for model_id in available_by_provider.get("huggingface", set())
+            if normalize_model_id(model_id)
+        }
+
         query_start = time.perf_counter()
         records = (
             db.session.query(AIModel)
@@ -205,16 +213,35 @@ def get_ai_catalog():
 
         provider_grouped: dict[str, list[dict[str, Any]]] = {}
         ordered_models: list[dict[str, Any]] = []
+        by_provider_model_id: dict[tuple[str, str], Any] = {}
+
         for record in records:
             provider = str(record.provider or "").strip().lower()
+            model_id = normalize_model_id(record.model_id)
+            if available_hf_model_ids and provider == "huggingface" and model_id not in available_hf_model_ids:
+                continue
             model_payload = {
-                "id": record.model_id,
+                "id": model_id or record.model_id,
                 "source": record.source,
                 "path": record.path,
                 "active": bool(record.active),
             }
+            by_provider_model_id[(provider, model_payload["id"])] = model_payload
             provider_grouped.setdefault(provider, []).append(model_payload)
             ordered_models.append({"provider": provider, **model_payload})
+
+        if available_hf_model_ids:
+            for available_model_id in sorted(available_hf_model_ids):
+                if ("huggingface", available_model_id) in by_provider_model_id:
+                    continue
+                model_payload = {
+                    "id": available_model_id,
+                    "source": "live_inventory",
+                    "path": "",
+                    "active": True,
+                }
+                provider_grouped.setdefault("huggingface", []).append(model_payload)
+                ordered_models.append({"provider": "huggingface", **model_payload})
 
         available_models = {normalize_model_id(str(model.get("id") or "")) for model in ordered_models if normalize_model_id(str(model.get("id") or ""))}
 
@@ -253,35 +280,41 @@ def get_ai_catalog():
 @api_v1_bp.post('/ai/selection')
 @login_required
 def set_ai_selection():
-    """Persist the caller's model selection in session state for this user/session only.
-
-    This endpoint does not mutate application config (`AI_PROVIDER`, `AI_MODEL_NAME`).
-    If the product needs a true global pointer mutation, add a separate admin-only route
-    rather than reusing `/api/v1/ai/selection`.
-    """
+    """Update the active runtime model selection for this backend process."""
     payload = _read_json_object()
-    ai_service: Any = current_app.extensions["ai_service"]
+    selected_provider = AIInteractionValidator.to_clean_text(payload.get("provider"), lower=True) or AIInteractionValidator.to_clean_text(current_app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
+    selected_model_id = AIInteractionValidator.to_clean_model_id(payload.get("model_id"))
+    if not selected_model_id:
+        return jsonify({"error": {"code": "invalid_model_selection", "message": "model_id is required", "details": {}}}), 400
 
-    try:
-        selected = _resolve_provider_model_selection(payload, ai_service, allow_session=False, require_explicit=True)
-    except ModelSelectionError as exc:
-        return jsonify(exc.payload), exc.status_code
+    current_app.config["AI_PROVIDER"] = selected_provider
+    current_app.config["AI_MODEL_NAME"] = selected_model_id
 
-    # Store per-user/session override only; runtime config remains process-level and unchanged.
-    session["ai_model_selection"] = {
-        "user_id": int(current_user.id),
-        "auth_session_id": session.get("auth_session_id"),
-        "provider": selected["provider"],
-        "model_id": selected["model_id"],
-    }
+    records = db.session.query(AIModel).all()
+    selected_record = None
+    for record in records:
+        is_selected = record.provider == selected_provider and record.model_id == selected_model_id
+        record.active = bool(is_selected)
+        if is_selected:
+            selected_record = record
+    if selected_record is None:
+        selected_record = AIModel(
+            provider=selected_provider,
+            model_id=selected_model_id,
+            source="selection_api",
+            active=True,
+        )
+        db.session.add(selected_record)
+    db.session.commit()
+
     _invalidate_ai_catalog_cache()
 
     return jsonify(
         {
-            "provider": selected["provider"],
-            "id": selected["model_id"],
+            "provider": selected_provider,
+            "id": selected_model_id,
             # Deprecated alias kept during transition; remove in follow-up.
-            "model_id": selected["model_id"],
-            "source": selected["source"],
+            "model_id": selected_model_id,
+            "source": "request_override",
         }
     ), 200
