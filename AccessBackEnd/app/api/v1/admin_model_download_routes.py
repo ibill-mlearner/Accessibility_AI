@@ -3,9 +3,11 @@ from __future__ import annotations
 from flask import current_app, jsonify
 
 from .routes import api_v1_bp
+from .ai_model_catalog_routes import _invalidate_ai_catalog_cache
 from ...api.errors import BadRequestError
 from ...schemas.validation import AdminModelDownloadPayloadSchema
 from ...utils.api_checker import _enforce_roles, _read_json_object, _validate_payload
+from ...utils.ai_checker import sync_ai_models_with_local_inventory
 
 
 @api_v1_bp.post('/admin/model-downloads')
@@ -35,6 +37,8 @@ def submit_admin_model_download_request_v1():
 
     try:
         download_result = ai_service.download_model(model_id)
+        sync_ai_models_with_local_inventory(current_app)
+        _invalidate_ai_catalog_cache()
     except Exception as exc:
         current_app.logger.warning("admin model download failed for model_id=%s: %s", model_id, exc)
         return jsonify({
