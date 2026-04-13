@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-
+from importlib import util
 from flask import Flask
 
 from ...api.v1.routes import db
@@ -17,10 +17,30 @@ def _discover_model_ids(models_root: Path) -> list[str]:
 
 def _resolve_local_models_root(app: Flask) -> Path:
     project_root = Path(app.root_path).resolve().parents[1]
+    # Model inventory lookup order:
+    # 1) Legacy thin runtime folder under the repo (if present).
+    # 2) Installed ai_pipeline package models cache directory (if present).
+    # 3) <app.instance_path>/models fallback.
     thin_models_root = project_root / "app" / "services" / "ai_pipeline_thin" / "models"
     if thin_models_root.exists() and thin_models_root.is_dir():
         return thin_models_root
+
+    installed_models_root = _resolve_installed_pipeline_models_root()
+    if installed_models_root is not None:
+        return installed_models_root
+
     return Path(app.instance_path) / "models"
+
+
+def _resolve_installed_pipeline_models_root() -> Path | None:
+    spec = util.find_spec("ai_pipeline.model_loader")
+    if spec is None or not spec.origin:
+        return None
+
+    models_root = Path(spec.origin).resolve().parent / "models"
+    if not models_root.exists() or not models_root.is_dir():
+        return None
+    return models_root
 
 
 def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | None]:
