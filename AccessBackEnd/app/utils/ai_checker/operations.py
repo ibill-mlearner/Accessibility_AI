@@ -55,6 +55,10 @@ def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | Non
             marked_inactive += 1
         record.active = False
 
+    # NOTE(step-1 analysis): `by_model_id` is built before discovered inserts above.
+    # If `default_model_id` matches a newly discovered directory and there was no
+    # pre-existing row, this branch can attempt a duplicate insert. Keep this
+    # behavior unchanged for now; we are documenting workflow/edge cases first.
     if default_model_id and default_model_id not in by_model_id:
         default_path = (models_root / default_model_id).as_posix()
         db.session.add(AIModel(provider=provider, model_id=default_model_id, source="config_default", path=default_path, active=True))
