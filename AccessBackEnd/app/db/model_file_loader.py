@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -18,31 +19,47 @@ class ModelFileLoader:
     def __init__(self, app: Flask) -> None:
         self._app = app
 
-    def format_and_validate_model_name(self, raw_name: str, *, models_root: Path) -> str:
+    def format_and_validate_model_name(self, raw_name: str, *, models_root: Path) -> tuple[str, str]:
         normalized = AIInteractionValidator.to_clean_model_id(raw_name)
         if not normalized:
-            return ""
+            return "", ""
         candidate_dir = models_root / raw_name
         if not candidate_dir.exists() or not candidate_dir.is_dir():
-            return ""
+            return "", ""
         if not has_valid_model_artifacts(candidate_dir):
-            return ""
-        return normalized
+            return "", ""
+
+        # Map local cache folder slugs to canonical repo ids when possible.
+        if normalized == raw_name and "--" in raw_name and "/" not in raw_name:
+            normalized = raw_name.replace("--", "/")
+
+        if "/" not in normalized:
+            config_path = candidate_dir / "config.json"
+            if config_path.exists():
+                try:
+                    payload = json.loads(config_path.read_text(encoding="utf-8"))
+                    name_or_path = AIInteractionValidator.to_clean_model_id((payload or {}).get("_name_or_path"))
+                    if "/" in name_or_path:
+                        normalized = name_or_path
+                except Exception:
+                    pass
+
+        if "/" not in normalized:
+            return "", ""
+        return normalized, candidate_dir.as_posix()
 
     def query_folder_and_update_database(self) -> dict[str, Any]:
         inventory = discover_local_model_inventory(self._app)
         provider = str(inventory.get("provider") or "").strip().lower()
         models_root = Path(inventory["models_root"])
         discovered_raw_ids = [child.name for child in models_root.iterdir() if child.is_dir()] if models_root.exists() and models_root.is_dir() else []
-        validated_model_ids = [
-            model_id
-            for model_id in (
-                self.format_and_validate_model_name(str(raw_id), models_root=models_root)
-                for raw_id in discovered_raw_ids
-            )
-            if model_id
-        ]
-        discovered_set = set(validated_model_ids)
+        validated_models: dict[str, str] = {}
+        for raw_id in discovered_raw_ids:
+            model_id, resolved_path = self.format_and_validate_model_name(str(raw_id), models_root=models_root)
+            if not model_id:
+                continue
+            validated_models[model_id] = resolved_path
+        discovered_set = set(validated_models.keys())
 
         records = db.session.query(AIModel).filter(AIModel.provider == provider).all()
         by_model_id = {str(record.model_id): record for record in records}
@@ -50,7 +67,7 @@ class ModelFileLoader:
 
         for model_id in sorted(discovered_set):
             record = by_model_id.get(model_id)
-            path = (models_root / model_id).as_posix()
+            path = validated_models.get(model_id, (models_root / model_id).as_posix())
             if record is None:
                 db.session.add(AIModel(provider=provider, model_id=model_id, source="model_file_loader", path=path, active=False))
                 upserted += 1
