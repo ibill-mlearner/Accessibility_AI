@@ -24,6 +24,7 @@
 import { computed } from 'vue'
 import ReadAloudControls from './ReadAloudControls.vue'
 
+// Intentionally presentation-only: this component renders UI and bubbles user intent up via emits.
 const props = defineProps({
   text: { type: String, default: '' },
   variant: { type: String, default: 'system' },

@@ -51,6 +51,7 @@
 </template>
 
 <script setup>
+// Intentionally "dumb" UI controls: emit interaction events, no speech state orchestration here.
 defineProps({
   readAloudEnabled: { type: Boolean, default: true },
   isReading: { type: Boolean, default: false },

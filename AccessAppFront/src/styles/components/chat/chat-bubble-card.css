@@ -31,7 +31,8 @@
   align-items: center;
   padding: 0.3rem 0.6rem;
   border-radius: 0.6rem;
-  background: rgba(108, 117, 125, 0.14);
+  background: rgba(34, 76, 130, 0.12);
+  border: 1px solid rgba(34, 76, 130, 0.28);
 }
 
 .chat-bubble-card__control-btn {
@@ -54,4 +55,5 @@
 .chat-bubble-card__volume {
   width: 7rem;
   margin: 0;
+  accent-color: #1f5ba1;
 }
