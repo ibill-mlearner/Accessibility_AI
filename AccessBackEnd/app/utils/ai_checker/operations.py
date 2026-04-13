@@ -25,6 +25,7 @@ def _discover_model_ids(models_root: Path) -> list[str]:
         discovered.append(model_id)
     return discovered
 
+
 def _resolve_local_models_root(app: Flask) -> Path:
     project_root = Path(app.root_path).resolve().parents[1]
     # Model inventory lookup order:
@@ -51,6 +52,7 @@ def _resolve_installed_pipeline_models_root() -> Path | None:
     if not models_root.exists() or not models_root.is_dir():
         return None
     return models_root
+
 
 def discover_local_model_inventory(app: Flask) -> dict[str, str | Path | list[str]]:
     provider = AIInteractionValidator.to_clean_text(app.config.get("AI_PROVIDER"), lower=True) or "huggingface"
@@ -115,5 +117,4 @@ def sync_ai_models_with_local_inventory(app: Flask) -> dict[str, int | str | Non
     }
 
 
-__all__ = ["discover_local_model_inventory",
-           "sync_ai_models_with_local_inventory"]
+__all__ = ["discover_local_model_inventory", "sync_ai_models_with_local_inventory"]

@@ -195,6 +195,7 @@ def get_ai_catalog():
             for model_id in available_by_provider.get("huggingface", set())
             if normalize_model_id(model_id)
         }
+
         query_start = time.perf_counter()
         records = (
             db.session.query(AIModel)
@@ -279,12 +280,7 @@ def get_ai_catalog():
 @api_v1_bp.post('/ai/selection')
 @login_required
 def set_ai_selection():
-    """Persist the caller's model selection in session state for this user/session only.
-
-    This endpoint does not mutate application config (`AI_PROVIDER`, `AI_MODEL_NAME`).
-    If the product needs a true global pointer mutation, add a separate admin-only route
-    rather than reusing `/api/v1/ai/selection`.
-    """
+    """Update the active runtime model selection for this backend process."""
     payload = _read_json_object()
     ai_service: Any = current_app.extensions["ai_service"]
 
@@ -293,21 +289,36 @@ def set_ai_selection():
     except ModelSelectionError as exc:
         return jsonify(exc.payload), exc.status_code
 
-    # Store per-user/session override only; runtime config remains process-level and unchanged.
-    session["ai_model_selection"] = {
-        "user_id": int(current_user.id),
-        "auth_session_id": session.get("auth_session_id"),
-        "provider": selected["provider"],
-        "model_id": selected["model_id"],
-    }
+    selected_provider = selected["provider"]
+    selected_model_id = selected["model_id"]
+    current_app.config["AI_PROVIDER"] = selected_provider
+    current_app.config["AI_MODEL_NAME"] = selected_model_id
+
+    records = db.session.query(AIModel).all()
+    selected_record = None
+    for record in records:
+        is_selected = record.provider == selected_provider and record.model_id == selected_model_id
+        record.active = bool(is_selected)
+        if is_selected:
+            selected_record = record
+    if selected_record is None:
+        selected_record = AIModel(
+            provider=selected_provider,
+            model_id=selected_model_id,
+            source="selection_api",
+            active=True,
+        )
+        db.session.add(selected_record)
+    db.session.commit()
+
     _invalidate_ai_catalog_cache()
 
     return jsonify(
         {
-            "provider": selected["provider"],
-            "id": selected["model_id"],
+            "provider": selected_provider,
+            "id": selected_model_id,
             # Deprecated alias kept during transition; remove in follow-up.
-            "model_id": selected["model_id"],
+            "model_id": selected_model_id,
             "source": selected["source"],
         }
     ), 200

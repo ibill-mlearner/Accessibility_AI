@@ -11,6 +11,7 @@ from ..extensions import db
 from ..models import AIModel, Accommodation, AccommodationSystemPrompt, SystemPrompt
 from ..utils.ai_checker.operations import discover_local_model_inventory
 
+
 class AIPipelineGateway:
     """Standalone gateway class mirroring demo_v2 pipeline behavior."""
 

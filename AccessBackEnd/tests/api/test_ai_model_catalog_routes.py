@@ -179,3 +179,39 @@ def test_models_available_public_shape_hides_internal_envelopes(app, client):
     assert "path" not in models[0]
     assert "size" not in models[0]
     assert "source" not in models[0]
+
+
+def test_ai_selection_updates_backend_config_and_active_model(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import AIModel
+
+    class _InventoryService:
+        def list_available_models(self):
+            return {
+                "local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}], "count": 1},
+                "huggingface_local": {"models": [{"id": "Qwen/Qwen2.5-0.5B-Instruct"}], "count": 1},
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+        db.session.add(AIModel(provider="huggingface", model_id="HuggingFaceTB/SmolLM2-360M-Instruct", source="seed", active=True))
+        db.session.add(AIModel(provider="huggingface", model_id="Qwen/Qwen2.5-0.5B-Instruct", source="seed", active=False))
+        db.session.commit()
+
+    _register(client, "selection-config@example.com")
+    app.extensions["ai_service"] = _InventoryService()
+
+    response = client.post(
+        "/api/v1/ai/selection",
+        json={"provider": "huggingface", "model_id": "Qwen/Qwen2.5-0.5B-Instruct"},
+    )
+    assert response.status_code == 200
+
+    with app.app_context():
+        assert app.config["AI_PROVIDER"] == "huggingface"
+        assert app.config["AI_MODEL_NAME"] == "Qwen/Qwen2.5-0.5B-Instruct"
+        active = db.session.query(AIModel).filter(AIModel.active.is_(True)).all()
+        assert len(active) == 1
+        assert active[0].provider == "huggingface"
+        assert active[0].model_id == "Qwen/Qwen2.5-0.5B-Instruct"

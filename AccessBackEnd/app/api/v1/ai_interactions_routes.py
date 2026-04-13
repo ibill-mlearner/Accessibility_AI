@@ -131,9 +131,9 @@ def create_ai_interaction():
             **payload.get("context", {}),
             "messages": messages,
             "runtime_model_selection": {
-                "provider": payload.get("provider") or current_app.config.get("AI_PROVIDER"),
-                "model_id": payload.get("model_id") or current_app.config.get("AI_MODEL_NAME"),
-                "source": "request_or_config",
+                "provider": current_app.config.get("AI_PROVIDER"),
+                "model_id": current_app.config.get("AI_MODEL_NAME"),
+                "source": "config_default",
             },
         },
         "system_prompt": system_prompt,
