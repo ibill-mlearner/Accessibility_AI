@@ -156,13 +156,13 @@ export function useSendPrompt({
     cleanPrompt, 
     chatId, 
     classIdForChat, 
-    draftPrompt 
+    draftPrompt
   }) {
     
     const payload = buildAiRequestPayload({ 
       cleanPrompt, 
       chatId, 
-      classIdForChat 
+      classIdForChat
     })
 
     try {
