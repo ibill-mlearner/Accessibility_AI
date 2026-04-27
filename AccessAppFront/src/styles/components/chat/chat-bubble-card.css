@@ -1,3 +1,4 @@
+/* Styles for the chat bubble card component; kept local to preserve decentralized component ownership. */
 .chat-bubble-card {
   max-width: min(80%, 680px);
 }

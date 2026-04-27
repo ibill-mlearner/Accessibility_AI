@@ -1,3 +1,9 @@
+"""AI execution gateway surface.
+
+Handoff note (high-level): this file centralizes runtime model execution, model inventory/download,
+and system-prompt composition so API routes can call one service entry point.
+"""
+
 from __future__ import annotations
 
 import importlib

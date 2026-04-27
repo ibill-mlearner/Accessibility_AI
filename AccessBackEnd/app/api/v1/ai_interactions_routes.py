@@ -33,15 +33,19 @@ _derive_selection_from_chat = derive_selection_from_chat
 
 
 def _log_payload(raw: dict, payload: dict) -> None:
+    # Handoff note: payload debug logs document request-shape transitions for contract cleanup verification.
     current_app.logger.debug("api.ai.interactions.payload.raw path=%s json_keys=%s", "/api/v1/ai/interactions", sorted(raw.keys()))
+    # Handoff note: validated-keys debug confirms normalized payload shape after schema validation.
     current_app.logger.debug("api.ai.interactions.payload.validated keys=%s", sorted(payload.keys()))
 
 
 def _log_request(payload: dict) -> None:
+    # Handoff note: request debug log provides lightweight observability without dumping sensitive payload content.
     current_app.logger.debug("api.ai_interactions.request method=%s path=%s json_keys=%s", "POST", "/api/v1/ai/interactions", sorted(payload.keys()))
 
 
 def _log_interaction_start(payload: dict, request_id: str, prompt: str) -> None:
+    # Handoff note: start debug log ties provider/model runtime selection to request_id for freeze-era traceability.
     current_app.logger.debug(
         "api.ai_interactions.create.start request_id=%s provider=%s model=%s timeout_seconds=%s prompt_len=%s messages_count=%s prompt_preview=%r",
         request_id,
@@ -166,9 +170,11 @@ def create_ai_interaction():
     _warn_if_empty_response(prepared["request_id"], normalized_result)
     persistence_error = persist_interaction(payload=payload, prompt=prepared["prompt"], normalized_result=normalized_result, db_session=db.session, require_record=_require_record)
     if persistence_error is not None:
+        # Handoff note: persistence-error debug log helps correlate error envelopes to request context quickly.
         current_app.logger.debug("api.ai_interactions.persistence.error request_id=%s chat_id=%s has_error=%s", prepared["request_id"], payload.get("chat_id"), True)
         return persistence_error
 
+    # Handoff note: completion debug log confirms persistence endpoint completion with minimal response metadata.
     current_app.logger.debug("api.ai_interactions.persistence.end request_id=%s chat_id=%s response_text_len=%s", prepared["request_id"], payload.get("chat_id"), len(normalized_result.get("assistant_text") or ""))
     return jsonify(normalized_result), 200
 
@@ -176,6 +182,7 @@ def create_ai_interaction():
 @api_v1_bp.get("/chats/<int:chat_id>/ai/interactions")
 @login_required
 def list_chat_ai_interactions(chat_id: int):
+    # Handoff note: list-request debug log tracks authorized access context for support triage.
     current_app.logger.debug("api.ai_interactions.list.request method=%s path=%s user_id=%s", "GET", f"/api/v1/chats/{chat_id}/ai/interactions", ChatAccessHelper.get_authenticated_user_id())
     chat = _require_record("chat", Chat, chat_id)
     deny = _assert_chat_permissions(chat)
@@ -183,5 +190,6 @@ def list_chat_ai_interactions(chat_id: int):
         return deny
 
     interactions = db.session.query(AIInteraction).filter(AIInteraction.chat_id == chat_id).order_by(AIInteraction.created_at.asc(), AIInteraction.id.asc()).all()
+    # Handoff note: list-response debug log captures output cardinality for quick regressions checks.
     current_app.logger.debug("api.ai_interactions.list.response chat_id=%s status=%s count=%s", chat_id, 200, len(interactions))
     return jsonify([_serialize_record("ai_interaction", interaction) for interaction in interactions]), 200

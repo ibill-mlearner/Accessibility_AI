@@ -1,3 +1,9 @@
+"""Primary Flask-SQLAlchemy user model.
+
+Table map:
+- `users`: account/credential/profile/session-related columns used by Flask-Login auth flows.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -12,6 +18,25 @@ from ..extensions import db
 
 
 class User(db.Model, UserMixin):
+    """Primary Flask-SQLAlchemy user record used by auth flows.
+
+    Field map:
+    - `id`: surrogate primary key for each account.
+    - `email`: unique user-supplied login email.
+    - `normalized_email`: canonicalized lowercase email used for reliable lookup.
+    - `password_hash`: password hash used for credential validation.
+    - `role`: role label used for authorization checks.
+    - `created_at`: account creation timestamp.
+    - `updated_at`: account last-modified timestamp.
+    - `last_login_at`: timestamp of the most recent successful login.
+    - `is_active`: account-enabled flag for login eligibility.
+    - `email_confirmed`: flag tracking email verification completion.
+    - `lockout_end`: timestamp after which lockout restrictions are lifted.
+    - `access_failed_count`: running count of consecutive failed sign-in attempts.
+    - `lockout_enabled`: flag controlling whether lockout policy applies.
+    - `security_stamp`: transitional identity-policy marker used for invalidation checks.
+    """
+
     __tablename__ = "users"
     #todo: auth provider and tenant, oid, last remote auth  and token refresh
     # for adding 0365 auth 0-- no time to do this so ignore it

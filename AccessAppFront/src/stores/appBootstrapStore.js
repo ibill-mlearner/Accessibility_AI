@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { useChatStore } from './chatStore'
 import { useClassStore } from './classStore'
-import { useNoteStore } from './noteStore'
 import { useAuthStore } from './authStore'
 import { useFeatureStore } from './featureStore'
 
@@ -29,15 +28,12 @@ export const useAppBootstrapStore = defineStore('appBootstrap', {
 
       const chats = useChatStore()
       const classes = useClassStore()
-      // const notes = useNoteStore()
       const features = useFeatureStore()
 
       const results = await Promise.allSettled([
         chats.ensureModelCatalogFreshForSession(),
         chats.fetchChats(),
         classes.fetchClasses(),
-        // Intentionally not fetching notes during sprint 4 due to time constraints 
-        // notes.fetchNotes(),
         features.fetchFeatures()
       ])
 

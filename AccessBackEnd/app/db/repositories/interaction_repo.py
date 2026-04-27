@@ -1,13 +1,21 @@
+"""SQLAlchemy-backed repository for AI interaction persistence.
+
+This module keeps interaction query/insert logic in one place so API/services
+can request interaction history without duplicating SQLAlchemy statements.
+"""
+
 from __future__ import annotations
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from ..interfaces import AIInteractionRepositoryInterface
 
+
 class AIInteractionRepository(AIInteractionRepositoryInterface):
     """Persistence helpers for AI interaction records."""
 
     def __init__(self, interaction_model: type):
+        """Store the SQLAlchemy model class used for interaction reads/writes."""
         self.interaction_model = interaction_model
 
     def create(
@@ -20,6 +28,7 @@ class AIInteractionRepository(AIInteractionRepositoryInterface):
         ai_model_id: int | None = None,
         accommodations_id_system_prompts_id: int | None = None,
     ):
+        """Insert and flush one AI interaction row for the provided prompt/response pair."""
         interaction = self.interaction_model(
             prompt=prompt,
             response_text=response_text,
@@ -32,6 +41,7 @@ class AIInteractionRepository(AIInteractionRepositoryInterface):
         return interaction
 
     def list_for_chat(self, session: Session, chat_id: int):
+        """Return newest-first interactions for one chat for transcript replay/debug views."""
         statement = (
             select(self.interaction_model)
             .where(self.interaction_model.chat_id == chat_id)

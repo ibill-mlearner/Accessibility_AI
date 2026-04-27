@@ -1,3 +1,6 @@
+-- Migration intent:
+-- Add the per-user accommodation preference table so accessibility choices can
+-- be persisted without changing legacy user/accommodation rows.
 CREATE TABLE IF NOT EXISTS user_accessibility_features (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL,

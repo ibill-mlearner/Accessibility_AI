@@ -27,4 +27,5 @@ defineProps({
 })
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../../styles/components/profile/profile-header-card.css"></style>

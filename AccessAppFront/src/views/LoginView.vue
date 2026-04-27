@@ -9,6 +9,7 @@
 </template>
 
 <script setup>
+// Login view coordinates auth login, app bootstrap, and post-login redirect restoration.
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
@@ -25,6 +26,7 @@ const email = ref('')
 const password = ref('')
 
 async function doLogin() {
+  // Executes login flow, primes bootstrap data, and restores requested route/prompt context.
   try {
     await auth.login({ email: email.value, password: password.value })
     await bootstrap.bootstrap()
@@ -40,4 +42,5 @@ async function doLogin() {
 }
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/views/login-view.css"></style>

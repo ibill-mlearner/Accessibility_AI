@@ -1,10 +1,17 @@
 <template>
   <section class="home-thread d-flex flex-column gap-2">
+    <!-- Transcript container:
+         message rows are already normalized by composables/stores, so ChatBubbleCard only renders presentational + interaction props. -->
     <div ref="messageListRef" class="home-thread__messages overflow-auto" aria-live="polite">
       <div class="d-flex flex-column gap-2">
         <p v-if="interactionError" class="alert alert-danger py-2 mb-0">{{ interactionError }}</p>
         <p v-if="interactionLoading" class="alert alert-info py-2 mb-0">Sending…</p>
         <template v-if="auth.role !== 'guest'">
+          <!-- ChatBubbleCard receives fully "bubbled-up" state:
+               - timeline message data from useChatTimeline/useSendPrompt
+               - speech controls from useSpeechSynthesis
+               - variant mapping from this view
+               This keeps the card component focused on display/actions, not orchestration logic. -->
           <ChatBubbleCard
             v-for="message in conversationMessages"
             :key="message.id"
@@ -24,6 +31,8 @@
         </template>
       </div>
     </div>
+    <!-- ComposerBar similarly receives bubbled orchestration state/events from stores + composables:
+         it stays as a focused input component while this view wires auth/model/send behavior. -->
     <ComposerBar
       v-model="prompt"
       :selected-model="chatStore.selectedModel"
@@ -59,11 +68,15 @@ const route = useRoute()
 const auth = useAuthStore()
 const chatStore = useChatStore()
 const classStore = useClassStore()
+// Auto-scroll is a lightweight DOM helper used to keep newest transcript rows visible after timeline mutations.
 const { messageListRef, scrollToLatestTurn } = useAutoScroll()
+// Timeline composable hydrates/normalizes chat history and exposes a shared interaction-error channel.
 const { timelineMessages, interactionError, hydrateTimelineForChat } = useChatTimeline(chatStore)
+// Send-prompt composable owns send-flow orchestration (prompt state, pending flag, optimistic timeline append, AI request flow).
 const { prompt, interactionLoading, sendPrompt } = useSendPrompt({ auth, router, chatStore, classStore, timelineMessages, scrollToLatestTurn, interactionError })
 const speech = useSpeechSynthesis()
 
+// Temporary role->bubble-variant adapter kept local until the chat role/variant mapping is standardized in one shared place.
 const messageVariantMap = {
   assistant: 'system',
   system: 'system',
@@ -86,6 +99,7 @@ async function handleModelSelection(modelValue) {
   await chatStore.updateModelSelection(modelValue)
 }
 
+// Resets transient timeline/send/speech state whenever user explicitly starts a new chat flow.
 watch(() => chatStore.newChatRequestId, () => {
   timelineMessages.value = []
   interactionError.value = ''
@@ -93,6 +107,8 @@ watch(() => chatStore.newChatRequestId, () => {
   speech.handleReadAloudStop()
 })
 
+// Rehydrates the transcript when active chat changes; `immediate: true` runs once on initial mount
+// so the currently selected chat (if any) loads without waiting for a subsequent selection change.
 watch(() => chatStore.selectedChatId, async (chatId) => {
   interactionError.value = ''
   speech.handleReadAloudStop()
@@ -104,6 +120,7 @@ watch(() => chatStore.selectedChatId, async (chatId) => {
 )
 
 onMounted(async () => {
+  // Deep-link entry point: when `?prompt=...` is present in the route, prefill the composer on first load.
   const promptFromQuery = route.query?.prompt
 
   if (typeof promptFromQuery === 'string' && promptFromQuery.trim()) {
@@ -119,4 +136,5 @@ onBeforeUnmount(() => {
 })
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/views/home-view.css"></style>

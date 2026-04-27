@@ -92,12 +92,13 @@ function selectedChat(id) {
 }
 
 async function archiveChat(chatId) {
-  await chats.archiveChat(chatId)
+  await chats.deleteChat(chatId)
 }
 
 async function editChatTitle(payload) {
-  await chats.editChatTitle(payload.chatId, payload.title)
+  await chats.updateChat(payload.chatId, { title: payload.title })
 }
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/components/sidebar-nav.css"></style>

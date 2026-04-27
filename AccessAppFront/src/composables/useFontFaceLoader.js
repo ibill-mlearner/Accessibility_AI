@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 
 /**
  * Minimal FontFace loader for a small, fixed set of custom fonts.
+ * Handoff note: this remains partially reliable across environments and should be treated as best-effort for now.
  *
  * Usage:
  * const { isSupported, loadedFonts, loadFonts } = useFontFaceLoader()
@@ -11,9 +12,12 @@ import { computed, ref } from 'vue'
  * ])
  */
 export function useFontFaceLoader() {
+  // Stores per-font load outcomes so UI can report which families are actually active.
   const loadedFonts = ref([])
+  // Exposes in-flight state for UI controls while font assets are resolving.
   const isLoading = ref(false)
 
+  // Indicates browser/runtime support for dynamic FontFace loading APIs.
   const isSupported = computed(() => (
     typeof window !== 'undefined'
     && typeof FontFace === 'function'
@@ -21,6 +25,7 @@ export function useFontFaceLoader() {
     && Boolean(document.fonts)
   ))
 
+  // Attempts to load requested font specs and returns success/error status per item.
   async function loadFonts(fontSpecs = []) {
     if (!isSupported.value) return []
     if (!Array.isArray(fontSpecs) || !fontSpecs.length) {

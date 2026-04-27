@@ -1,4 +1,9 @@
-"""Public import surface for logging and event services."""
+"""Logging services package surface.
+
+Handoff note (high-level): this package owns application logging bootstrap, event-bus primitives,
+and interaction-file logging wrappers used during AI request execution. Route and service code should
+import logging primitives from this package surface rather than wiring logging internals ad hoc.
+"""
 
 from .bootstrap import initialize_logging
 from .config import configure_logging

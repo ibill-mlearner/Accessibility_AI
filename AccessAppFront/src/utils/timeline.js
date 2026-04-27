@@ -1,9 +1,12 @@
+/** Timeline adapters for converting backend message/interaction payloads into chat-turn rows. */
 export function parseTimelineTimestamp(value, fallbackIndex = 0) {
+  // Parses server timestamp values and provides a deterministic fallback ordering timestamp when missing.
   const parsed = Date.parse(value || '')
   return Number.isNaN(parsed) ? Number.MAX_SAFE_INTEGER - (100000 - fallbackIndex) : parsed
 }
 
 export function buildTimelineFromInteractions(interactions = []) {
+  // Expands interaction records into alternating user/assistant turns while preserving source order metadata.
   const turns = []
   interactions.forEach((interaction, index) => {
     const interactionId = interaction?.id ?? `unknown-${index}`
@@ -19,6 +22,7 @@ export function buildTimelineFromInteractions(interactions = []) {
 }
 
 export function buildTimelineFromMessages(messages = []) {
+  // Adapts legacy flat message arrays into timeline turn objects with inferred role sequencing.
   return messages.map((message, index) => ({
     id: message.id,
     role: index % 2 === 0 ? 'user' : 'assistant',
@@ -29,6 +33,7 @@ export function buildTimelineFromMessages(messages = []) {
 }
 
 export function normalizeTimeline(interactions = [], messages = []) {
+  // Chooses the best source dataset, removes empty text, sorts deterministically, and returns render-ready turns.
   const source = interactions.length ? buildTimelineFromInteractions(interactions) : buildTimelineFromMessages(messages)
   return source
     .filter((message) => Boolean(message.text))

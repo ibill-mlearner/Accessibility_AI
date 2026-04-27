@@ -22,6 +22,7 @@
 </template>
 
 <script setup>
+// Accessibility view presents only site-wide (non-profile) feature toggles.
 import { computed } from 'vue'
 import { useAuthStore } from '../stores/authStore'
 import { useFeatureStore } from '../stores/featureStore'
@@ -30,11 +31,13 @@ import { filterSiteWideFeatures } from '../utils/accessibilityFeatureScope'
 
 const fstore = useFeatureStore()
 const auth = useAuthStore()
+// Keeps view list limited to globally applicable feature toggles.
 const visibleSiteWideFeatures = computed(() =>
   filterSiteWideFeatures(fstore.features)
 )
 
 function setFeatureEnabled(feature, enabled) {
+  // Delegates toggle persistence to the feature store and logs intent for traceability.
   console.info('[API trigger] updateFeature', {
     actor: auth.role,
     why: 'User toggled an accessibility feature option.',
@@ -46,4 +49,5 @@ function setFeatureEnabled(feature, enabled) {
 }
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/views/accessibility-view.css"></style>

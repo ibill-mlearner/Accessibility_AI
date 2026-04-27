@@ -1,3 +1,4 @@
+/* Styles for the option card component; kept local to preserve decentralized component ownership. */
 .option-card {
   display: flex;
   gap: 0.75rem;

@@ -10,23 +10,34 @@ function normalizeChatTitle(title) {
 
 export const useChatStore = defineStore('chats', {
   state: () => ({
+    // Chat transcript state.
+    chats: [],
     selectedChatId: null,
+
+    // Model selection state (drives the model dropdown + persisted user choice).
     selectedModel: '',
     modelCatalog: [],
     modelCatalogLoading: false,
     modelCatalogError: '',
     modelCatalogFetchedAt: 0,
     lastPersistedSelection: '',
+
+    // Request/order guards for async chat creation flow.
     newChatRequestId: 0,
-    chats: [],
+
+    // Per-action CRUD/request status map (fetch/create/update/delete/message/ai keys).
     actionStatus: {}
   }),
   getters: {
+    // Derived flag used by views/composables to know whether current selection still points to a real chat.
     hasActiveChat(state) {
       return state.selectedChatId !== null && state.chats.some((c) => c.id === state.selectedChatId)
     }
   },
   actions: {
+    // --- State reset + local intent flags (setter-style helpers) ---
+
+    // Clears all chat/model/session-local state, typically on logout or auth reset.
     resetChatState() {
       this.selectedChatId = null
       this.selectedModel = ''
@@ -39,6 +50,16 @@ export const useChatStore = defineStore('chats', {
       this.chats = []
       this.actionStatus = {}
     },
+    // Marks that the next user prompt should create a fresh chat thread.
+    // `newChatRequestId` lets consumers detect successive "new chat" intents even if other state is unchanged.
+    prepareNewChat() {
+      this.selectedChatId = null
+      this.newChatRequestId += 1
+    },
+
+    // --- Model catalog + selection lifecycle ---
+
+    // Loads model options for the dropdown, normalizes provider/id format, and restores persisted selection when possible.
     async fetchModelCatalog() {
       this.modelCatalogLoading = true
       this.modelCatalogError = ''
@@ -59,6 +80,7 @@ export const useChatStore = defineStore('chats', {
           })
         })
 
+        // `modelCatalog` is the dropdown source; each option value is `${provider}::${modelId}`.
         this.modelCatalog = options
         const selectedProvider = String(payload?.selected?.provider || '').trim().toLowerCase()
         const selectedModelId = String(payload?.selected?.id || payload?.selected?.model_id || '').trim()
@@ -80,6 +102,7 @@ export const useChatStore = defineStore('chats', {
         this.modelCatalogLoading = false
       }
     },
+    // Optimistically updates selected model and persists the provider/model pair to backend selection state.
     async updateModelSelection(selectedValue) {
       const normalizedValue = String(selectedValue || '').trim()
       if (!normalizedValue || !normalizedValue.includes('::')) return
@@ -101,6 +124,7 @@ export const useChatStore = defineStore('chats', {
         this.modelCatalogError = 'Unable to update model selection. Please try again.'
       }
     },
+    // Fetches model catalog only when missing/stale to avoid repeated network calls in a single session.
     async ensureModelCatalogFreshForSession({ staleAfterMs = 300000 } = {}) {
       if (this.modelCatalogLoading) return
       const hasCatalog = this.modelCatalog.length > 0
@@ -108,16 +132,22 @@ export const useChatStore = defineStore('chats', {
       if (hasCatalog && !isStale) return
       await this.fetchModelCatalog()
     },
+    // Persists only when current selection differs from last backend-confirmed selection.
     async persistCurrentSelectionIfChanged() {
       const selectedValue = String(this.selectedModel || '').trim()
       if (!selectedValue || !selectedValue.includes('::')) return
       if (selectedValue === this.lastPersistedSelection) return
       await this.updateModelSelection(selectedValue)
     },
+    // Session bootstrap helper that ensures both model options and persisted selected model are synchronized.
     async ensureModelSelectionForSession() {
       await this.ensureModelCatalogFreshForSession()
       await this.persistCurrentSelectionIfChanged()
     },
+
+    // --- Chat collection CRUD + selection reconciliation ---
+
+    // Fetches chat list and reconciles selected chat to a valid id when current selection no longer exists.
     async fetchChats() {
       const key = 'fetchChats'
       setActionStatus(this.actionStatus, key, { loading: true, error: '' })
@@ -145,10 +175,7 @@ export const useChatStore = defineStore('chats', {
         throw wrapped
       }
     },
-    prepareNewChat() {
-      this.selectedChatId = null
-      this.newChatRequestId += 1
-    },
+    // Creates a chat with optimistic local insertion, then swaps temporary id with backend id on success.
     async createChat(payload) {
       const tempId = `temp-${Date.now()}`
       const key = `createChat:${tempId}`
@@ -170,6 +197,7 @@ export const useChatStore = defineStore('chats', {
         setActionError(this.actionStatus, key, 'Unable to create chat.')
       }
     },
+    // Applies optimistic patch updates to an existing chat and rolls back from snapshot on failure.
     async updateChat(chatId, patch) {
       const key = `updateChat:${chatId}`
       const snapshot = [...this.chats]
@@ -188,6 +216,7 @@ export const useChatStore = defineStore('chats', {
         setActionError(this.actionStatus, key, 'Unable to update chat.')
       }
     },
+    // Optimistically removes a chat, reconciles selection, and restores previous snapshot if backend delete fails.
     async deleteChat(chatId) {
       const key = `deleteChat:${chatId}`
       const snapshot = [...this.chats]
@@ -204,19 +233,8 @@ export const useChatStore = defineStore('chats', {
         setActionError(this.actionStatus, key, 'Unable to delete chat.')
       }
     },
-    async fetchChatMessages(chatId) {
-      const key = `fetchChatMessages:${chatId}`
-      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
-      try {
-        const response = await api.get(`/api/v1/chats/${chatId}/messages`)
-        const records = Array.isArray(response?.data) ? response.data : []
-        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
-        return records
-      } catch {
-        setActionError(this.actionStatus, key, 'Unable to load chat messages.')
-        throw new Error('Unable to load chat messages.')
-      }
-    },
+    // Ensures there is an active chat id for send-flow usage; creates one when nothing is currently selected.
+    // This is used by prompt pipelines that require a concrete chat before creating messages/interactions.
     async ensureActiveChat(payload) {
       const existing = this.chats.find((c) => c.id === this.selectedChatId)
       if (existing) {
@@ -241,43 +259,7 @@ export const useChatStore = defineStore('chats', {
         throw new Error('unable to start chat')
       }
     },
-    async createMessage(payload) {
-      const key = 'createMessage'
-      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
-      try {
-        const response = await api.post('/api/v1/messages', payload)
-        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
-        return response.data
-      } catch {
-        setActionError(this.actionStatus, key, 'Unable to save message.')
-        throw new Error('Unable to save message.')
-      }
-    },
-    async requestAiInteraction(payload) {
-      const key = 'requestAiInteraction'
-      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
-      try {
-        const response = await api.post('/api/v1/ai/interactions', payload)
-        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
-        return response.data
-      } catch (error) {
-        setActionError(this.actionStatus, key, 'Unable to fetch assistant response.')
-        throw error
-      }
-    },
-    async fetchChatInteractions(chatId) {
-      const key = `fetchChatInteractions:${chatId}`
-      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
-      try {
-        const response = await api.get(`/api/v1/chats/${chatId}/ai/interactions`)
-        const records = Array.isArray(response?.data) ? response.data : []
-        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
-        return records
-      } catch {
-        setActionError(this.actionStatus, key, 'Unable to load chat interactions.')
-        throw new Error('Unable to load chat interactions.')
-      }
-    },
+    // Soft-remove/archive flow mirrors delete behavior but uses archive endpoint and rollback snapshot.
     async archiveChat(chatId) {
       const key = `archiveChat:${chatId}`
       const snapshot = [...this.chats]
@@ -294,6 +276,7 @@ export const useChatStore = defineStore('chats', {
         setActionError(this.actionStatus, key, 'Unable to archive chat.')
       }
     },
+    // Title-only edit endpoint with optimistic local rename and snapshot rollback behavior.
     async editChatTitle(chatId, title) {
       const key = `editChatTitle:${chatId}`
       const snapshot = [...this.chats]
@@ -306,6 +289,63 @@ export const useChatStore = defineStore('chats', {
       } catch {
         this.chats = snapshot
         setActionError(this.actionStatus, key, 'Unable to edit chat title.')
+      }
+    },
+
+    // --- Message + AI interaction fetch/create operations ---
+
+    // Loads message history for a specific chat id.
+    async fetchChatMessages(chatId) {
+      const key = `fetchChatMessages:${chatId}`
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.get(`/api/v1/chats/${chatId}/messages`)
+        const records = Array.isArray(response?.data) ? response.data : []
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+        return records
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to load chat messages.')
+        throw new Error('Unable to load chat messages.')
+      }
+    },
+    // Persists one user/assistant message record to backend.
+    async createMessage(payload) {
+      const key = 'createMessage'
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/messages', payload)
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+        return response.data
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to save message.')
+        throw new Error('Unable to save message.')
+      }
+    },
+    // Requests assistant generation payload from backend for the current chat/message context.
+    async requestAiInteraction(payload) {
+      const key = 'requestAiInteraction'
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.post('/api/v1/ai/interactions', payload)
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+        return response.data
+      } catch (error) {
+        setActionError(this.actionStatus, key, 'Unable to fetch assistant response.')
+        throw error
+      }
+    },
+    // Loads stored AI interaction records for a specific chat.
+    async fetchChatInteractions(chatId) {
+      const key = `fetchChatInteractions:${chatId}`
+      setActionStatus(this.actionStatus, key, { loading: true, error: '' })
+      try {
+        const response = await api.get(`/api/v1/chats/${chatId}/ai/interactions`)
+        const records = Array.isArray(response?.data) ? response.data : []
+        setActionStatus(this.actionStatus, key, { loading: false, error: '' })
+        return records
+      } catch {
+        setActionError(this.actionStatus, key, 'Unable to load chat interactions.')
+        throw new Error('Unable to load chat interactions.')
       }
     }
   }

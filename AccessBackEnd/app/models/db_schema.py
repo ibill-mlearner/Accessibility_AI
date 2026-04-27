@@ -1,3 +1,11 @@
+"""Standalone DB schema bridge and model registry.
+
+Table map:
+- `users` via `DBUser` (standalone runtime user model),
+- plus `DB_MODELS` registry entries that point to tables declared across `ai.py`, `learning.py`,
+  `identity.py`, and `audit_log.py` for app/db standalone consumers.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -16,7 +24,29 @@ from .identity import Role, UserSession
 
 
 class DBUser(Base):
-    """Standalone DB user model used by app/db runtime and repositories."""
+    """Standalone DB user model used by app/db runtime and repositories.
+
+    Field map:
+    - `id`: surrogate primary key for each account.
+    - `email`: unique user-supplied login email.
+    - `normalized_email`: canonicalized email used for deterministic lookup.
+    - `password_hash`: password hash used by auth validation code.
+    - `role`: role label used to gate authorization behavior.
+    - `created_at`: timestamp when the account row was created.
+    - `updated_at`: timestamp of the most recent account mutation.
+    - `last_login_at`: timestamp of the latest successful sign-in event.
+    - `is_active`: boolean flag controlling whether the account is enabled.
+    - `email_confirmed`: boolean flag indicating email verification completion.
+    - `lockout_end`: optional lockout expiration timestamp.
+    - `access_failed_count`: consecutive failed login counter.
+    - `lockout_enabled`: boolean flag for lockout-policy participation.
+    - `security_stamp`: transitional identity-policy stamp used for invalidation checks.
+    - `chats`: relationship collection of chats owned by the user.
+    - `taught_classes`: relationship collection of classes instructed by the user.
+    - `class_enrollments`: relationship collection of membership rows for this user.
+    - `sessions`: relationship collection of active and historical session rows.
+    - `accessibility_features`: relationship collection of per-user accommodation preferences.
+    """
 
     __tablename__ = "users"
 

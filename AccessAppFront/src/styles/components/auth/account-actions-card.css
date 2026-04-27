@@ -1,3 +1,4 @@
+/* Styles for the account actions card component; kept local to preserve decentralized component ownership. */
 .account-actions-card {
   flex: 0 0 auto;
 }

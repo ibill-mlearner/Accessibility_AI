@@ -1,7 +1,8 @@
-"""Interaction request/response shape definitions for the v1 API.
+"""Typed interaction request/response shape definitions for API v1.
 
-These are intentionally lightweight contracts that describe payload intent.
-No transformation or coercion should happen here.
+These TypedDict contracts document expected interaction payload envelopes and response fields for
+editor/autocomplete/readability purposes. Runtime acceptance rules still come from Marshmallow
+schemas and route validation; this file documents intent and stable consumer-facing structure.
 """
 
 from __future__ import annotations

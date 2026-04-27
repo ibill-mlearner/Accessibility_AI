@@ -1,3 +1,10 @@
+"""Marshmallow runtime validation schemas for API v1.
+
+This module defines strict payload contracts for route inputs. Each schema encodes whether fields
+are required, optional, nullable (`allow_none=True`), or have load defaults. In handoff terms,
+this is the runtime contract guardrail that enforces "what shape is allowed" before route logic runs.
+"""
+
 from __future__ import annotations
 
 from marshmallow import Schema, fields, EXCLUDE

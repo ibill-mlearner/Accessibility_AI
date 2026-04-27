@@ -1,4 +1,13 @@
-"""Auth payload contract placeholders for API v1 chat-flow endpoints."""
+"""Auth payload/response contract placeholders.
+
+These TypedDict declarations document expected auth request/response keys for API v1 routes.
+They are intentionally lightweight and complement (not replace) runtime validation performed in
+Marshmallow schemas and route-level logic.
+
+Handoff note: these auth contracts are currently TypedDict placeholders. If auth payload
+validation needs to align with the rest of runtime request validation, migrating this module
+to Marshmallow schemas would provide consistent required/optional/nullable enforcement.
+"""
 
 from __future__ import annotations
 

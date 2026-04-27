@@ -1,3 +1,4 @@
+/* Styles for the classes view view; kept separate so each route owns its presentation concerns. */
 .classes-view {
   width: 100%;
 }

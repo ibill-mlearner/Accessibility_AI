@@ -1,3 +1,4 @@
+/* Styles for the profile view view; kept separate so each route owns its presentation concerns. */
 .profile-view {
   width: 100%;
 }

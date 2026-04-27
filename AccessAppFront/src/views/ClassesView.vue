@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+// Classes view is a thin presenter over classStore + useClassesViewState permissions/handlers.
 import { useAuthStore } from '../stores/authStore'
 import { useClassStore } from '../stores/classStore'
 import { useClassesViewState } from '../composables/useClassesViewState'
@@ -74,6 +75,7 @@ import ClassAdminActions from '../components/classes/ClassAdminActions.vue'
 const auth = useAuthStore()
 const classStore = useClassStore()
 
+// View-facing state and CRUD handlers are composed from one dedicated classes view-state helper.
 const {
   canEditClass,
   canCreateClass,
@@ -93,4 +95,5 @@ const {
 } = useClassesViewState({ auth, classStore })
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/views/classes-view.css"></style>
