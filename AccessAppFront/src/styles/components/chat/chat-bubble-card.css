@@ -29,7 +29,9 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
 }
 
 .chat-bubble-card__voice-wrap,
