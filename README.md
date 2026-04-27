@@ -133,4 +133,19 @@ cd AccessAppFront && npm test
 - AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
 - AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
 - Docker startup runner: `scripts/docker/dev_stack_runner.py`
-- Docker composition file: `docker-compose.yml`
+
+## License
+
+This repository is licensed under the **MIT License**. See `LICENSE`.
+
+For dependency-level copyleft risk checks, use:
+
+```bash
+python scripts/compliance/compliance_gate.py
+# optional individual reports
+python scripts/compliance/license_audit.py
+python scripts/compliance/repo_license_text_scan.py
+python scripts/compliance/secret_scan.py
+```
+
+Policy and release-gate guidance: `docs/compliance/oss_mit_readiness.md` (including curated dependency mappings in `docs/compliance/python_dependency_licenses.json` and `docs/compliance/first_party_dependency_licenses.json`).

@@ -1,0 +1,18 @@
+{
+  "dependencies": [
+    {"name": "Flask", "license": "BSD-3-Clause", "evidence": "https://github.com/pallets/flask/blob/main/LICENSE.txt"},
+    {"name": "Flask-Cors", "license": "MIT", "evidence": "https://github.com/corydolphin/flask-cors/blob/main/LICENSE"},
+    {"name": "Flask-JWT-Extended", "license": "MIT", "evidence": "https://github.com/vimalloc/flask-jwt-extended/blob/master/LICENSE"},
+    {"name": "Flask-Login", "license": "MIT", "evidence": "https://github.com/maxcountryman/flask-login/blob/main/LICENSE"},
+    {"name": "Flask-Migrate", "license": "MIT", "evidence": "https://github.com/miguelgrinberg/flask-migrate/blob/master/LICENSE"},
+    {"name": "Flask-SQLAlchemy", "license": "BSD-3-Clause", "evidence": "https://github.com/pallets-eco/flask-sqlalchemy/blob/main/LICENSE.txt"},
+    {"name": "pytest", "license": "MIT", "evidence": "https://github.com/pytest-dev/pytest/blob/main/LICENSE"},
+    {"name": "huggingface-hub", "license": "Apache-2.0", "evidence": "https://github.com/huggingface/huggingface_hub/blob/main/LICENSE"},
+    {"name": "accelerate", "license": "Apache-2.0", "evidence": "https://github.com/huggingface/accelerate/blob/main/LICENSE"},
+    {"name": "transformers", "license": "Apache-2.0", "evidence": "https://github.com/huggingface/transformers/blob/main/LICENSE"},
+    {"name": "langchain-core", "license": "MIT", "evidence": "https://github.com/langchain-ai/langchain/blob/master/libs/core/LICENSE"},
+    {"name": "langchain-community", "license": "MIT", "evidence": "https://github.com/langchain-ai/langchain/blob/master/libs/community/LICENSE"},
+    {"name": "torch", "license": "BSD-3-Clause", "evidence": "https://github.com/pytorch/pytorch/blob/main/LICENSE"},
+    {"name": "marshmallow", "license": "MIT", "evidence": "https://github.com/marshmallow-code/marshmallow/blob/dev/LICENSE"}
+  ]
+}
