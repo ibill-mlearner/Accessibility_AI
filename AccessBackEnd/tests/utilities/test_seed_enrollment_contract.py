@@ -8,5 +8,10 @@ def test_seed_enrollments_reference_seeded_class_names():
 
     assert 'BIOL 110: Foundations of Cell Biology' in classes_sql
     assert 'CS 220: Data Structures and Algorithms' in classes_sql
+    assert 'MATH 251: Calculus I' in classes_sql
     assert "'BIOL 110: Foundations of Cell Biology'" in enroll_sql
     assert "'CS 220: Data Structures and Algorithms'" in enroll_sql
+    assert "'MATH 251: Calculus I'" in enroll_sql
+    assert "student.one.seed@example.com" in enroll_sql
+    assert "student.two.seed@example.com" in enroll_sql
+    assert "student.three.seed@example.com" in enroll_sql
