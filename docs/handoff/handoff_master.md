@@ -415,7 +415,7 @@ Timebox this final pass to unblock signoff-critical items first:
 - `create_standalone_db(...)` control-flow risk when `create_schema=False`; stabilize return path.
 - SQLite migration path remains additive/best-effort; harden migration ownership and ordering.
 - AI model inventory duplicate-insert edge case remains unresolved (`xfail`); close prior to production migration.
-- SQLite URL normalization TODO remains open in settings layer.
+- SQLite URL normalization now expands env vars/tilde/relative paths deterministically in settings layer; keep regression tests green.
 
 ### Utilities / contract items
 - `app/utils/api_checker/operations.py` remains broad and tightly coupled to Flask globals.
