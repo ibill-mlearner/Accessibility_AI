@@ -1,3 +1,4 @@
+/* Styles for the app view; kept separate so each route owns its presentation concerns. */
 .app-shell {
   min-height: 100dvh;
 }

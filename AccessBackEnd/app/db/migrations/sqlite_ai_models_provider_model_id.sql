@@ -1,3 +1,6 @@
+-- Migration intent:
+-- Rebuild `ai_models` so legacy SQLite databases gain a required `model_id`
+-- and provider/model unique constraint used by current catalog selection logic.
 ALTER TABLE ai_models RENAME TO ai_models_legacy;
 
 CREATE TABLE ai_models (

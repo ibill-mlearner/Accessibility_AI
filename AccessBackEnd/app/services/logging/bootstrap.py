@@ -18,12 +18,15 @@ from .interfaces import EventBusInterface
 DEFAULT_OBSERVER_TYPES = (LoggingObserver,)
 
 """
-Don't know why Codex decided to use system logging instead of Flask.logging instead.
-from flask.logging . . .
-Smaller footprint and easier to implement, not going to spend time on this unless I need to.
+Bootstrap guidance:
+- For standard request/application logs, prefer Flask's built-in logging setup.
+- This module's EventBus + LoggingObserver path is for domain-event fan-out where multiple
+  consumers may react to the same event.
+- If you do not need fan-out semantics, direct Flask logger usage is typically the leaner path.
 """
 
 
+# Handoff note: ensure at least one default observer exists so published events are not silently dropped.
 def _ensure_default_observers(event_bus: EventBusInterface) -> None:
     observers = getattr(event_bus, "_observers", [])
     for observer_type in DEFAULT_OBSERVER_TYPES:
@@ -31,14 +34,17 @@ def _ensure_default_observers(event_bus: EventBusInterface) -> None:
             event_bus.subscribe(observer_type())
 
 
+# Handoff note: normalize startup test command into a readable log-string form.
 def _render_startup_command(command: str | list[str]) -> str:
     return command if isinstance(command, str) else " ".join(command)
 
 
+# Handoff note: normalize startup test command into argv for subprocess execution.
 def _startup_command_argv(command: str | list[str]) -> list[str]:
     return shlex.split(command) if isinstance(command, str) else list(command)
 
 
+# Handoff note: run optional startup smoke tests and stream output into app logger.
 def _run_startup_tests(app: Flask, command: str | list[str], cwd: Path) -> None:
     app.logger.info("startup_test_runner.start command=%s cwd=%s", _render_startup_command(command), cwd)
 
@@ -60,6 +66,8 @@ def _run_startup_tests(app: Flask, command: str | list[str], cwd: Path) -> None:
     level("startup_test_runner.finish exit_code=%s", exit_code)
 
 
+# Handoff note: gate and launch optional startup-test runner in background thread during app bootstrap
+# (primarily useful for dev/handoff verification; can remain disabled in production profiles).
 def _start_startup_test_runner(app: Flask) -> None:
     if not app.config.get("STARTUP_TEST_RUNNER_ENABLED", False):
         return
@@ -87,6 +95,7 @@ def _start_startup_test_runner(app: Flask) -> None:
     app.extensions["startup_test_runner_started"] = True
     threading.Thread(target=_runner, name="startup-test-runner", daemon=True).start()
 
+# Handoff note: primary logging bootstrap that wires log config, event bus observers, and interaction log wrapper.
 def initialize_logging(app: Flask) -> None:
     configure_logging(app.config["LOG_LEVEL"])
     _start_startup_test_runner(app)

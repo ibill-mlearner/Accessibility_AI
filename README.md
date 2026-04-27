@@ -33,6 +33,15 @@ cd Accessibility_AI
 docker compose up --build
 ```
 
+
+## Handoff mode (effective April 25, 2026)
+
+This repository is currently in **handoff cleanup mode** through **April 27, 2026**.
+
+- No new feature development; documentation and cleanup only.
+- Single source of truth: `docs/handoff/handoff_master.md` (consolidated steps 1–10).
+- Unfinished-work tracker is consolidated in `docs/handoff/handoff_master.md` (Section 11).
+
 ## Architecture at a glance
 
 ### Backend (Flask)
@@ -111,6 +120,40 @@ Implementation note:
 
 ### Legacy / transitional areas
 - Some implementation notes and TODOs are intentionally left in code/docs while migration from older patterns to module-owned config/services continues.
+
+## Quickstart (current and validated)
+
+### Prerequisites
+
+- Docker Desktop / Docker Engine
+- Docker Compose v2
+- Git
+
+### Start full stack
+
+```bash
+docker compose up --build
+```
+
+### Stop stack
+
+```bash
+docker compose down
+```
+
+### Backend tests
+
+```bash
+cd AccessBackEnd
+pytest
+```
+
+### Frontend unit tests
+
+```bash
+cd AccessAppFront
+npm test
+```
 
 ## Useful paths
 

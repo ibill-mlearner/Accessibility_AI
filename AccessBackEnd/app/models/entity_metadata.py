@@ -1,3 +1,9 @@
+"""Entity metadata contracts for non-SQL stores.
+
+Table/entity map:
+- metadata definitions for `users`, `ai_interactions`, and `system_prompts` field requirements.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,7 +11,12 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class EntityMetadata:
-    """Minimal metadata contract that non-SQL backends can validate against."""
+    """Minimal metadata contract that non-SQL backends can validate against.
+
+    Field map:
+    - `entity_name`: canonical entity key used by validators and adapters.
+    - `required_fields`: tuple of field names that must exist for valid records.
+    """
 
     entity_name: str
     required_fields: tuple[str, ...]

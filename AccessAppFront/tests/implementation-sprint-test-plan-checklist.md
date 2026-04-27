@@ -1,96 +1,107 @@
-# Implementation Sprint Test-Planning Checklist ---- OLD NO LONGER NEEDED
+# Frontend UI + Composables QA Checklist
 
-## 1) Unit tests likely impacted by store/action signature changes (`AccessAppFront/tests/unit/`)
+This replaces the old sprint checklist and tracks current cleanup/testing status for step 4.
 
-### Immediate impact candidates (direct store role/state coupling)
-- [x] `tests/unit/LoginView.spec.js`
-  - validates `store.role` changes after login interaction.
-  - would break if `login()` action name/signature or side effects change.
-- [x] `tests/unit/LogoutView.spec.js`
-  - validates `store.role` reset after logout interaction.
-  - would break if `logout()` behavior/signature changes (e.g., additional required args).
-- [x] `tests/unit/ClassesView.spec.js`
-  - expects role switching behavior and class filtering via store data.
-  - sensitive to `setRole(role)` signature or `roleClasses` getter logic changes.
+## Scope reviewed
+- `src/components/auth/*`
+- `src/components/chat/*`
+- `src/components/classes/*`
+- `src/components/profile/*`
+- `src/components/HeaderBar.vue`
+- `src/components/SidebarNav.vue`
+- `src/composables/*`
+- related unit specs under `tests/unit/*`
 
-### Secondary impact candidates (store state shape changes)
-- [x] `tests/unit/HomeView.spec.js`
-  - depends on `store.role` to show guest login path.
-  - can fail if auth state shape changes (e.g., `role` replaced with `session.userRole`).
-- [x] `tests/unit/SavedNotesView.spec.js`
-  - depends on `store.notes` schema and rendering assumptions.
-  - can fail if notes move behind selector/getter or schema changes.
-- [x] `tests/unit/AccessibilityView.spec.js`
-  - depends on `store.features` schema and availability.
-  - can fail if features loading/signature changes.
+## Current component inventory
 
-### Gap to add in this sprint
-- [x] Add dedicated store action tests for `bootstrap()`, `login()`, `logout()`, `setRole(role)` in a new spec (`tests/unit/appStore.spec.js`) to catch signature changes earlier than view tests.
+### Auth components
+- `LoginFormCard.vue`
+- `LogoutButton.vue`
+- `ProfileButton.vue`
+- `AccountActionsCard.vue`
 
----
+### Chat components
+- `ComposerBar.vue`
+- `ChatBubbleCard.vue`
+- `ChatListItem.vue`
+- `ReadAloudControls.vue`
 
-## 2) API-layer mocking strategy at `src/services/api.js` boundary for deterministic store tests
+### Classes components
+- `ClassOptionCard.vue`
+- `ClassDetailsEditor.vue`
+- `ClassAdminActions.vue`
+- `FeatureOptionCard.vue`
 
-### Test boundary rule
-- [x] Treat `src/services/api.js` as the single network seam.
-- [x] In store tests, mock `../src/services/api` module (not `axios` directly in each test) to avoid transport-level coupling.
+### Profile components
+- `ProfileHeaderCard.vue`
+- `ProfileSessionCard.vue`
+- `ProfileSecurityCard.vue`
+- `ProfileEmptyState.vue`
+- `ProfileFontSizeSelect.vue`
+- `ProfileColorblindFeatures.vue`
+- `ProfileFontFamilyFeatures.vue`
+- `ProfileAdminModelDownloadCard.vue`
 
-### Mock design
-- [x] Use `vi.mock('../../src/services/api', () => ({ default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() } }))`.
-- [x] Reset mocks in `beforeEach` with `vi.clearAllMocks()` and recreate deterministic return payloads per case.
-- [x] Return explicit shapes matching app expectations (`{ data: [...] }`, `{ data: {...} }`).
-- [x] Use `mockResolvedValueOnce`/`mockRejectedValueOnce` for sequencing and failure-path precision.
+### Navigation components
+- `HeaderBar.vue`
+- `SidebarNav.vue`
 
-### Determinism and maintainability guardrails
-- [x] Ban test reliance on `json-server` in unit/store tests.
-- [ ] Keep fixture builders local to test file or shared helper (e.g., `tests/unit/fixtures/storeFixtures.js`) with stable IDs and timestamps.
-- [x] Assert API call contracts (`toHaveBeenCalledWith('/chats')`, etc.) alongside state assertions.
+### Composables
+- `useAutoScroll.js`
+- `useChatTimeline.js`
+- `useClassesViewState.js`
+- `useFontFaceLoader.js`
+- `useSendPrompt.js`
+- `useAdminModelDownload.js`
+- `useSpeechSynthesis.js`
 
----
+## Current unit-test coverage snapshot
 
-## 3) Planned contract tests
+### Directly covered now
+- `tests/unit/LoginView.spec.js` (auth login flow contract via store mocks)
+- `tests/unit/authStore.spec.js`
+- `tests/unit/ComposerBar.spec.js`
+- `tests/unit/chatStore.modelSelection.spec.js`
+- `tests/unit/HeaderBar.spec.js`
+- `tests/unit/SidebarNav.spec.js`
+- `tests/unit/ProfileAdminModelDownloadCard.spec.js`
 
-### A. Bootstrap resource loading
-- [x] `bootstrap()` requests `/chats`, `/classes`, `/notes`, `/features` and stores each `data` array.
-- [x] `selectedChatId` is initialized to first chat ID when chats exist.
-- [x] Empty chats array yields `selectedChatId === null`.
-- [x] Any failed bootstrap request sets user-facing error and clears loading state.
+### Not yet covered by dedicated component spec
+- `LogoutButton.vue`, `ProfileButton.vue`, `AccountActionsCard.vue`
+- `ChatBubbleCard.vue`, `ChatListItem.vue`, `ReadAloudControls.vue`
+- `ClassOptionCard.vue`, `ClassDetailsEditor.vue`, `ClassAdminActions.vue`, `FeatureOptionCard.vue`
+- `ProfileHeaderCard.vue`, `ProfileSessionCard.vue`, `ProfileSecurityCard.vue`, `ProfileEmptyState.vue`
+- `ProfileFontSizeSelect.vue`, `ProfileColorblindFeatures.vue`, `ProfileFontFamilyFeatures.vue`
 
-### B. CRUD success/error handling
-- [ ] For each domain entity (chats/classes/notes/features), add contract tests validating:
-  - success path updates state collection deterministically.
-  - error path preserves previous stable state and sets actionable error feedback.
-- [ ] Validate request shape contracts for create/update/delete endpoints once implemented (path params + payload schema).
-- [ ] Verify optimistic updates (if introduced) roll back correctly on API rejection.
+### Not yet covered by dedicated composable spec
+- `useAutoScroll.js`
+- `useChatTimeline.js`
+- `useClassesViewState.js`
+- `useFontFaceLoader.js`
+- `useSendPrompt.js`
+- `useAdminModelDownload.js`
+- `useSpeechSynthesis.js`
 
-### C. Chat interaction sequence orchestration
-- [ ] Define and test expected sequence for send-flow orchestration (example):
-  1. user draft accepted,
-  2. outgoing message staged,
-  3. API call issued,
-  4. assistant reply appended,
-  5. note persistence step (if enabled),
-  6. loading/error state finalized.
-- [ ] Add order assertions to ensure no out-of-sequence mutation on slow/failing responses.
-- [ ] Add concurrency test for rapid sends (ensuring deterministic final transcript ordering policy).
+## Stale items removed in this cleanup
+- Removed old “NO LONGER NEEDED” checklist framing.
+- Removed references to non-present specs (`LogoutView.spec.js`, `ClassesView.spec.js`, etc.).
+- Removed outdated assertions that implied all contract suites were complete.
 
----
+## Next test priorities (ordered)
+1. Add auth component render/event tests (`LogoutButton`, `ProfileButton`, `AccountActionsCard`).
+2. Add classes role-gated UI tests (editor/actions visible only for allowed roles).
+3. Add chat component behavior tests (`ReadAloudControls`, `ChatListItem`, `ChatBubbleCard`).
+4. Add profile-card render tests and event tests (`ProfileSecurityCard`, `ProfileHeaderCard`).
+5. Add send-flow orchestration tests for retries/order guarantees at composable/store boundary.
 
-## 4) Definition of Done for this sprint
+## Composables workstreams (parallel planning)
+1. **State & capability stream**: `useClassesViewState`, `useAutoScroll` (pure state transitions + role gates).
+2. **Timeline stream**: `useChatTimeline`, `useSendPrompt` (ordering, retry, and error-envelope behaviors).
+3. **Browser API stream**: `useSpeechSynthesis`, `useFontFaceLoader` (unsupported-browser guards + side-effect control).
+4. **Admin action stream**: `useAdminModelDownload` (submit/cancel/progress lifecycle and abort semantics).
 
-- [x] Frontend runs against backend endpoints directly (no `json-server` dependency for normal developer flow).
-- [x] Store/integration tests pass using API mocks and/or backend test environment fixtures.
-- [x] Core UX routes remain intact and verifiable:
-  - [x] `/` (home)
-  - [x] `/login`
-  - [x] `/logout`
-  - [x] `/classes/:role`
-  - [x] `/accessibility`
-  - [x] `/saved-notes`
-  - [x] fallback error route behavior
-- [x] Existing core interaction expectations are preserved:
-  - [x] guest vs authenticated behavior
-  - [x] class selection flow
-  - [x] accessibility feature list rendering
-  - [x] saved notes visibility and actions
-- [ ] CI includes unit + contract suites and fails on API contract drift.
+## Completion criteria for this section
+- Every auth/chat/classes component has either:
+  - a direct unit spec, or
+  - documented rationale for indirect coverage.
+- No docs in this folder reference removed files or obsolete sprint assumptions.

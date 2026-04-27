@@ -1,3 +1,4 @@
+/* Styles for the login view view; kept separate so each route owns its presentation concerns. */
 .login-view {
   width: 100%;
 }

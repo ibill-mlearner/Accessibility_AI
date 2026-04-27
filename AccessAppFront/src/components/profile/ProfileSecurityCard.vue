@@ -11,4 +11,5 @@
 defineEmits(['logout', 'retry'])
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../../styles/components/profile/profile-security-card.css"></style>

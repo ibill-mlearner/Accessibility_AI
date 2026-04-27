@@ -29,4 +29,5 @@ const selectedModelLabel = computed(() => {
 const hasHeaderContext = computed(() => Boolean(authStore.isAuthenticated && classStore.selectedClass))
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/components/header-bar.css"></style>

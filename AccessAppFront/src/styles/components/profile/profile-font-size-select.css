@@ -1,3 +1,4 @@
+/* Styles for the profile font size select component; kept local to preserve decentralized component ownership. */
 .profile-font-size-select {
   max-width: 10rem;
 }

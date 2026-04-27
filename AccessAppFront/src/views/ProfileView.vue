@@ -117,6 +117,7 @@
 </template>
 
 <script setup>
+// Profile view aggregates auth/chat/class/feature state to present user metrics and preference controls.
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
@@ -132,10 +133,33 @@ const chatStore = useChatStore()
 const classStore = useClassStore()
 const featureStore = useFeatureStore()
 
+// Loading is tied to whether the auth session bootstrap has completed.
 const isLoading = computed(() => !auth.sessionChecked)
 const selectedFontSize = ref('')
+// Profile-level identity/permission gates used by cards outside staged preference controls.
+// Resolves current user id from whichever auth payload shape is available.
+const currentUserId = computed(() => auth.currentUser?.id ?? auth.user?.id ?? null)
+// Normalizes role for case-insensitive role/capability checks.
+const normalizedRole = computed(() => String(auth.role || '').toLowerCase())
+// Wraps allowed-actions into a Set for quick membership checks.
+const allowedActions = computed(() => new Set(auth.allowedActions || []))
+// Determines whether profile should display teaching-oriented class metrics.
+const canTeachClasses = computed(() =>
+  (normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
+  && allowedActions.value.has('classes:write')
+)
+// Determines whether admin-only model-download panel should be visible.
+const showAdminModelDownload = computed(() =>
+  normalizedRole.value === 'admin'
+  && allowedActions.value.has('classes:write')
+)
+// ===== BEGIN: STAGED PROFILE VISUAL-PREFERENCE SECTION (COLORBLIND + FONT FAMILY ONLY) =====
+// This bracket intentionally scopes only the unfinished colorblind/font-family preference work.
+// Everything outside this marker belongs to broader profile metrics/overview behavior.
 const selectedColorblindType = ref('none')
 const selectedFontFamily = ref('default')
+
+// -- Colorblind preference controls + feature value mapping (staged) --
 const colorblindOptions = [
   { value: 'none', label: 'None' },
   { value: 'protanopia', label: 'Protanopia' },
@@ -144,6 +168,7 @@ const colorblindOptions = [
   { value: 'achromatopsia', label: 'Achromatopsia' }
 ]
 
+// -- Font-family preference controls + document font mapping (staged) --
 const fontFamilyOptions = [
   { value: 'default', label: 'Default', family: '' },
   { value: 'opendyslexic', label: 'OpenDyslexic', family: 'OpenDyslexic, Arial, sans-serif' },
@@ -152,25 +177,18 @@ const fontFamilyOptions = [
   { value: 'verdana', label: 'Verdana', family: 'Verdana, Geneva, sans-serif' },
   { value: 'monospace', label: 'Monospace', family: 'ui-monospace, SFMono-Regular, Menlo, monospace' }
 ]
-const currentUserId = computed(() => auth.currentUser?.id ?? auth.user?.id ?? null)
-const normalizedRole = computed(() => String(auth.role || '').toLowerCase())
-const allowedActions = computed(() => new Set(auth.allowedActions || []))
-const canTeachClasses = computed(() =>
-  (normalizedRole.value === 'instructor' || normalizedRole.value === 'admin')
-  && allowedActions.value.has('classes:write')
-)
-const showAdminModelDownload = computed(() =>
-  normalizedRole.value === 'admin'
-  && allowedActions.value.has('classes:write')
-)
 
+// Derived class metrics split between classes taught vs classes enrolled.
+// Classes where current user is the instructor.
 const teachingClasses = computed(() =>
   classStore.classes.filter((course) => Number(course?.instructor_id) === Number(currentUserId.value))
 )
+// Classes where current user is a participant (not instructor).
 const classesImIn = computed(() =>
   classStore.classes.filter((course) => Number(course?.instructor_id) !== Number(currentUserId.value))
 )
 
+// Builds overview metric cards shown in the profile summary section.
 const metrics = computed(() => {
   const items = [
     { label: 'Total chats', value: chatStore.chats.length },
@@ -184,7 +202,10 @@ const metrics = computed(() => {
   return items
 })
 
+// Recent-chat and feature summaries drive card sections in the view body.
+// Limits chat list preview to the most recent five chats.
 const recentChats = computed(() => chatStore.chats.slice(0, 5))
+// Detects whether a feature record represents a font-size preference option.
 const isFontSizeFeature = (feature) => {
   if (feature?.font_size_px === null || feature?.font_size_px === undefined || feature?.font_size_px === '') {
     return false
@@ -192,37 +213,48 @@ const isFontSizeFeature = (feature) => {
   const numericSize = Number(feature.font_size_px)
   return Number.isInteger(numericSize) && numericSize > 0
 }
+// Detects whether a feature record carries a font-family preference value.
 const isFontFamilyFeature = (feature) => Boolean(feature?.font_family)
+// Detects whether a feature record carries a color-family (colorblind) preference value.
 const isColorFamilyFeature = (feature) => Boolean(feature?.color_family)
+// Converts UI dropdown value into the backend color_family naming format.
 const colorblindValueToFeatureValue = (value) => {
   if (!value || value === 'none') return ''
   return `${value}-safe`
 }
+// Converts backend color_family values back into UI-friendly select values.
 const colorblindFeatureValueToSelection = (value) => {
   if (!value) return 'none'
   return String(value).replace(/-safe$/, '')
 }
+// Filters out non-displayable feature rows from profile summary lists.
 const isDisplayableFeature = (feature) => feature?.displayable !== false
+// All currently enabled accessibility features for profile summary and preference syncing.
 const enabledFeatures = computed(() => featureStore.features.filter((feature) => feature?.enabled))
+// Feature subset representing available font-size options.
 const fontSizeFeatures = computed(() =>
   featureStore.features
     .filter((feature) => isFontSizeFeature(feature))
     .sort((left, right) => Number(left.font_size_px) - Number(right.font_size_px))
 )
+// Feature subset representing available font-family options.
 const fontFamilyFeatures = computed(() =>
   featureStore.features
     .filter((feature) => isFontFamilyFeature(feature))
 )
+// Feature subset representing colorblind/color-family options.
 const colorFamilyFeatures = computed(() =>
   featureStore.features
     .filter((feature) => isColorFamilyFeature(feature))
 )
+// UI-ready dropdown options derived from font-size feature records.
 const fontSizeOptions = computed(() =>
   fontSizeFeatures.value.map((feature) => ({
     value: String(feature.font_size_px),
     label: `${feature.font_size_px}px`
   }))
 )
+// Enabled features eligible for display in the general accessibility summary list.
 const visibleEnabledFeatures = computed(() =>
   enabledFeatures.value.filter((feature) =>
     !feature?.skipInProfile
@@ -233,6 +265,7 @@ const visibleEnabledFeatures = computed(() =>
   )
 )
 
+// Syncs selected font-size control with currently enabled size feature from backend state.
 watch(
   () => featureStore.features,
   (features) => {
@@ -246,6 +279,7 @@ watch(
   { immediate: true, deep: true }
 )
 
+// Syncs selected colorblind type with currently enabled color-family feature.
 watch(
   () => featureStore.features,
   (features) => {
@@ -257,6 +291,7 @@ watch(
   { immediate: true, deep: true }
 )
 
+// Syncs selected font-family control with currently enabled font-family feature.
 watch(
   () => featureStore.features,
   (features) => {
@@ -268,6 +303,7 @@ watch(
   { immediate: true, deep: true }
 )
 
+// Applies selected font size to document root for immediate preview.
 watch(
   selectedFontSize,
   (value) => {
@@ -280,6 +316,7 @@ watch(
   { immediate: true }
 )
 
+// Applies selected font family to document root for immediate preview.
 watch(
   selectedFontFamily,
   (value) => {
@@ -292,8 +329,8 @@ watch(
   },
   { immediate: true }
 )
-
 onMounted(async () => {
+  // Ensures required stores are hydrated when profile is opened directly.
   if (!auth.sessionChecked) {
     await auth.me()
   }
@@ -312,10 +349,12 @@ onMounted(async () => {
 })
 
 function classLabel(course) {
+  // Labels class rows by relationship to the current user.
   return Number(course?.instructor_id) === Number(currentUserId.value) ? 'Instructor' : 'Member'
 }
 
 async function applyFontSizePreference() {
+  // Persists a single selected font-size feature by replacing the related preference group.
   const selectedValue = Number(selectedFontSize.value)
   if (!Number.isFinite(selectedValue) || selectedValue <= 0) {
     return
@@ -328,6 +367,7 @@ async function applyFontSizePreference() {
 }
 
 async function applyFontFamilyPreference() {
+  // Persists font-family preference by enabling only the selected family feature.
   const selectedValue = String(selectedFontFamily.value || '').trim()
   const updates = fontFamilyFeatures.value.map((feature) => ({
     accommodation_id: Number(feature.id),
@@ -337,6 +377,7 @@ async function applyFontFamilyPreference() {
 }
 
 async function applyColorblindPreference() {
+  // Persists colorblind preference by mapping UI selection to backend color_family values.
   const selectedValue = colorblindValueToFeatureValue(String(selectedColorblindType.value || '').trim())
   const updates = colorFamilyFeatures.value.map((feature) => ({
     accommodation_id: Number(feature.id),
@@ -344,7 +385,9 @@ async function applyColorblindPreference() {
   }))
   await featureStore.replaceFeaturePreferences(updates)
 }
+// ===== END: STAGED PROFILE VISUAL-PREFERENCE SECTION (COLORBLIND + FONT FAMILY) =====
 
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../styles/views/profile-view.css"></style>

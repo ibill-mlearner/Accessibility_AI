@@ -1,3 +1,4 @@
+/* Styles for the logout view view; kept separate so each route owns its presentation concerns. */
 .logout-view {
   width: 100%;
 }

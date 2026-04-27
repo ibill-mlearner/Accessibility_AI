@@ -1,3 +1,4 @@
+/* Styles for the chat list item component; kept local to preserve decentralized component ownership. */
 .chat-list-item__container {
   min-height: 2.5rem;
 }

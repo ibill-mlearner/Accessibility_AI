@@ -1,3 +1,4 @@
+/* Styles for the login form card component; kept local to preserve decentralized component ownership. */
 .login-form-card {
   max-width: 540px;
 }

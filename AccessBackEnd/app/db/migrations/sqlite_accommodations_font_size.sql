@@ -1,3 +1,6 @@
+-- Migration intent:
+-- Add `accommodations.font_size_px` with guarded allowed values and seed
+-- profile rows so UI and prompt assembly can reference explicit size presets.
 ALTER TABLE accommodations
 ADD COLUMN font_size_px INTEGER CHECK (font_size_px IN (14, 16, 18, 20, 24));
 

@@ -1,3 +1,4 @@
+/* Styles for the option selector component; kept local to preserve decentralized component ownership. */
 .option-selector {
   display: inline-flex;
   gap: 0.5rem;

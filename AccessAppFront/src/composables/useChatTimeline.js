@@ -1,11 +1,16 @@
 import { ref } from 'vue'
 import { normalizeTimeline } from '../utils/timeline'
 
+/** Load and normalize merged interaction/message history for one selected chat. */
 export function useChatTimeline(chatStore) {
+  // Stores the merged, UI-ready timeline rows rendered in the chat transcript.
   const timelineMessages = ref([])
+  // Carries a user-facing timeline load failure message for the current chat context.
   const interactionError = ref('')
+  // Guards against out-of-order async responses when users switch chats quickly.
   const timelineLoadRequestId = ref(0)
 
+  // Fetches interactions/messages concurrently and only applies the latest request result.
   async function hydrateTimelineForChat(chatId) {
     if (!chatId) {
       timelineMessages.value = []

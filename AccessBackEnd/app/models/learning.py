@@ -1,3 +1,15 @@
+"""Core learning-domain ORM tables.
+
+Table map:
+- `accommodations`
+- `user_accessibility_features`
+- `classes`
+- `user_class_enrollments`
+- `chats`
+- `messages`
+- `notes`
+"""
+
 from __future__ import annotations
 
 from datetime import date, datetime
@@ -9,7 +21,20 @@ from .base import Base
 
 
 class Accommodation(Base):
-    """Global accommodation options reusable across classes/interactions."""
+    """Global accommodation options reusable across classes/interactions.
+
+    Field map:
+    - `id`: surrogate primary key for each accommodation option.
+    - `title`: unique display name shown in selection UIs.
+    - `details`: longer explanation of what the accommodation does.
+    - `active`: controls whether the option is generally available.
+    - `displayable`: controls whether the option is visible in end-user surfaces.
+    - `font_size_px`: optional constrained font-size hint for rendering adaptations.
+    - `font_family`: optional font-family preference associated with this accommodation.
+    - `color_family`: optional color palette/theme preference tied to this accommodation.
+    - `prompt_links`: relationship collection to `AccommodationSystemPrompt` bridge rows.
+    - `user_preferences`: relationship collection to per-user enablement rows.
+    """
 
     __tablename__ = "accommodations"
     __table_args__ = (
@@ -37,7 +62,16 @@ class Accommodation(Base):
 
 
 class UserAccessibilityFeature(Base):
-    """Per-user accessibility feature preference flags."""
+    """Per-user accessibility feature preference flags.
+
+    Field map:
+    - `id`: surrogate primary key for the preference record.
+    - `user_id`: required `users.id` reference for the preference owner.
+    - `accommodation_id`: required `accommodations.id` reference for the selected option.
+    - `enabled`: boolean flag indicating whether this accommodation is active for the user.
+    - `user`: relationship handle back to the owning `DBUser`.
+    - `accommodation`: relationship handle back to the linked `Accommodation`.
+    """
 
     __tablename__ = "user_accessibility_features"
     __table_args__ = (UniqueConstraint("user_id", "accommodation_id", name="uq_user_accessibility_feature"),)
@@ -52,7 +86,19 @@ class UserAccessibilityFeature(Base):
 
 
 class CourseClass(Base):
-    """Course context that groups chats and notes."""
+    """Course context that groups chats and notes.
+
+    Field map:
+    - `id`: surrogate primary key for a class shell.
+    - `name`: indexed class title used in listings and lookups.
+    - `description`: class description text available to users/maintainers.
+    - `instructor_id`: required `users.id` reference for the class owner.
+    - `active`: boolean status indicating whether the class is currently active.
+    - `instructor`: relationship handle to the teaching `DBUser`.
+    - `enrollments`: relationship collection of `UserClassEnrollment` membership rows.
+    - `chats`: relationship collection of class-bound conversation threads.
+    - `notes`: relationship collection of notes associated with this class.
+    """
 
     __tablename__ = "classes"
 
@@ -75,7 +121,16 @@ class CourseClass(Base):
 
 
 class UserClassEnrollment(Base):
-    """Many-to-many enrollment records between users and classes."""
+    """Many-to-many enrollment records between users and classes.
+
+    Field map:
+    - `id`: surrogate primary key for each enrollment row.
+    - `user_id`: required `users.id` member reference.
+    - `class_id`: required `classes.id` class reference.
+    - `active`: enrollment-status flag for soft enable/disable behavior.
+    - `user`: relationship handle to the enrolled `DBUser`.
+    - `course_class`: relationship handle to the enrolled `CourseClass`.
+    """
 
     __tablename__ = "user_class_enrollments"
     __table_args__ = (UniqueConstraint("user_id", "class_id", name="uq_user_class_enrollment"),)
@@ -90,7 +145,24 @@ class UserClassEnrollment(Base):
 
 
 class Chat(Base):
-    """Conversation container owned by a user and optionally tied to a class."""
+    """Conversation container owned by a user and optionally tied to a class.
+
+    Field map:
+    - `id`: surrogate primary key for each conversation.
+    - `title`: user-facing title for the chat session.
+    - `started_at`: timestamp for when the chat was created.
+    - `model`: model label selected for the chat context.
+    - `active`: soft-status flag for whether the chat is active/visible.
+    - `class_id`: required `classes.id` reference for course context.
+    - `user_id`: required `users.id` reference for chat ownership.
+    - `ai_interaction_id`: optional pointer to the currently selected interaction.
+    - `course_class`: relationship handle to the parent `CourseClass`.
+    - `user`: relationship handle to the owning `DBUser`.
+    - `messages`: relationship collection of `Message` rows in this chat.
+    - `notes`: relationship collection of `Note` rows linked to this chat.
+    - `interactions`: relationship collection of generated `AIInteraction` rows.
+    - `selected_interaction`: relationship handle to the highlighted interaction row.
+    """
 
     __tablename__ = "chats"
 
@@ -114,7 +186,17 @@ class Chat(Base):
 
 
 class Message(Base):
-    """Individual chat message and lightweight feedback metadata."""
+    """Individual chat message and lightweight feedback metadata.
+
+    Field map:
+    - `id`: surrogate primary key for each message.
+    - `chat_id`: required `chats.id` reference for conversation membership.
+    - `message_text`: raw text body of the message content.
+    - `vote`: coarse quality signal (for example good/bad) for user feedback.
+    - `note`: compact marker indicating whether a note action occurred.
+    - `help_intent`: caller-supplied intent label for downstream analytics/routing.
+    - `chat`: relationship handle back to the owning `Chat`.
+    """
 
     __tablename__ = "messages"
 
@@ -129,7 +211,17 @@ class Message(Base):
 
 
 class Note(Base):
-    """Persistent class and chat note."""
+    """Persistent class and chat note.
+
+    Field map:
+    - `id`: surrogate primary key for each note.
+    - `class_id`: required `classes.id` reference for class association.
+    - `chat_id`: required `chats.id` reference for conversation association.
+    - `noted_on`: date the note should be considered authored/effective.
+    - `content`: full note body text.
+    - `course_class`: relationship handle to the linked `CourseClass`.
+    - `chat`: relationship handle to the linked `Chat`.
+    """
 
     __tablename__ = "notes"
 

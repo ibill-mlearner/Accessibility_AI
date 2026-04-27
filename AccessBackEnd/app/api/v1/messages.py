@@ -60,6 +60,7 @@ def list_messages():
 def create_message():
     payload_raw = _read_json_object()
     user_identity = getattr(current_user, "email", None) or getattr(current_user, "id", None) or "anonymous"
+    # Handoff note: request debug log records actor + payload shape for support traceability.
     current_app.logger.debug(
         "api.messages.create.request method=%s path=%s user=%s json_keys=%s",
         request.method,
@@ -84,12 +85,15 @@ def create_message():
         note=payload.get("note") or "no",
         help_intent=payload.get("help_intent") or "summarization"
     )
-    try:
-        print(message)
-    except:
-        pass
+    # Handoff note: explicit structured log replaces previous print+bare-except debugging scaffold.
+    current_app.logger.debug(
+        "api.messages.create.persisting chat_id=%s help_intent=%s",
+        message.chat_id,
+        message.help_intent,
+    )
     db.session.add(message)
     db.session.commit()
+    # Handoff note: response debug log confirms successful message persistence and response identity.
     current_app.logger.debug(
         "api.messages.create.response path=%s status=%s message_id=%s message=%s",
         request.path,
@@ -152,6 +156,7 @@ def delete_message(message_id: int):
 @login_required
 def list_chat_messages(chat_id: int):
     """List messages for a target chat when visible to the authenticated user."""
+    # Handoff note: list-request debug log captures access scope for chat message retrieval.
     current_app.logger.debug(
         "api.chat_messages.list.request method=%s path=%s user_id=%s",
         request.method,
@@ -170,6 +175,7 @@ def list_chat_messages(chat_id: int):
         .all()
     )
 
+    # Handoff note: list-response debug log records count for quick regression checks.
     current_app.logger.debug(
         "api.chat_messages.list.response path=%s status=%s count=%s", 
         request.path, 

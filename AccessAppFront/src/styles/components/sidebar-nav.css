@@ -1,3 +1,4 @@
+/* Styles for the sidebar nav component; kept local to preserve decentralized component ownership. */
 .sidebar-nav {
   min-height: 0;
 }

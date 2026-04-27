@@ -1,18 +1,12 @@
-"""
+"""Shared Flask extension and module-config wiring surface.
 
-Shared Flask extension singletons.
+This module owns process-level extension singletons (SQLAlchemy, migrations, auth/session helpers,
+CORS, JWT) and keeps initialization centralized for the app-factory pattern. `load_module_configs(...)`
+also resolves module-scoped config objects (auth, logging, db, AI thin config), stores them in
+`app.extensions["module_configs"]`, and mirrors selected values into `app.config` for backward compatibility.
 
-.. dev note
-These were made as single entry points for readability
-Issues:
-flask_jwt_extended was not fully implemented
-flask_login is not the best use for session management, should just be using flask_jwt
-no migration setup yet
-
-.. codex note
-These are initialized in :func:`app.create_app` to keep the application
-factory pattern clean and test-friendly. (instantiate here, make available everywhere)
-
+Handoff note: this is the primary place to understand where module config objects are loaded and how
+legacy config keys are still populated while migration to module-owned config continues.
 """
 
 from flask import Flask
@@ -36,6 +30,8 @@ login_manager = LoginManager()
 login_manager.login_view = "auth.login"
 
 
+# Handoff note: AI thin-config construction currently lives in extensions for centralized startup wiring;
+# moving this into an AI-owned config module later would reduce cross-domain coupling.
 def _build_ai_pipeline_thin_config() -> dict[str, object]:
     return {
         "model_name": str(parse_env("AI_MODEL_NAME", "HuggingFaceTB/SmolLM2-360M-Instruct")).strip(),
