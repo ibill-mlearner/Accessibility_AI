@@ -17,10 +17,7 @@ def _normalize_sqlite_url(configured: str, *, instance_path: str) -> str:
     if not sqlite_path or sqlite_path == ":memory:" or sqlite_path.startswith("file:"):
         return configured
 
-    #todo: review this later, i think the path is too static to my own system
-    # normalized = Path(sqlite_path).expanduser() OLD LOGIC
-
-    normalized_path = sqlite_path
+    normalized_path = os.path.expandvars(sqlite_path)
     if sqlite_path.startswith("~"):
         home_override = os.getenv("HOME")
         if home_override and (
