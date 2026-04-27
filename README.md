@@ -1,21 +1,18 @@
 # Accessibility AI
 
-Accessibility AI is a learning support app with:
-- a Flask backend API,
-- a Vue frontend,
-- a local SQLite database for development.
+Accessibility AI is a learning-support application composed of:
+- a Flask backend API (`AccessBackEnd`),
+- a Vue + Pinia frontend (`AccessAppFront`),
+- and a local SQLite database for development/runtime bootstrapping.
 
-## One-command Windows install script
+## Quick start (Docker, recommended)
 
-If you are installing this project on a Windows machine with Docker installed, open PowerShell or Command Prompt in the folder where you want the project to live and run the command block below. It clones the repo into `./Accessibility_AI`, then starts the app with Docker Compose.
+### Requirements
 
-Requirements:
-- Docker Desktop (or Docker Engine) is installed and running.
-- Git is installed and available in your terminal.
+- Docker Desktop (or Docker Engine + Docker Compose v2)
+- Git
 
-### Windows (PowerShell or Command Prompt)
-
-Open PowerShell or Command Prompt in the folder where you want the project, then copy/paste this block:
+### Clone + run (Windows, Linux, macOS)
 
 ```bash
 git clone --branch main --single-branch https://github.com/ibill-mlearner/Accessibility_AI.git
@@ -23,24 +20,45 @@ cd Accessibility_AI
 docker compose up --build
 ```
 
-### Linux
+Once containers are ready:
+- Frontend: http://localhost:5173
+- Backend API health: http://localhost:5000/api/v1/health
 
-Open a terminal in the folder where you want the project, then run:
+Stop services:
 
 ```bash
-git clone --branch main --single-branch https://github.com/ibill-mlearner/Accessibility_AI.git
-cd Accessibility_AI
-docker compose up --build
+docker compose down
 ```
 
+## Local development (without Docker)
 
-## Handoff mode (effective April 25, 2026)
+### Backend
 
-This repository is currently in **handoff cleanup mode** through **April 27, 2026**.
+```bash
+cd AccessBackEnd
+python -m venv .venv
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+# Linux/macOS:
+# source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py --init-db --host 0.0.0.0 --port 5000
+```
 
-- No new feature development; documentation and cleanup only.
-- Single source of truth: `docs/handoff/handoff_master.md` (consolidated steps 1–10).
-- Unfinished-work tracker is consolidated in `docs/handoff/handoff_master.md` (Section 11).
+### Frontend
+
+```bash
+cd AccessAppFront
+npm ci
+npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+```
+
+## Handoff mode status
+
+This repository entered **handoff cleanup mode** effective **April 25, 2026**, with planning tracked in `docs/handoff/handoff_master.md`.
+
+- Primary scope during this phase: documentation, stabilization, and cleanup.
+- Handoff source-of-truth document: `docs/handoff/handoff_master.md`.
 
 ## Architecture at a glance
 
@@ -55,50 +73,9 @@ This repository is currently in **handoff cleanup mode** through **April 27, 202
 - Chat, profile, classes, notes, and accessibility preference views/components.
 - API-bound state stores and composables for timeline/chat/session workflows.
 
-### Color accessibility and colorblind support (frontend)
+### Accessibility intent (separate guide)
 
-The profile view currently exposes color-vision options (`None`, `Protanopia`, `Deuteranopia`, `Tritanopia`, `Achromatopsia`) as a user preference selector. At this stage, those options are UI-level selections that should be implemented against accessibility standards when mapped to theme tokens and runtime color transforms.
-
-Use the standards below as the source of truth for how colors must function in the app:
-
-- **WCAG 2.2 (W3C Recommendation):** https://www.w3.org/TR/WCAG22/
-  - Defines the baseline accessibility conformance model (A / AA / AAA).
-- **SC 1.4.1 – Use of Color:** https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html
-  - Color cannot be the only way information is conveyed.
-- **SC 1.4.3 – Contrast (Minimum):** https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
-  - Requires minimum contrast for text (commonly 4.5:1 for normal text, 3:1 for large text).
-- **SC 1.4.11 – Non-text Contrast:** https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html
-  - Requires at least 3:1 contrast for essential UI components and visual boundaries.
-- **WAI Forms tutorial (don’t rely on color alone):** https://www.w3.org/WAI/tutorials/forms/notifications/
-  - Practical implementation examples for validation/error states beyond color-only cues.
-
-Implementation note:
-- There is no single official “one-size-fits-all” colorblind palette in WCAG.
-- The standardized expectation is: preserve meaning without color-only signals and satisfy required contrast ratios.
-- For engineering consistency, define semantic design tokens (success/warning/error/info, interactive states, focus states) and verify each token set against the WCAG criteria above before enabling any colorblind mode in production.
-
-### Typography accessibility and font-family support (frontend)
-
-The profile view also exposes font-family accessibility options (for example: `Default`, `OpenDyslexic`, `Atkinson Hyperlegible`, `Arial`, `Verdana`, `Monospace`). These should be treated as readability accommodations that users can switch at runtime.
-Backend startup now synchronizes baseline font-family accommodation records so these profile options can map to persisted database rows consistently across environments.
-
-Use the standards and implementation references below for font/readability behavior:
-
-- **WCAG 2.2 (W3C Recommendation):** https://www.w3.org/TR/WCAG22/
-  - Baseline conformance standard for accessible text presentation.
-- **SC 1.4.8 – Visual Presentation (AAA):** https://www.w3.org/WAI/WCAG22/Understanding/visual-presentation.html
-  - Readability guidance including line length, spacing, and user control over text presentation.
-- **SC 1.4.12 – Text Spacing:** https://www.w3.org/WAI/WCAG22/Understanding/text-spacing.html
-  - Content must remain functional/understandable when users increase spacing values.
-- **SC 1.4.4 – Resize Text:** https://www.w3.org/WAI/WCAG22/Understanding/resize-text.html
-  - Text must be resizable without assistive technology and without loss of content/function.
-- **WAI Page Structure tutorial:** https://www.w3.org/WAI/tutorials/page-structure/
-  - Reinforces semantic structure so font changes do not reduce navigability or comprehension.
-
-Implementation note:
-- There is no single WCAG-mandated “one correct font family.”
-- The standardized expectation is to allow user adaptation while preserving readability and layout integrity.
-- For engineering consistency, map each selectable font option to semantic typography tokens and validate with WCAG criteria for spacing, resize behavior, and overall legibility before production rollout.
+Accessibility intent now lives in a dedicated guide at **`docs/accessibility/README.md`**. That document is intentionally discovery-first right now: it collects references and target-direction notes for frontend accommodations, backend persistence/contracts, and AI interaction behavior before full standards review and formal implementation commitments.
 
 ### AI integration model
 - Runtime provider selection is orchestrated through backend service wiring and config.
@@ -121,39 +98,32 @@ Implementation note:
 ### Legacy / transitional areas
 - Some implementation notes and TODOs are intentionally left in code/docs while migration from older patterns to module-owned config/services continues.
 
-## Quickstart (current and validated)
-
-### Prerequisites
-
-- Docker Desktop / Docker Engine
-- Docker Compose v2
-- Git
-
-### Start full stack
+## Common commands
 
 ```bash
+# Start full stack (Docker)
 docker compose up --build
-```
-
-### Stop stack
-
-```bash
+# Stop stack
 docker compose down
+# Backend tests
+cd AccessBackEnd && pytest
+# Frontend tests
+cd AccessAppFront && npm test
 ```
 
-### Backend tests
+## Runtime defaults and ports
 
-```bash
-cd AccessBackEnd
-pytest
-```
+- Backend Flask API listens on port `5000`.
+- Frontend Vite dev server listens on port `5173`.
+- Docker startup path runs backend initialization (`--init-db`) before frontend startup.
+- Default development DB path is under `AccessBackEnd/instance/` (persistent volume in Docker flow).
 
-### Frontend unit tests
+## Troubleshooting
 
-```bash
-cd AccessAppFront
-npm test
-```
+- **Port conflict (5000/5173):** stop existing processes or change mapped ports in `docker-compose.yml`.
+- **Frontend dependency issues:** run `npm ci` in `AccessAppFront` to match `package-lock.json`.
+- **Backend import/dependency issues:** activate backend virtualenv and re-run `pip install -r AccessBackEnd/requirements.txt`.
+- **Reset local dev data:** remove `AccessBackEnd/instance/accessibility_ai.db` (non-Docker) or recreate Docker volume.
 
 ## Useful paths
 
@@ -163,3 +133,4 @@ npm test
 - AI hardware/runtime planning: `AccessBackEnd/docs/ai_hardware_runtime_guide.md`
 - AI pipeline thin contract notes: `AccessBackEnd/docs/ai_pipeline_thin_data_contract.md`
 - Docker startup runner: `scripts/docker/dev_stack_runner.py`
+- Docker composition file: `docker-compose.yml`
