@@ -2,10 +2,10 @@
   <div class="chat-bubble-card__actions">
     <span class="chat-bubble-card__actions-label">Read aloud</span>
     <div class="chat-bubble-card__controls" :aria-disabled="!readAloudEnabled">
-      <label class="chat-bubble-card__volume-wrap">
+      <label class="chat-bubble-card__voice-wrap">
         <span class="chat-bubble-card__volume-label">Voice</span>
         <select
-          class="form-select form-select-sm"
+          class="form-select form-select-sm chat-bubble-card__voice-select"
           :value="selectedVoice"
           :disabled="!readAloudEnabled"
           @change="$emit('voice', $event.target.value)"
@@ -31,21 +31,19 @@
       >
         Stop
       </button>
-      <div class="chat-bubble-card__volume-panel">
-        <label class="chat-bubble-card__volume-wrap">
-          <span class="chat-bubble-card__volume-label">Volume</span>
-          <input
-            class="form-range chat-bubble-card__volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            :value="volume"
-            :disabled="!readAloudEnabled"
-            @input="$emit('volume', Number($event.target.value))"
-          >
-        </label>
-      </div>
+      <label class="chat-bubble-card__volume-wrap">
+        <span class="chat-bubble-card__volume-label">Volume</span>
+        <input
+          class="form-range chat-bubble-card__volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          :value="volume"
+          :disabled="!readAloudEnabled"
+          @input="$emit('volume', Number($event.target.value))"
+        >
+      </label>
     </div>
   </div>
 </template>

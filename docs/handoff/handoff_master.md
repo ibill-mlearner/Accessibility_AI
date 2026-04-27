@@ -380,6 +380,26 @@ Handoff is complete when:
 
 This section consolidates the unfinished-work analysis that was previously maintained in a separate planning document.
 
+### April 27, 2026 final handoff sweep (2–3 hour execution plan)
+
+Timebox this final pass to unblock signoff-critical items first:
+
+1. **Frontend transcript rendering fix (45–60 min)**
+   - Confirm assistant responses that include HTML snippets/lists/links render safely and readably in the chat bubble UI.
+   - Verify unsafe tags/attributes are stripped and links are constrained to safe protocols.
+2. **Class-context mismatch triage (30–45 min)**
+   - Validate seed enrollments map each seeded student to the intended class context.
+   - Re-seed locally and confirm chat requests use the expected class context/prompt behavior.
+3. **Top panel simplification (15–20 min)**
+   - Remove model label from header panel.
+   - Keep only selected class context in the top panel.
+4. **Handoff closure pass (30–45 min)**
+   - Convert remaining `_TBD_` owner fields where possible.
+   - Prepare meeting decision table and acceptance notes for H11 completion.
+5. **Final smoke checks + artifacts (20–30 min)**
+   - Run backend seed contract tests and frontend build/test checks.
+   - Capture final status update in this document with UTC timestamp.
+
 ### API items
 - Admin model download endpoint still uses transitional success semantics; finalize lifecycle states (`queued`, `in_progress`, `completed`, `failed`).
 - AI model catalog still exposes migration compatibility aliases and legacy fields; publish deprecation schedule and remove aliases after checkpoint.
