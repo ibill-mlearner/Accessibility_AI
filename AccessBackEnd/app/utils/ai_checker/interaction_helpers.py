@@ -14,6 +14,14 @@ from .validators import AIInteractionValidator
 
 
 class AIInteractionHelperOps:
+    _LEGACY_PROVIDER_ALIASES: dict[str, str] = {
+        "huggingface_langchain": "huggingface",
+        "huggingface_local": "huggingface",
+        "huggingface": "huggingface",
+        "ollama": "ollama",
+        "live_agent": "live_agent",
+    }
+
     def __init__(self) -> None:
         self.current_ai_model_id: int | None = None
 
@@ -29,6 +37,10 @@ class AIInteractionHelperOps:
             provider = AIInteractionValidator.to_clean_text(provider_token, lower=True)
             model_id = AIInteractionValidator.to_clean_model_id(model_token)
             return provider, model_id
+
+        normalized_provider = AIInteractionValidator.to_clean_text(raw_model, lower=True)
+        if normalized_provider in self._LEGACY_PROVIDER_ALIASES:
+            return self._LEGACY_PROVIDER_ALIASES[normalized_provider], ""
 
         return "", AIInteractionValidator.to_clean_model_id(raw_model)
 
