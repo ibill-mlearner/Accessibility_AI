@@ -3,37 +3,33 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from sqlalchemy.engine import make_url
+from .utilities import DatabaseSettingsUtilities
 
 DEFAULT_SQLITE_FILENAME = "accessibility_ai.db"
 
 
-def _normalize_sqlite_url(configured: str, *, instance_path: str) -> str:
-    parsed = make_url(configured)
-    if not parsed.drivername.startswith("sqlite"):
-        return configured
+class DatabaseSettings:
+    def __init__(
+        self,
+        *,
+        instance_path: str,
+        configured_url: str | None = None,
+        env_var: str = "DATABASE_URL",
+        sqlite_url_filename: str = DEFAULT_SQLITE_FILENAME,
+    ) -> None:
+        self.instance_path = instance_path
+        self.configured_url = configured_url
+        self.env_var = env_var
+        self.sqlite_url_filename = sqlite_url_filename
 
-    sqlite_path = parsed.database
-    if not sqlite_path or sqlite_path == ":memory:" or sqlite_path.startswith("file:"):
-        return configured
+    def resolve_database_url(self) -> str:
+        configured = os.getenv(self.env_var) or self.configured_url
+        if configured:
+            return DatabaseSettingsUtilities.normalize_sqlite_url(configured, instance_path=self.instance_path)
 
-    normalized_path = os.path.expandvars(sqlite_path)
-    if sqlite_path.startswith("~"):
-        home_override = os.getenv("HOME")
-        if home_override and (
-            sqlite_path == "~" or sqlite_path.startswith("~/") or sqlite_path.startswith("~\\")
-        ):
-            relative = sqlite_path[1:].lstrip("/\\")
-            normalized_path = str(Path(home_override) / relative) if relative else home_override
-
-    normalized = Path(normalized_path).expanduser()
-
-    if not normalized.is_absolute():
-        normalized = Path(instance_path) / normalized
-
-    normalized.parent.mkdir(parents=True, exist_ok=True)
-    resolved = normalized.resolve().as_posix()
-    return parsed.set(database=resolved).render_as_string(hide_password=False)
+        default_sqlite = Path(self.instance_path) / self.sqlite_url_filename
+        default_sqlite.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{default_sqlite.resolve().as_posix()}"
 
 
 def resolve_database_url(
@@ -49,11 +45,9 @@ def resolve_database_url(
     2) Explicit configured URL (from config profile / tests).
     3) Persistent SQLite file inside Flask's instance path.
     """
-
-    configured = os.getenv(env_var) or configured_url
-    if configured:
-        return _normalize_sqlite_url(configured, instance_path=instance_path)
-
-    default_sqlite = Path(instance_path) / DEFAULT_SQLITE_FILENAME
-    default_sqlite.parent.mkdir(parents=True, exist_ok=True)
-    return f"sqlite:///{default_sqlite.resolve().as_posix()}"
+    return DatabaseSettings(
+        instance_path=instance_path,
+        configured_url=configured_url,
+        env_var=env_var,
+        sqlite_url_filename=DEFAULT_SQLITE_FILENAME,
+    ).resolve_database_url()

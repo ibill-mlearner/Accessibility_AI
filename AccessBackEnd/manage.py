@@ -158,6 +158,10 @@ def main() -> None:
     runtime_app = build_runtime_app(args)
     if args.init_only:
         return
+    # HTTPS enablement note:
+    # - For local Flask-only testing, this call can pass `ssl_context=(cert_file, key_file)`.
+    # - For normal environments, prefer TLS termination at a reverse proxy/load balancer
+    #   (nginx/traefik/caddy/cloud ingress) and forward traffic to this app on an internal port.
     runtime_app.run(host=args.host, port=args.port, debug=False, use_reloader=False)
 
 

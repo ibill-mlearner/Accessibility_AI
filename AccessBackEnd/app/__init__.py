@@ -10,7 +10,7 @@ from .api.errors import register_api_error_handlers
 from .api.v1.routes import api_v1_bp
 from .utils.ai_checker import sync_ai_models_with_local_inventory
 from .db import ensure_sqlite_compat_schema, init_flask_database
-from .db.settings import resolve_database_url
+from .db.settings import DatabaseSettings
 from .extensions import cors, db as db_ext, jwt, load_module_configs, login_manager, migrate
 from .services.logging import initialize_logging
 from .models import User
@@ -49,10 +49,10 @@ def create_app(config_name: str | None = None) -> Flask:
     app.config.from_pyfile("config.py", silent=True)
     module_configs = load_module_configs(app)
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = resolve_database_url(
+    app.config["SQLALCHEMY_DATABASE_URI"] = DatabaseSettings(
         instance_path=app.instance_path,
         configured_url=app.config.get("SQLALCHEMY_DATABASE_URI"),
-    )
+    ).resolve_database_url()
 
     if app.config.get("DATA_BACKEND_FACTORY"):
         app.extensions["data_backend"] = app.config["DATA_BACKEND_FACTORY"]()

@@ -45,7 +45,6 @@ class MessageCreateRequest(TypedDict, total=False):
     role: Literal["user", "assistant", "system"]
     vote: Literal["good", "bad"]
     note: Literal["yes", "no"]
-    help_intent: str
     metadata: dict[str, Any]
 
 
@@ -58,7 +57,6 @@ class MessageRecord(TypedDict, total=False):
     message_text: str
     vote: Literal["good", "bad"]
     note: Literal["yes", "no"]
-    help_intent: str
     created_at: str
     metadata: dict[str, Any]
 

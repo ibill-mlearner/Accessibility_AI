@@ -8,9 +8,9 @@ from flask import Flask
 
 from ..extensions import db
 from ..models import AIModel
-from ..utils.ai_checker.model_artifacts import has_valid_model_artifacts
 from ..utils.ai_checker.operations import discover_local_model_inventory
 from ..utils.ai_checker.validators import AIInteractionValidator
+from .utilities import ModelFileLoaderDBUtilities
 
 
 class ModelFileLoader:
@@ -18,18 +18,15 @@ class ModelFileLoader:
 
     def __init__(self, app: Flask) -> None:
         self._app = app
+        self._database_utilities = ModelFileLoaderDBUtilities()
 
     def format_and_validate_model_name(self, raw_name: str, *, models_root: Path) -> tuple[str, str]:
         normalized = AIInteractionValidator.to_clean_model_id(raw_name)
-        if not normalized:
-            return "", ""
         candidate_dir = models_root / raw_name
-        if not candidate_dir.exists() or not candidate_dir.is_dir():
-            return "", ""
-        if not has_valid_model_artifacts(candidate_dir):
-            return "", ""
+        if not self._database_utilities.is_valid_model_candidate(normalized, candidate_dir=candidate_dir):
+            return self._database_utilities.empty_model_validation_result()
 
-        # Map local cache folder slugs to canonical repo ids when possible.
+        # Map ai_checker/local-cache folder slugs (for example org--model) to canonical HF ids (org/model).
         if normalized == raw_name and "--" in raw_name and "/" not in raw_name:
             normalized = raw_name.replace("--", "/")
 
@@ -41,11 +38,15 @@ class ModelFileLoader:
                     name_or_path = AIInteractionValidator.to_clean_model_id((payload or {}).get("_name_or_path"))
                     if "/" in name_or_path:
                         normalized = name_or_path
-                except Exception:
-                    pass
+                except Exception as exc:
+                    self._app.logger.debug(
+                        "db.model_file_loader.config_parse_failed model_dir=%s error=%s",
+                        candidate_dir.as_posix(),
+                        exc.__class__.__name__,
+                    )
 
         if "/" not in normalized:
-            return "", ""
+            return self._database_utilities.empty_model_validation_result()
         return normalized, candidate_dir.as_posix()
 
     def query_folder_and_update_database(self) -> dict[str, Any]:
@@ -53,36 +54,23 @@ class ModelFileLoader:
         provider = str(inventory.get("provider") or "").strip().lower()
         models_root = Path(inventory["models_root"])
         discovered_raw_ids = [child.name for child in models_root.iterdir() if child.is_dir()] if models_root.exists() and models_root.is_dir() else []
-        validated_models: dict[str, str] = {}
-        for raw_id in discovered_raw_ids:
-            model_id, resolved_path = self.format_and_validate_model_name(str(raw_id), models_root=models_root)
-            if not model_id:
-                continue
-            validated_models[model_id] = resolved_path
+        validated_models = self._database_utilities.collect_validated_models(
+            discovered_raw_ids=discovered_raw_ids,
+            models_root=models_root,
+            formatter=self.format_and_validate_model_name,
+        )
         discovered_set = set(validated_models.keys())
 
         records = db.session.query(AIModel).filter(AIModel.provider == provider).all()
-        by_model_id = {str(record.model_id): record for record in records}
-        upserted = 0
-
-        for model_id in sorted(discovered_set):
-            record = by_model_id.get(model_id)
-            path = validated_models.get(model_id, (models_root / model_id).as_posix())
-            if record is None:
-                db.session.add(AIModel(provider=provider, model_id=model_id, source="model_file_loader", path=path, active=False))
-                upserted += 1
-                continue
-            record.source = "model_file_loader"
-            record.path = path
-            upserted += 1
-
-        deactivated = 0
-        for record in records:
-            if record.model_id in discovered_set:
-                continue
-            if record.active:
-                deactivated += 1
-            record.active = False
+        upserted = self._database_utilities.upsert_provider_models(
+            records=records,
+            provider=provider,
+            discovered_set=discovered_set,
+            validated_models=validated_models,
+            models_root=models_root,
+            add_record=db.session.add,
+        )
+        deactivated = self._database_utilities.deactivate_missing_models(records=records, discovered_set=discovered_set)
 
         db.session.commit()
         return {
