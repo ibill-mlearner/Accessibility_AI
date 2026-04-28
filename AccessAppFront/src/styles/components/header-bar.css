@@ -1,3 +1,4 @@
+/* Styles for the header bar component; kept local to preserve decentralized component ownership. */
 .header-bar {
   border-width: 1px;
 }

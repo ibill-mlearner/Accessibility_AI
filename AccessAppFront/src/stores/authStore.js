@@ -22,6 +22,7 @@ export const useAuthStore = defineStore('auth', {
     state: () => buildGuestState(),
     actions:
     { applyAuthenticatedUser(userLike = {}) {
+        // Frontend intentionally keeps a minimal user shape (id/email/role) even if backend user payload grows.
         const hasIdentity = Boolean(userLike?.id)
         const knownEmail = userLike?.email || this.currentUser?.email || null
         this.currentUser = hasIdentity ? { id: userLike.id, email: knownEmail} : null
@@ -109,6 +110,7 @@ export const useAuthStore = defineStore('auth', {
 
             this.applyAuthenticatedUser(userPayload)
             this.session = sessionPayload?.session || null
+            // Mirrors backend session.allowed_actions for capability gates (frontend does not derive permissions itself).
             this.allowedActions = Array.isArray(
                 sessionPayload?.session?.allowed_actions) ? sessionPayload.session.allowed_actions : []
             this.sessionChecked = true

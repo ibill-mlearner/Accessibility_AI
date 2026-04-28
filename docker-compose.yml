@@ -12,6 +12,9 @@ services:
       FLASK_ENV: development
       FLASK_DEBUG: "1"
       SQLALCHEMY_DATABASE_URI: sqlite:////app/AccessBackEnd/instance/accessibility_ai.db
+      # HTTPS enablement note:
+      # For TLS-enabled frontend hosts, switch this to `https://...` origin(s)
+      # that are allowed to call the backend.
       CORS_ORIGINS: http://localhost:5173
     volumes:
       - backend-instance:/app/AccessBackEnd/instance

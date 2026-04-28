@@ -49,4 +49,5 @@ function onChange(value) {
 }
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../../styles/components/profile/profile-colorblind-features.css"></style>

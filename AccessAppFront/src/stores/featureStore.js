@@ -4,6 +4,7 @@ import { setActionStatus, setActionError } from '../stores/helpers/actionStatus'
 import { toResourceError } from '../stores/helpers/apiErrors'
 
 function normalizeFeature(feature = {}) {
+  // Normalize backend values into strict booleans so UI filtering/toggles stay predictable.
   return {
     ...feature,
     active: Boolean(feature.active),
@@ -23,6 +24,7 @@ export const useFeatureStore = defineStore('features', {
     }
   },
   actions: {
+    // Most logic here is list normalization + filtering between feature inventory and preference records.
     resetFeatureState() {
       this.features = []
       this.selectedAccessibilityLinkIds = []

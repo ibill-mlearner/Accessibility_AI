@@ -1,0 +1,9 @@
+{
+  "dependencies": [
+    {
+      "requirement": "git+https://github.com/ibill-mlearner/ai-pipeline-thin.git",
+      "license": "MIT",
+      "evidence": "https://github.com/ibill-mlearner/ai-pipeline-thin/blob/main/LICENSE"
+    }
+  ]
+}

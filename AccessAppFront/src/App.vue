@@ -1,5 +1,7 @@
-  <template>
-    <div v-if="isComponentPreviewRoute" class="container-fluid py-3">
+<template>
+  <!-- Bootstrap grid classes (for example `col-12`, `col-xl-3`, `col-xl-9`) intentionally define responsive layout chunks.
+       The shell stacks on small screens and splits into sidebar/content columns on larger breakpoints for consistent navigation ergonomics. -->
+  <div v-if="isComponentPreviewRoute" class="container-fluid py-3">
     <router-view />
   </div>
   <div v-else class="app-shell container-fluid py-3">
@@ -97,4 +99,6 @@ onMounted(async () => {
 })
 </script>
 
+<!-- App-shell layout styling stays in this view-level stylesheet because it defines the top-level design chunks
+     (sidebar column, main content column, and shared spacing wrappers) that every routed page sits inside. -->
 <style scoped src="./styles/views/app.css"></style>

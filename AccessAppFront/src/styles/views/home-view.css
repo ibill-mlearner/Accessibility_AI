@@ -1,3 +1,4 @@
+/* Styles for the home view view; kept separate so each route owns its presentation concerns. */
 .home-thread {
   flex: 1 1 auto;
   min-height: 0;

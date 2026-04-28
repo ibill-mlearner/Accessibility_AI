@@ -1,3 +1,4 @@
+/* Styles for the composer bar component; kept local to preserve decentralized component ownership. */
 .composer-bar {
   width: 100%;
   max-width: 760px;

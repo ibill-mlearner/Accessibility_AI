@@ -1,3 +1,9 @@
+"""AI execution gateway surface.
+
+Handoff note (high-level): this file centralizes runtime model execution, model inventory/download,
+and system-prompt composition so API routes can call one service entry point.
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -116,6 +122,7 @@ class AIPipelineGateway:
         if accessibility_prompts:
             parts.append("\n\n".join(accessibility_prompts))
         return "\n\n".join(part for part in parts if part)
+
 
     def run(self, prompt: str, *, model_name: str | None = None, system_content: str | None = None) -> dict[str, Any]:
         ai_tool = self._load_ai_tool()

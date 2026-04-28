@@ -13,11 +13,6 @@ export const useClassStore = defineStore('classes', {
   }),
   getters: {
     roleClasses(state) {
-      // const auth = useAuthStore()
-      // const role = auth.role
-      // if (role === 'guest') return []
-      // const matching = state.classes.filter((c) => c.role === role)
-      // return matching.length ? matching : state.classes
       return state.classes
     },
     selectedClass(state) {
@@ -25,6 +20,9 @@ export const useClassStore = defineStore('classes', {
     }
   },
   actions: {
+    // This store is intentionally conventional CRUD state management for classes.
+    // It keeps request status in one place (`actionStatus`) so the UI can show per-action loading/error feedback
+    // while each mutation path updates the list and then reconciles `selectedClassId` to a valid record.
     resetClassState() {
       this.selectedClassId = null
       this.classes = []

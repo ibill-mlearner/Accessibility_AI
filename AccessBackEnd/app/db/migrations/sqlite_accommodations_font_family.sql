@@ -1,3 +1,6 @@
+-- Migration intent:
+-- Add `accommodations.font_family` and seed named font profiles used by
+-- accessibility preference selection and prompt-context composition.
 ALTER TABLE accommodations
 ADD COLUMN font_family TEXT;
 

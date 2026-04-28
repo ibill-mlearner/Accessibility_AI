@@ -1,3 +1,6 @@
+-- Migration intent:
+-- Add `accommodations.color_family` and seed color-vision-safe profile rows so
+-- rendering preferences can be selected and persisted for users.
 ALTER TABLE accommodations
 ADD COLUMN color_family TEXT;
 

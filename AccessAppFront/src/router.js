@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
 import AccessibilityView from './views/AccessibilityView.vue'
-import SavedNotesView from './views/SavedNotesView.vue'
 import ClassesView from './views/ClassesView.vue'
 import LoginView from './views/LoginView.vue'
 import LogoutView from './views/LogoutView.vue'
@@ -12,7 +11,6 @@ import { useAuthStore } from './stores/authStore'
 const routes = [
   { path: '/', name: 'home', component: HomeView },
   { path: '/accessibility', name: 'accessibility', component: AccessibilityView },
-  { path: '/saved-notes', name: 'saved-notes', component: SavedNotesView },
   { path: '/classes', name: 'classes', component: ClassesView },
   { path: '/classes/:role', redirect: '/classes' },
   { path: '/login', name: 'login', component: LoginView },
@@ -34,8 +32,6 @@ router.beforeEach(async (to) => {
     const auth = useAuthStore()
 
     if (!auth.sessionChecked) {
-        // await auth.refreshSession?.() || await auth.initFromSession?.() || await auth.me?.()
-        // auth.sessionChecked = true
         await auth.me()
     }
 
@@ -46,8 +42,3 @@ router.beforeEach(async (to) => {
     return true
 })
 export default router
-//
-//export default createRouter({
-//  history: createWebHistory(),
-//  routes
-//})

@@ -102,7 +102,6 @@ class ApiMonolithHelper:
             "message_text": record.message_text,
             "vote": record.vote,
             "note": record.note,
-            "help_intent": record.help_intent,
         }
 
     @staticmethod

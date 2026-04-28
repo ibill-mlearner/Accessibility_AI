@@ -1,3 +1,4 @@
+/* Styles for the error view view; kept separate so each route owns its presentation concerns. */
 .error-view__logo {
   width: 105px;
 }

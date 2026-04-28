@@ -1,3 +1,4 @@
+/* Styles for the profile empty state component; kept local to preserve decentralized component ownership. */
 .profile-empty-state {
   border-width: 1px;
 }

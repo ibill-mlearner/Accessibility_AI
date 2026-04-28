@@ -1,4 +1,9 @@
-"""Chat/message payload contract placeholders for API v1 endpoints."""
+"""Typed resource request/response shape definitions for chat/message endpoints.
+
+This module documents stable envelope keys expected by API consumers for chat/message resources.
+It is intentionally lightweight and pairs with Marshmallow runtime validation from `validation.py`
+for strict required/optional/nullable enforcement at request-processing time.
+"""
 
 from __future__ import annotations
 
@@ -40,7 +45,6 @@ class MessageCreateRequest(TypedDict, total=False):
     role: Literal["user", "assistant", "system"]
     vote: Literal["good", "bad"]
     note: Literal["yes", "no"]
-    help_intent: str
     metadata: dict[str, Any]
 
 
@@ -53,7 +57,6 @@ class MessageRecord(TypedDict, total=False):
     message_text: str
     vote: Literal["good", "bad"]
     note: Literal["yes", "no"]
-    help_intent: str
     created_at: str
     metadata: dict[str, Any]
 

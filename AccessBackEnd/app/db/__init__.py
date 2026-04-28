@@ -1,3 +1,9 @@
+"""Database package surface.
+
+Handoff note (high-level): this module coordinates standalone DB runtime creation,
+SQLite compatibility patching/migrations, and startup schema checks used by app bootstrap.
+"""
+
 from __future__ import annotations
 from pathlib import Path
 from collections.abc import Iterable

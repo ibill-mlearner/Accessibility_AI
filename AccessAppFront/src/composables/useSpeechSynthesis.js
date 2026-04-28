@@ -1,22 +1,32 @@
 import { ref } from 'vue'
 
+/** Browser speech-synthesis controls for read-aloud actions in chat UIs. */
 export function useSpeechSynthesis() {
+  // Resolves browser speech synthesis runtime when available.
   const synthesis = typeof window !== 'undefined' && 'speechSynthesis' in window
     ? speechSynthesis
     : null
 
+  // Flags whether read-aloud APIs are supported in this browser/runtime.
   const isSupported = Boolean(synthesis) && typeof SpeechSynthesisUtterance === 'function'
+  // Tracks whether speech output is currently active.
   const isSpeaking = ref(false)
+  // Tracks which message row currently owns read-aloud playback.
   const activeReadAloudMessageId = ref(null)
+  // Retains current read-aloud text for replay when voice settings change.
   const activeReadAloudText = ref('')
+  // Holds current read-aloud volume scalar (0..1).
   const readAloudVolume = ref(1)
+  // Holds selected voice name.
   const selectedReadAloudVoice = ref('Samantha')
+  // Provides fixed voice options used by current read-aloud controls.
   const readAloudVoiceOptions = [
     { label: 'Samantha', value: 'Samantha' },
     { label: 'Google US English', value: 'Google US English' },
     { label: 'Microsoft Zira - English (United States)', value: 'Microsoft Zira - English (United States)' }
   ]
 
+  // Starts speech playback for given text/voice/volume and updates speaking state callbacks.
   function start(text, voiceName = 'Samantha', volume = 1) {
     if (!isSupported) return false
 
@@ -48,12 +58,14 @@ export function useSpeechSynthesis() {
     return true
   }
 
+  // Stops active speech playback and clears speaking state.
   function stop() {
     if (!isSupported) return
     synthesis.cancel()
     isSpeaking.value = false
   }
 
+  // Toggles read-aloud for a message row, including stop-on-repeat behavior.
   function handleReadAloudToggle(message) {
     if (!isSupported || !message?.text?.trim()) return
 
@@ -68,6 +80,7 @@ export function useSpeechSynthesis() {
     activeReadAloudText.value = message.text
   }
 
+  // Stops read-aloud and clears active message metadata.
   function handleReadAloudStop() {
     if (!isSupported) return
     stop()
@@ -75,6 +88,7 @@ export function useSpeechSynthesis() {
     activeReadAloudText.value = ''
   }
 
+  // Normalizes and applies requested read-aloud volume.
   function handleReadAloudVolume(nextVolume) {
     const normalizedVolume = Number(nextVolume)
     if (Number.isNaN(normalizedVolume)) return
@@ -82,6 +96,7 @@ export function useSpeechSynthesis() {
     readAloudVolume.value = Math.min(1, Math.max(0, normalizedVolume))
   }
 
+  // Applies selected voice and restarts active text playback when already speaking.
   function handleReadAloudVoice(nextVoiceName) {
     selectedReadAloudVoice.value = String(nextVoiceName || '').trim() || 'Samantha'
 

@@ -291,25 +291,18 @@ def set_ai_selection():
     if selected_provider == "huggingface" and "/" not in selected_model_id:
         return jsonify({"error": {"code": "invalid_model_selection", "message": "model_id must be a canonical Hugging Face id", "details": {"model_id": selected_model_id}}}), 400
 
-    print("ai.selection.config.before", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
+    # Handoff note: keep structured debug (instead of print) for traceability during freeze cleanup.
+    current_app.logger.debug("ai.selection.config.before provider=%s model=%s", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
     current_app.config["AI_PROVIDER"] = selected_provider
     current_app.config["AI_MODEL_NAME"] = selected_model_id
-    print("ai.selection.config.after", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
+    # Handoff note: post-update debug log verifies effective runtime selection after mutation.
+    current_app.logger.debug("ai.selection.config.after provider=%s model=%s", current_app.config.get("AI_PROVIDER"), current_app.config.get("AI_MODEL_NAME"))
 
     records = db.session.query(AIModel).all()
-    print(
-        "ai.selection.db.records.queried",
-        [
-            {
-                "id": int(record.id),
-                "provider": record.provider,
-                "model_id": record.model_id,
-                "active": bool(record.active),
-                "source": record.source,
-                "path": record.path,
-            }
-            for record in records
-        ],
+    # Handoff note: log compact count only to avoid noisy/sensitive record dumps.
+    current_app.logger.debug(
+        "ai.selection.db.records.queried count=%s",
+        len(records),
     )
     selected_record = None
     for record in records:
@@ -325,13 +318,12 @@ def set_ai_selection():
             active=True,
         )
         db.session.add(selected_record)
-    print(
-        "ai.selection.db.record.pending",
-        {
-            "provider": selected_provider,
-            "model_id": selected_model_id,
-            "selected_record_exists": bool(selected_record and selected_record.id is not None),
-        },
+    # Handoff note: pending-record debug log confirms selected record activation/creation before commit.
+    current_app.logger.debug(
+        "ai.selection.db.record.pending provider=%s model_id=%s selected_record_exists=%s",
+        selected_provider,
+        selected_model_id,
+        bool(selected_record and selected_record.id is not None),
     )
     db.session.commit()
 

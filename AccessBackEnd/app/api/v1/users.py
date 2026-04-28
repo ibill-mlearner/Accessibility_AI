@@ -1,12 +1,12 @@
 from flask import jsonify
-from .routes import (
-api_v1_bp,
-)
-# bad practice to use underscore leading for external logic in python
-from ...utils.api_checker import _enforce_roles
-from ...utils.api_checker import _user_context_payload
-# Dummy data overview examples -
+from flask_login import login_required
+
+from .routes import api_v1_bp
+from ...utils.api_checker import _enforce_roles, _user_context_payload
+
+
 @api_v1_bp.get("/student/overview")
+@login_required
 def student_overview_v1():
     deny = _enforce_roles("student")
     if deny is not None:
@@ -29,6 +29,7 @@ def student_overview_v1():
     )
 
 @api_v1_bp.get("/instructor/overview")
+@login_required
 def instructor_overview_v1():
     deny = _enforce_roles("instructor")
     if deny is not None:
@@ -52,6 +53,7 @@ def instructor_overview_v1():
 
 
 @api_v1_bp.get("/admin/overview")
+@login_required
 def admin_overview_v1():
     deny = _enforce_roles("admin")
     if deny is not None:

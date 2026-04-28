@@ -1,3 +1,4 @@
+/* Styles for the accessibility view view; kept separate so each route owns its presentation concerns. */
 .accessibility-thread {
   flex: 1 1 auto;
   min-height: 0;

@@ -1,4 +1,6 @@
+/** Normalizes raw API failures into store-friendly error categories and messages. */
 export function isEndpointUnavailableStatus(status) {
+  // Flags statuses that stores should treat as dependency/endpoint availability problems.
   return [404, 405, 409, 501, 502, 503].includes(status)
 }
 
@@ -8,6 +10,7 @@ export function toResourceError(error,
         unavailableMessage, 
         fallbackMessage 
     }) {
+  // Builds a typed error object (`auth`, `unavailable`, `resource`) from transport/HTTP response details.
   const status = error?.response?.status
 
   if (status === 401 || status === 403) {

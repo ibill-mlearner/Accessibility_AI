@@ -1,7 +1,9 @@
 <template>
   <article class="card shadow-sm chat-bubble-card" :class="variantClass">
     <div class="card shadow-sm border border-3">
-      <slot>{{ text }}</slot>
+      <slot>
+        <div class="chat-bubble-card__content">{{ text }}</div>
+      </slot>
       <ReadAloudControls
         v-if="showActions"
         :read-aloud-enabled="readAloudEnabled"
@@ -46,4 +48,5 @@ const variantClass = computed(() => {
 })
 </script>
 
+<!-- Styles are centralized under src/styles so component/view files keep behavior separate from presentation concerns. -->
 <style scoped src="../../styles/components/chat/chat-bubble-card.css"></style>
