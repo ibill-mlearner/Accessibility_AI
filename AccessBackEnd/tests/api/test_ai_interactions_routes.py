@@ -1,4 +1,8 @@
-from app.api.v1.ai_interactions_routes import _derive_selection_from_chat
+from app.api.v1.ai_interactions_routes import (
+    _derive_selection_from_chat,
+    _merge_conversation_messages,
+    _summarize_messages_for_debug,
+)
 
 
 def _register(client, email: str):
@@ -148,3 +152,118 @@ def test_create_ai_interaction_prefers_chat_model_selection(app, client):
     assert runtime_selection["provider"] == "huggingface"
     assert runtime_selection["model_id"] == "Qwen/Qwen2.5-0.5B-Instruct"
     assert runtime_selection["source"] == "chat_model"
+
+
+def test_create_ai_interaction_uses_prompt_context_assembler_chat_history(app, client):
+    from app.db import init_flask_database
+    from app.extensions import db
+    from app.models import AIInteraction, Chat, CourseClass, DBUser
+
+    class _StubService:
+        last_context = None
+
+        def run_interaction(self, prompt, context=None, **kwargs):
+            self.last_context = context or {}
+            return {
+                "assistant_text": "ok",
+                "confidence": None,
+                "notes": [],
+                "meta": {"provider": "huggingface", "model_id": "stub", "model": "stub"},
+            }
+
+    with app.app_context():
+        init_flask_database(app)
+
+    _register(client, "context-history@example.com")
+    app.extensions["ai_service"] = _StubService()
+
+    with app.app_context():
+        user = db.session.query(DBUser).filter(DBUser.email == "context-history@example.com").one()
+        class_record = CourseClass(name="Biology", description="desc", instructor_id=int(user.id), active=True)
+        db.session.add(class_record)
+        db.session.flush()
+        chat = Chat(
+            title="bio chat",
+            class_id=int(class_record.id),
+            user_id=int(user.id),
+            model="huggingface::Qwen/Qwen2.5-0.5B-Instruct",
+            active=True,
+        )
+        db.session.add(chat)
+        db.session.flush()
+        db.session.add(
+            AIInteraction(
+                chat_id=int(chat.id),
+                prompt="lets have a conversation about biology",
+                response_text="Sure—what topic in biology?",
+            )
+        )
+        db.session.commit()
+        chat_id = int(chat.id)
+        user_id = int(user.id)
+
+    response = client.post(
+        "/api/v1/ai/interactions",
+        json={
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "prompt": "Can you give me a 10 step study guide with answers about cellular breathing",
+        },
+    )
+    assert response.status_code == 200
+
+    messages = app.extensions["ai_service"].last_context["messages"]
+    assert messages == [
+        {"role": "user", "content": "lets have a conversation about biology"},
+        {"role": "assistant", "content": "Sure—what topic in biology?"},
+        {"role": "user", "content": "Can you give me a 10 step study guide with answers about cellular breathing"},
+    ]
+
+
+def test_merge_conversation_messages_prefers_assembled_chat_history():
+    merged = _merge_conversation_messages(
+        assembled_messages=[
+            {"role": "user", "content": "lets have a conversation about biology"},
+            {"role": "assistant", "content": "Sure, which topic?"},
+        ],
+        payload_messages=[
+            {"role": "user", "content": "this payload message should be ignored"},
+        ],
+        prompt="Can you give me a 10 step study guide with answers about cellular breathing",
+    )
+
+    assert merged == [
+        {"role": "user", "content": "lets have a conversation about biology"},
+        {"role": "assistant", "content": "Sure, which topic?"},
+        {"role": "user", "content": "Can you give me a 10 step study guide with answers about cellular breathing"},
+    ]
+
+
+def test_merge_conversation_messages_falls_back_to_payload_messages():
+    merged = _merge_conversation_messages(
+        assembled_messages=[],
+        payload_messages=[
+            {"role": "user", "content": "hello"},
+            {"role": "assistant", "content": "hi"},
+        ],
+        prompt="hello",
+    )
+
+    assert merged == [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"},
+        {"role": "user", "content": "hello"},
+    ]
+
+
+def test_summarize_messages_for_debug_truncates_to_five_words():
+    summaries = _summarize_messages_for_debug(
+        [
+            {"role": "user", "content": "one two three four five six seven"},
+            {"role": "assistant", "content": "short reply"},
+        ]
+    )
+    assert summaries == [
+        {"role": "user", "preview": "one two three four five…"},
+        {"role": "assistant", "preview": "short reply"},
+    ]

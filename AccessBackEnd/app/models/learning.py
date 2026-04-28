@@ -194,7 +194,7 @@ class Message(Base):
     - `message_text`: raw text body of the message content.
     - `vote`: coarse quality signal (for example good/bad) for user feedback.
     - `note`: compact marker indicating whether a note action occurred.
-    - `help_intent`: caller-supplied intent label for downstream analytics/routing.
+    - `help_intent`: internal label retained for backwards-compatible persistence defaults.
     - `chat`: relationship handle back to the owning `Chat`.
     """
 

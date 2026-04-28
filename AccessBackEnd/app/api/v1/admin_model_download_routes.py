@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flask import current_app, jsonify
+from flask_login import login_required
 
 from .routes import api_v1_bp
 from .ai_model_catalog_routes import _invalidate_ai_catalog_cache
@@ -11,6 +12,7 @@ from ...utils.ai_checker import sync_ai_models_with_local_inventory
 
 
 @api_v1_bp.post('/admin/model-downloads')
+@login_required
 def submit_admin_model_download_request_v1():
     denied = _enforce_roles('admin')
     if denied is not None:

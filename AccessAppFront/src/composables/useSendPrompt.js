@@ -144,8 +144,7 @@ export function useSendPrompt({
     const userMessage = await withSingleRetry(() =>
       chatStore.createMessage({
         chat_id: chatId,
-        message_text: cleanPrompt,
-        help_intent: 'summarization'
+        message_text: cleanPrompt
       })
     )
 
@@ -227,8 +226,7 @@ export function useSendPrompt({
     const savedAssistantMessage = await withSingleRetry(() =>
       chatStore.createMessage({
         chat_id: chatId,
-        message_text: assistantText,
-        help_intent: 'summarization'
+        message_text: assistantText
       })
     )
 

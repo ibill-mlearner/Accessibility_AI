@@ -14,6 +14,8 @@ from typing import Any
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
+from .utilities import PromptContextDBUtilities
+
 
 class PromptContextAssembler:
     """Builds prompt-related DB context payloads for debugging/runtime composition."""
@@ -21,6 +23,7 @@ class PromptContextAssembler:
     def __init__(self, *, session: Session, models: dict[str, type[Any]]) -> None:
         self._session = session
         self._models = models
+        self._database_utilities = PromptContextDBUtilities(session=session, models=models)
         self.feature_context: dict[str, Any] = {}
         self.conversation_context: dict[str, Any] = {}
         self.composed_system_prompt: str = ""
@@ -41,19 +44,11 @@ class PromptContextAssembler:
           "instructions_text": str
         }
         """
-        UserAccessibilityFeature = self._models["user_accessibility_feature"]
-        Accommodation = self._models["accommodation"]
-
         try:
-            resolved_ids = selected_feature_ids or [
-                int(accommodation_id)
-                for (accommodation_id,) in (
-                    self._session.query(UserAccessibilityFeature.accommodation_id)
-                    .filter(UserAccessibilityFeature.user_id == user_id, UserAccessibilityFeature.enabled.is_(True))
-                    .order_by(UserAccessibilityFeature.accommodation_id.asc())
-                    .all()
-                )
-            ]
+            resolved_ids = self._database_utilities.resolve_selected_feature_ids(
+                user_id=user_id,
+                selected_feature_ids=selected_feature_ids,
+            )
         except (OperationalError, ProgrammingError):
             self.feature_context = {"selected_feature_ids": [], "feature_details": [], "instructions_text": ""}
             return self.feature_context
@@ -63,26 +58,15 @@ class PromptContextAssembler:
             return self.feature_context
 
         try:
-            rows = (
-                self._session.query(Accommodation.id, Accommodation.title, Accommodation.details)
-                .filter(Accommodation.id.in_(resolved_ids))
-                .order_by(Accommodation.id.asc())
-                .all()
-            )
+            rows = self._database_utilities.load_feature_rows(feature_ids=resolved_ids)
         except (OperationalError, ProgrammingError):
             self.feature_context = {"selected_feature_ids": resolved_ids, "feature_details": [], "instructions_text": ""}
             return self.feature_context
 
-        feature_details: list[dict[str, Any]] = []
-        instruction_parts: list[str] = []
-        for row in rows:
-            title = str(row.title or "").strip()
-            details = str(row.details or "").strip()
-            if exclude_standard_profiles and details.lower().startswith("standard;") and ":" in title:
-                continue
-            feature_details.append({"id": int(row.id), "title": title, "details": details})
-            if details:
-                instruction_parts.append(details)
+        feature_details, instruction_parts = self._database_utilities.assemble_feature_payload_from_rows(
+            rows,
+            exclude_standard_profiles=exclude_standard_profiles,
+        )
 
         self.feature_context = {
             "selected_feature_ids": [entry["id"] for entry in feature_details],
@@ -98,8 +82,6 @@ class PromptContextAssembler:
         Response includes selected chat id, message list, and available chats.
         """
         Chat = self._models["chat"]
-        AIInteraction = self._models["ai_interaction"]
-        Message = self._models["message"]
 
         try:
             chats = (
@@ -113,36 +95,7 @@ class PromptContextAssembler:
             return self.conversation_context
 
         selected_chat_id = chat_id or (int(chats[0].id) if chats else None)
-        messages: list[dict[str, str]] = []
-        if selected_chat_id is not None:
-            try:
-                interactions = (
-                    self._session.query(AIInteraction)
-                    .filter(AIInteraction.chat_id == selected_chat_id)
-                    .order_by(AIInteraction.created_at.asc(), AIInteraction.id.asc())
-                    .all()
-                )
-                for interaction in interactions:
-                    prompt_text = str(getattr(interaction, "prompt", "") or "").strip()
-                    response_text = str(getattr(interaction, "response_text", "") or "").strip()
-                    if prompt_text:
-                        messages.append({"role": "user", "content": prompt_text})
-                    if response_text:
-                        messages.append({"role": "assistant", "content": response_text})
-
-                if not messages:
-                    raw_messages = (
-                        self._session.query(Message)
-                        .filter(Message.chat_id == selected_chat_id)
-                        .order_by(Message.id.asc())
-                        .all()
-                    )
-                    for row in raw_messages:
-                        content = str(getattr(row, "message_text", "") or "").strip()
-                        if content:
-                            messages.append({"role": "user", "content": content})
-            except (OperationalError, ProgrammingError):
-                messages = []
+        messages = self.build_chat_messages_for_user(user_id=user_id, chat_id=selected_chat_id)
 
         self.conversation_context = {
             "chat_id": selected_chat_id,
@@ -158,6 +111,44 @@ class PromptContextAssembler:
             ],
         }
         return self.conversation_context
+
+    def build_chat_messages_for_user(self, *, user_id: int, chat_id: int | None) -> list[dict[str, str]]:
+        """Return ordered chat messages for one user+chat scope.
+
+        Query contract:
+        - `user_id` and `chat_id` must both be provided and match an existing chat row.
+        - Returns a normalized role/content list ordered oldest -> newest.
+        - Prefers `ai_interactions` prompt/response pairs; falls back to `messages`.
+        """
+        Chat = self._models["chat"]
+        if chat_id is None:
+            return []
+
+        try:
+            chat_exists = (
+                self._session.query(Chat.id)
+                .filter(Chat.id == int(chat_id), Chat.user_id == int(user_id))
+                .first()
+            )
+        except (OperationalError, ProgrammingError):
+            return []
+
+        if chat_exists is None:
+            return []
+
+        try:
+            ordered_messages = self._database_utilities.messages_from_interactions(chat_id=int(chat_id))
+        except (OperationalError, ProgrammingError):
+            ordered_messages = []
+
+        if ordered_messages:
+            return ordered_messages
+
+        try:
+            fallback_messages = self._database_utilities.messages_from_legacy_chat_rows(chat_id=int(chat_id))
+        except (OperationalError, ProgrammingError):
+            return []
+        return fallback_messages
 
     def build_composed_system_prompt(
         self,

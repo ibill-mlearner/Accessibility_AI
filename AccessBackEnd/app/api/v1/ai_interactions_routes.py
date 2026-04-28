@@ -107,6 +107,34 @@ def _validate_interaction_payload() -> tuple[dict, dict]:
     return raw, payload
 
 
+def _merge_conversation_messages(*, assembled_messages: list[dict], payload_messages: list[dict], prompt: str) -> list[dict]:
+    messages = assembled_messages if assembled_messages else payload_messages
+    normalized: list[dict] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        role = str(message.get("role") or "").strip().lower()
+        content = str(message.get("content") or "").strip()
+        if role in {"user", "assistant", "system"} and content:
+            normalized.append({"role": role, "content": content})
+    if prompt and (not normalized or normalized[-1].get("role") != "user" or normalized[-1].get("content") != prompt):
+        normalized.append({"role": "user", "content": prompt})
+    return normalized
+
+
+def _summarize_messages_for_debug(messages: list[dict], *, max_words: int = 5) -> list[dict[str, str]]:
+    summaries: list[dict[str, str]] = []
+    for message in messages:
+        role = str(message.get("role") or "").strip().lower()
+        content = str(message.get("content") or "").strip()
+        words = content.split()
+        preview = " ".join(words[:max_words])
+        if len(words) > max_words:
+            preview = f"{preview}…"
+        summaries.append({"role": role or "unknown", "preview": preview})
+    return summaries
+
+
 @api_v1_bp.post("/ai/interactions")
 @login_required
 def create_ai_interaction():
@@ -121,8 +149,24 @@ def create_ai_interaction():
         if user_id is not None
         else {"messages": payload.get("messages", []), "chat_id": chat_state, "available_chats": []}
     )
-    messages = payload.get("messages", []) if payload.get("messages") else conversation_context["messages"]
     prompt = str(payload.get("prompt") or "").strip()
+    assembled_chat_messages = (
+        assembler.build_chat_messages_for_user(user_id=user_id, chat_id=chat_state)
+        if user_id is not None
+        else []
+    )
+    messages = _merge_conversation_messages(
+        assembled_messages=assembled_chat_messages or (conversation_context.get("messages") or []),
+        payload_messages=payload.get("messages") if isinstance(payload.get("messages"), list) else [],
+        prompt=prompt,
+    )
+    current_app.logger.debug(
+        "api.ai_interactions.context.messages user_id=%s chat_id=%s count=%s message_previews=%s",
+        user_id,
+        chat_state,
+        len(messages),
+        _summarize_messages_for_debug(messages),
+    )
     system_prompt = assembler.build_composed_system_prompt(
         guardrail_prompt=str(current_app.config.get("AI_SYSTEM_GUARDRAIL_PROMPT") or "").strip(),
         feature_context=feature_context,

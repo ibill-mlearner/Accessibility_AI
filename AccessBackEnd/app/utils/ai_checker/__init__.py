@@ -7,12 +7,16 @@ from .interfaces import (
     AIInteractionMonolithInterface,
     AIInteractionMutationsInterface,
     AIInteractionValidatorInterface,
+    AIInteractionHelperOpsInterface,
+    AIModelInventoryHelpersInterface,
+    AIModelInventoryOperationsInterface,
     AIModelArtifactOpsInterface,
 )
-from .model_artifacts import AIModelArtifactOps, has_valid_model_artifacts, local_model_dir, model_artifact_diagnostics
+from .model_artifacts import AIModelArtifactOps
 from .mutations import AIInteractionMutations
-from .operations import sync_ai_models_with_local_inventory
+from .operations import AIModelInventoryHelpers, AIModelInventoryOperations, discover_local_model_inventory, sync_ai_models_with_local_inventory
 from .interaction_helpers import (
+    AIInteractionHelperOps,
     derive_selection_from_chat,
     normalize_interaction_response,
     persist_interaction,
@@ -46,11 +50,15 @@ __all__ = [
     "AIInteractionMutations",
     "AIInteractionMonolith",
     "AIInteractionValidator",
+    "AIInteractionHelperOpsInterface",
+    "AIModelInventoryHelpersInterface",
+    "AIModelInventoryOperationsInterface",
     "AIModelArtifactOpsInterface",
     "AIModelArtifactOps",
-    "model_artifact_diagnostics",
-    "has_valid_model_artifacts",
-    "local_model_dir",
+    "AIModelInventoryHelpers",
+    "AIModelInventoryOperations",
+    "AIInteractionHelperOps",
+    "discover_local_model_inventory",
     "sync_ai_models_with_local_inventory",
     "derive_selection_from_chat",
     "normalize_interaction_response",

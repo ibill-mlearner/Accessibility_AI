@@ -35,7 +35,7 @@ def create_chat_message(chat_id: int):
         message_text=payload["message_text"],
         vote=payload.get('vote') or 'good',
         note=payload.get('note') or 'no',
-        help_intent=payload.get('help_intent') or 'summarization'
+        help_intent='general'
     )
     db.session.add(message)
     db.session.commit()
@@ -83,13 +83,12 @@ def create_message():
         message_text=payload["message_text"],
         vote=payload.get("vote") or "good",
         note=payload.get("note") or "no",
-        help_intent=payload.get("help_intent") or "summarization"
+        help_intent="general"
     )
     # Handoff note: explicit structured log replaces previous print+bare-except debugging scaffold.
     current_app.logger.debug(
-        "api.messages.create.persisting chat_id=%s help_intent=%s",
+        "api.messages.create.persisting chat_id=%s",
         message.chat_id,
-        message.help_intent,
     )
     db.session.add(message)
     db.session.commit()
@@ -130,9 +129,6 @@ def update_message(message_id: int):
     _apply_message_mutations(message, payload)
     if not message.message_text:
         raise BadRequestError("message_text is required")
-    if not message.help_intent:
-        raise BadRequestError("help_intent is required")
-
     db.session.commit()
     return jsonify(_serialize_record("message", message)), 200
 

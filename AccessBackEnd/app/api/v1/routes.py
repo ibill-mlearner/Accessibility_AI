@@ -4,7 +4,6 @@ from flask import Blueprint, current_app, jsonify
 
 from ..errors import BadRequestError, NotFoundError
 from ...extensions import db
-from ...models import CourseClass
 from ...utils.api_checker import (
     _apply_field_updates,
     _assert_chat_permissions,
@@ -14,7 +13,6 @@ from ...utils.api_checker import (
     _parse_optional_datetime,
     _parse_required_date,
     _publish,
-    _raise_bad_request_from_exception,
     _read_json_object,
     _require_record,
     _resolve_default_class_id_for_user,

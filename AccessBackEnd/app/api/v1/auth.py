@@ -6,7 +6,6 @@ from ...models import User
 import hashlib
 from ...utils.api_checker import (
     _create_user_session,
-    _enforce_roles,
     _normalize_auth_email,
     _resolve_authenticated_session_state,
     _resolved_allowed_actions,
@@ -14,8 +13,8 @@ from ...utils.api_checker import (
     revoke_flask_session_lifecycle_record,
 )
 from ...utils.ai_checker import sync_ai_models_with_local_inventory
-# ROUTES
 @api_v1_bp.post("/auth/login")
+# Intentionally unauthenticated: this endpoint establishes the authenticated session.
 def login_auth_user():
 
 
@@ -107,6 +106,7 @@ def logout_auth_user():
     return jsonify({"message": "logout successful"}), 200
 
 @api_v1_bp.post("/auth/register")
+# Intentionally unauthenticated: this endpoint creates new accounts.
 def register_auth_user():
     """Create and authenticate a user account for API-v1 clients."""
     payload = _read_json_object()
@@ -164,4 +164,3 @@ def register_auth_user():
             }
         ),201,
     )
-

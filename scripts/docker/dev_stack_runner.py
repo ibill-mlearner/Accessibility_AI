@@ -11,6 +11,9 @@ from pathlib import Path
 
 BACKEND_MANAGE = Path('/app/AccessBackEnd/manage.py')
 FRONTEND_PACKAGE = Path('/app/AccessAppFront/package.json')
+# HTTPS enablement note:
+# When TLS is introduced, these should move to `https://...` endpoints that match
+# the local TLS terminator/reverse proxy configuration.
 HEALTH_URL = 'http://127.0.0.1:5000/api/v1/health'
 LOGIN_URL = 'http://127.0.0.1:5000/api/v1/auth/login'
 

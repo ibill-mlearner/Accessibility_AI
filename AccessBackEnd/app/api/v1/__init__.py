@@ -17,7 +17,6 @@ def _register_route_modules() -> None:
     from . import chats
     from . import classes_file
     from . import messages
-    from . import notes
     from . import system_prompts_routes
 
     setattr(api_v1_bp, "_split_routes_loaded", True)

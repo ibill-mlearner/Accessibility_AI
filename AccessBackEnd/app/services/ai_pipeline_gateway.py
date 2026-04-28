@@ -123,6 +123,7 @@ class AIPipelineGateway:
             parts.append("\n\n".join(accessibility_prompts))
         return "\n\n".join(part for part in parts if part)
 
+
     def run(self, prompt: str, *, model_name: str | None = None, system_content: str | None = None) -> dict[str, Any]:
         ai_tool = self._load_ai_tool()
         resolved_model = model_name or self._resolve_active_model_name()
