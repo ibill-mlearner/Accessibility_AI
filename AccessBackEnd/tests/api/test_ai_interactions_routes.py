@@ -30,6 +30,16 @@ def test_derive_selection_from_chat_parses_provider_and_model(app):
     assert model_id == "Qwen/Qwen2.5-0.5B-Instruct"
 
 
+def test_derive_selection_from_chat_ignores_legacy_provider_only_model_token(app):
+    class _Chat:
+        model = "huggingface_langchain"
+
+    with app.app_context():
+        provider, model_id = _derive_selection_from_chat(_Chat())
+    assert provider == "huggingface"
+    assert model_id == ""
+
+
 def test_publish_request_summary_includes_config_model_id(app, monkeypatch):
     from app.api.v1 import ai_interactions_routes as routes
 
