@@ -313,8 +313,6 @@ docker compose down
 - [x] `Professor Tomi Heimonen` has ownership of the frozen branch.
 - [x] Final handoff meeting completed.
 - [x] Frontend handoff docs reviewed against current frontend code.
-- [ ] Receiving team owners assigned for operations, secrets, and backlog.
-- [ ] Production/non-local secret storage and rotation plan finalized.
 
 ### Receiving-team quick checks
 ```bash
@@ -336,10 +334,3 @@ python scripts/compliance/compliance_gate.py
 ### Decisions/status to carry forward
 - Repository remains in stabilization/handoff mode until receiving-team owners accept active maintenance.
 - Extended support was offered after MVP delivery.
-- Remaining open work should be tracked as normal backlog items, not in this handoff master document.
-
-### Signoff still needed
-- Named owner for operations.
-- Named owner for secrets/rotation.
-- Named owner for backlog prioritization.
-- Confirmation that the transfer packet in section 9 is accessible to the receiving team.
