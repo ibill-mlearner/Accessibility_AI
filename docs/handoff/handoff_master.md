@@ -1,6 +1,6 @@
 # Accessibility AI Handoff Master Document
 
-**Effective date:**
+**Effective date:** May 6th, 2026
 
 **Handoff meeting:** April 27, 2026
 
