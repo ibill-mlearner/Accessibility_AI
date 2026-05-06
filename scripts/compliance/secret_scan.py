@@ -24,12 +24,13 @@ SKIP_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".gz", ".sqlite", ".db",
 }
 
+# get tracked repo files (skip binaries)
 
 def tracked_files() -> list[Path]:
     output = subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True)
     return [ROOT / rel for rel in output.splitlines() if (ROOT / rel).suffix.lower() not in SKIP_SUFFIXES]
 
-
+# scan files for potential secrets via regex patterns
 def scan() -> dict[str, list[tuple[str, int, str]]]:
     findings: dict[str, list[tuple[str, int, str]]] = {name: [] for name in SECRET_PATTERNS}
 
@@ -50,7 +51,7 @@ def scan() -> dict[str, list[tuple[str, int, str]]]:
 
     return findings
 
-
+# build markdown report of detected secret matches
 def build_report(findings: dict[str, list[tuple[str, int, str]]]) -> str:
     total = sum(len(v) for v in findings.values())
     lines = [
@@ -88,7 +89,7 @@ def build_report(findings: dict[str, list[tuple[str, int, str]]]) -> str:
     )
     return "\n".join(lines)
 
-
+# run to disk
 def main() -> None:
     findings = scan()
     report = build_report(findings)

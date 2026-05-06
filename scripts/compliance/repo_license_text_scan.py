@@ -24,7 +24,7 @@ SKIP_SUFFIXES = {
     ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".ttf", ".eot", ".pdf", ".zip", ".gz", ".sqlite", ".db",
 }
 
-
+# get tracked repo files (skip binaries and reports)
 def tracked_files() -> list[Path]:
     output = subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True)
     files: list[Path] = []
@@ -38,6 +38,7 @@ def tracked_files() -> list[Path]:
     return files
 
 
+# scan files for license-related keywords/patterns
 def scan() -> dict[str, list[tuple[str, int, str]]]:
     findings: dict[str, list[tuple[str, int, str]]] = {key: [] for key in PATTERNS}
 
@@ -56,6 +57,7 @@ def scan() -> dict[str, list[tuple[str, int, str]]]:
     return findings
 
 
+# build markdown report of license text matches
 def build_report(findings: dict[str, list[tuple[str, int, str]]]) -> str:
     total_hits = sum(len(values) for values in findings.values())
     lines = [
@@ -96,6 +98,7 @@ def build_report(findings: dict[str, list[tuple[str, int, str]]]) -> str:
     return "\n".join(lines)
 
 
+# run scan and write report to disk
 def main() -> None:
     findings = scan()
     report = build_report(findings)

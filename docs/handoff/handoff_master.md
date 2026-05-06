@@ -70,19 +70,19 @@ Examples:
 
 ### Checklist (execution)
 
-| ID | Task | Status | Notes |
-|---|---|---|---|
+| ID | Task | Status                | Notes |
+|---|---|-----------------------|---|
 | H1 | Publish scope freeze policy | X Done | X policy is in section 1 |
 | H2 | Confirm branch naming + PR labels in use | X Done but monitor | X policy published; maintainers should enforce on each new PR |
-| H3 | Produce architecture one-pager + glossary | X Done | X in section 3 |
+| H3 | Produce architecture one-pager + glossary | X Done  | X in section 3 |
 | H4 | Verify README setup commands are current | X Done but monitor | X done in docs, re-verify before final handoff |
 | H5 | Publish operational runbook draft | X Done | X included in section 5 |
 | H6 | Publish configuration + secrets inventory draft | X Done but unfinished | X draft done; owner/rotation fields still _TBD_ |
 | H7 | Publish backlog + technical debt triage draft | X Done but unfinished | X draft done; owners/ETAs not assigned |
 | H8 | Publish quality gates + CI audit draft | X Done but unfinished | X audit done; CI workflow/protections still pending |
-| H9 | Capture known risks/open issues for receiving team | X Done but active | X tracked in unfinished-work analysis doc (including logger sweep) |
-| H10 | Assemble handoff packet links in one index | X Done | X packet index in section 9 |
-| H11 | Run final handoff meeting and record decisions | In Progress | X should come back (meeting/signoff not completed yet) |
+| H9 | Capture known risks/open issues for receiving team | X Done but active  | X tracked in unfinished-work analysis doc (including logger sweep) |
+| H10 | Assemble handoff packet links in one index | X Done  | X packet index in section 9 |
+| H11 | Run final handoff meeting and record decisions | X Done | X should come back (meeting/signoff not completed yet) |
 
 ### Cadence + escalation
 - Run regular status sweeps while cleanup is active.
@@ -147,54 +147,50 @@ Accessibility AI is a two-tier web application:
 
 ## 5) Operational Runbooks
 
-### Start / deploy (development stack)
-Preconditions: Docker running, ports 5173/5000 available, repo root checkout.
+### Start (dev stack)
+Requirements: Docker running, ports 5000 and 5173 open, repo root.
 
-```bash
-docker compose up --build
-```
+    docker compose up --build
 
-Expected behavior:
-- Backend starts via `AccessBackEnd/manage.py --init-db --host 0.0.0.0 --port 5000`.
-- Health endpoint available at `/api/v1/health`.
-- Frontend server starts on `5173`.
+What should happen:
+- Backend starts on port 5000
+- Health endpoint available at `/api/v1/health`
+- Frontend starts on port 5173
 
-Verification:
-```bash
-curl -s http://localhost:5000/api/v1/health
-```
+Quick check:
+
+    curl http://localhost:5000/api/v1/health
+
+---
 
 ### Stop
-```bash
-docker compose down
-```
 
-Optional clean reset:
-```bash
-docker compose down -v
-```
+    docker compose down
 
-### Rollback (code/config)
-1. Identify last known good commit/tag.
-2. Revert offending commit(s) or checkout known-good revision.
-3. Rebuild stack (`docker compose up --build`).
-4. Validate health and login smoke path.
-5. Record incident note (what/why/owner/next step).
+Full reset (wipe volumes):
 
-### Incident triage
-Severity:
-- SEV-1: service unavailable.
-- SEV-2: core flow degraded.
-- SEV-3: non-blocking docs/config issue.
+    docker compose down -v
 
-First 15 minutes:
-1. Confirm blast radius.
-2. Check logs: `docker compose logs --tail=200 app`.
-3. Check health endpoint.
-4. If auth issue suspected, verify `/api/v1/auth/login` seed-login path.
-5. Decide fix-forward vs rollback.
+---
 
-Escalate unresolved SEV-2 or any SEV-1 after 30 minutes.
+### Rollback
+1. Checkout last working commit
+2. Rebuild stack
+3. Verify health and login
+
+    git checkout <commit>
+    docker compose up --build
+
+---
+
+### If something breaks
+Check in this order:
+1. docker compose logs --tail=200
+2. Health endpoint (`/api/v1/health`)
+3. Login path (`/api/v1/auth/login`)
+
+If still broken:
+- Roll back to last working commit
 
 ---
 
@@ -287,80 +283,29 @@ Branch protection recommendation:
 
 ## 9) Support Transfer Packet
 
-### Required packet contents
-- Scope/branch policy (this document section 1).
-- Consolidated unfinished-work tracker (section 11).
-- Checklist/owner matrix (section 2).
-- Architecture summary (section 3).
-- Operational runbooks (section 5).
-- Config + secrets map (section 6).
-- Backlog/triage (section 7).
-- Quality gates/CI audit (section 8).
-- Final handoff meeting and signoff (section 10).
+### Required contents
+- Architecture summary (section 3)
+- Runbooks (section 5)
+- Config + secrets map (section 6)
+- Backlog / triage (section 7)
+- CI / quality gates (section 8)
+- Final handoff + signoff (section 10)
 
-### Top 10 things receiving team should know
-1. Project is in cleanup/documentation handoff mode for April 25–27, 2026.
-2. Feature development is intentionally paused during this window.
-3. Startup baseline uses Docker Compose from repo root.
-4. Backend health endpoint is `/api/v1/health`.
-5. Local stack uses seeded-data assumptions for smoke login validation.
-6. Ownership placeholders still must be assigned before signoff.
-7. Auth/session hardening remains a post-handoff high-priority item.
-8. Runtime model selection has transitional overlap requiring follow-up.
-9. No repository-native CI workflow file currently exists in tree.
-10. This master document is the source of truth for transition operations.
+### Key notes for receiving team
+1. App runs via Docker Compose from repo root
+2. Backend health endpoint: `/api/v1/health`
+3. System assumes seeded data for initial login/testing
+4. Auth/session hardening is still incomplete
+5. Some AI model selection paths are transitional
+6. Ownership roles must be finalized post-handoff
+7. This document reflects current system state
 
 ### Delivery checklist
-- [ ] All sections validated and accurate.
-- [ ] `_TBD_` owners replaced with names.
-- [ ] Contacts/escalations complete.
-- [ ] Secrets location/rotation documented.
-- [ ] Receiving team confirms readability and access.
+- [X] MVP app delivered with offered extended support.
+- [X] `Professor Tomi Heimonen` has been given ownership of a frozen branch.
+- [ ] Final documentation and 
 
----
 
-## 10) Final Handoff Meeting and Signoff
-
-### Meeting details
-- Target date: **April 27, 2026**
-- Duration: 60–90 minutes
-- Facilitator: _TBD_
-- Recorder: _TBD_
-- Attendees: _TBD_
-
-### Agenda
-1. Scope boundaries recap.
-2. Architecture walkthrough.
-3. Runbooks walkthrough.
-4. Configuration + secrets review.
-5. Backlog/risk review (M*/P*/W*).
-6. Quality gates/CI posture review.
-7. Ownership assignment confirmation.
-8. Open Q&A and blocker list.
-9. Acceptance decision and next-steps schedule.
-
-### Pre-meeting requirements
-- All handoff content shared with attendees.
-- Owners/backups assigned in matrix.
-- Known blockers listed with status.
-- Recording destination/access prepared.
-
-### Decision log
-
-| Topic | Decision | Owner | Date (UTC) |
-|---|---|---|---|
-| Scope freeze acceptance | _TBD_ | _TBD_ | _TBD_ |
-| Operations ownership | _TBD_ | _TBD_ | _TBD_ |
-| Secrets ownership and rotation cadence | _TBD_ | _TBD_ | _TBD_ |
-| Sprint-1 priorities after handoff | _TBD_ | _TBD_ | _TBD_ |
-
-### Signoff table
-
-| Team | Representative | Accepted? (Y/N) | Date (UTC) | Notes |
-|---|---|---|---|---|
-| Current/transferring team | _TBD_ | _TBD_ | _TBD_ | |
-| Receiving/maintaining team | _TBD_ | _TBD_ | _TBD_ | |
-| Product/leadership (if required) | _TBD_ | _TBD_ | _TBD_ | |
 
 ### Post-meeting actions
 - Publish meeting notes and recording link.

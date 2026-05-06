@@ -46,11 +46,12 @@ class Finding:
     status: str
     notes: str = ""
 
+# normalize license strings for consistent comparison
 
 def normalize(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
 
-
+# classify license risk level (copyleft vs ok vs unknown)
 def classify_license(license_value: str) -> str:
     norm = normalize(license_value)
     if not norm or norm == "unknown":
@@ -59,7 +60,7 @@ def classify_license(license_value: str) -> str:
         return "copyleft-review"
     return "permissive-or-other"
 
-
+# load manually defined licenses for git/first-party deps
 def load_first_party_licenses() -> dict[str, dict[str, str]]:
     if not FIRST_PARTY_LICENSES.exists():
         return {}
@@ -72,8 +73,9 @@ def load_first_party_licenses() -> dict[str, dict[str, str]]:
             by_requirement[requirement.strip()] = dependency
     return by_requirement
 
-
-def load_python_licenses() -> dict[str, dict[str, str]]:
+# load curated python license overrides/mappings
+def load_python_licenses()\
+        -> dict[str, dict[str, str]]:
     if not PYTHON_LICENSES.exists():
         return {}
     payload = json.loads(PYTHON_LICENSES.read_text(encoding="utf-8"))
@@ -85,7 +87,7 @@ def load_python_licenses() -> dict[str, dict[str, str]]:
             by_name[name.strip().lower()] = dependency
     return by_name
 
-
+# parse npm lockfile and extract license info per package
 def parse_npm_findings() -> list[Finding]:
     payload = json.loads(FRONT_LOCKFILE.read_text(encoding="utf-8"))
     packages = payload.get("packages", {})
@@ -111,7 +113,7 @@ def parse_npm_findings() -> list[Finding]:
 
     return findings
 
-
+# extract package name from a requirements.txt line
 def parse_requirement_name(raw_line: str) -> str | None:
     line = raw_line.strip()
     if not line or line.startswith("#"):
@@ -131,7 +133,11 @@ def parse_requirement_name(raw_line: str) -> str | None:
     return name or None
 
 
-def fetch_json(url: str, headers: dict[str, str] | None = None) -> dict | None:
+# fetch JSON from external APIs (PyPI/GitHub)
+def fetch_json(
+        url: str,
+        headers: dict[str, str] | None = None
+        ) -> dict | None:
     request_headers = {"User-Agent": "Accessibility-AI-License-Audit"}
     if headers:
         request_headers.update(headers)
@@ -143,6 +149,7 @@ def fetch_json(url: str, headers: dict[str, str] | None = None) -> dict | None:
         return None
 
 
+# get license info for a python package from PyPI
 def fetch_pypi_license(name: str) -> tuple[str, str]:
     url = f"https://pypi.org/pypi/{urllib.parse.quote(name)}/json"
     payload = fetch_json(url)
@@ -166,6 +173,7 @@ def fetch_pypi_license(name: str) -> tuple[str, str]:
     return "UNKNOWN", "No PyPI license metadata"
 
 
+# extract owner/repo from git dependency URL
 def parse_github_repo_from_git_requirement(requirement_line: str) -> tuple[str, str] | None:
     pattern = r"github\.com[:/](?P<owner>[^/]+)/(?P<repo>[^/.#]+)(?:\.git)?"
     match = re.search(pattern, requirement_line)
@@ -176,6 +184,7 @@ def parse_github_repo_from_git_requirement(requirement_line: str) -> tuple[str, 
     return owner, repo
 
 
+# fetch SPDX license from GitHub API
 def fetch_github_license_spdx(owner: str, repo: str) -> tuple[str, str]:
     payload = fetch_json(
         f"https://api.github.com/repos/{owner}/{repo}/license",
@@ -190,6 +199,7 @@ def fetch_github_license_spdx(owner: str, repo: str) -> tuple[str, str]:
     return str(spdx), f"from GitHub API ({html_url})"
 
 
+# build finding for git-based python dependency
 def build_git_requirement_finding(requirement: str, first_party_map: dict[str, dict[str, str]]) -> Finding:
     mapped = first_party_map.get(requirement)
     if mapped:
@@ -228,7 +238,7 @@ def build_git_requirement_finding(requirement: str, first_party_map: dict[str, d
         notes="Git dependency not in first-party mapping and could not infer repository metadata.",
     )
 
-
+# parse requirements.txt and build python license findings
 def parse_python_findings() -> list[Finding]:
     findings: list[Finding] = []
     raw_lines = BACK_REQS.read_text(encoding="utf-8").splitlines()
@@ -271,6 +281,7 @@ def parse_python_findings() -> list[Finding]:
     return findings
 
 
+# generate markdown report from all findings
 def build_report(npm_findings: list[Finding], py_findings: list[Finding]) -> str:
     all_findings = npm_findings + py_findings
     flagged = [f for f in all_findings if f.status in {"copyleft-review", "manual-review", "unknown"}]
@@ -312,6 +323,7 @@ def build_report(npm_findings: list[Finding], py_findings: list[Finding]) -> str
     return "\n".join(lines)
 
 
+# run full audit and write report to disk
 def main() -> None:
     npm_findings = parse_npm_findings()
     py_findings = parse_python_findings()

@@ -13,11 +13,11 @@ ROOT = Path(__file__).resolve().parents[2]
 REPORT_LICENSE = ROOT / "docs" / "compliance" / "latest_license_audit.md"
 REPORT_SECRET = ROOT / "docs" / "compliance" / "secret_scan_report.md"
 
-
+# Run a compliance command from the repo root and fail if the command fails.
 def run(cmd: list[str]) -> None:
     subprocess.run(cmd, cwd=ROOT, check=True)
 
-
+# Pull a numeric pass/fail metric out of a generated markdown report.
 def extract_metric(path: Path, pattern: str, label: str) -> int:
     text = path.read_text(encoding="utf-8")
     match = re.search(pattern, text)
@@ -25,11 +25,15 @@ def extract_metric(path: Path, pattern: str, label: str) -> int:
         raise RuntimeError(f"Could not find metric '{label}' in {path}")
     return int(match.group(1))
 
-
+# Run all compliance scans and return a CI-friendly exit code.
 def main() -> int:
     print("Running compliance scanners...")
+
+    # audit dependency licenses for issues
     run([sys.executable, "scripts/compliance/license_audit.py"])
+    # scan repo text for license flags
     run([sys.executable, "scripts/compliance/repo_license_text_scan.py"])
+    # scan repo for possible secrets
     run([sys.executable, "scripts/compliance/secret_scan.py"])
 
     license_review_count = extract_metric(

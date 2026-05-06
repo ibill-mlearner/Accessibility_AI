@@ -1,3 +1,4 @@
+# Runs the Flask backend and Vue frontend together so the app can start with one Docker command.
 from __future__ import annotations
 
 import atexit
@@ -9,6 +10,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+# Expected app entry points inside the Docker container.
 BACKEND_MANAGE = Path('/app/AccessBackEnd/manage.py')
 FRONTEND_PACKAGE = Path('/app/AccessAppFront/package.json')
 # HTTPS enablement note:
@@ -33,7 +35,7 @@ def require_file(path: Path) -> None:
             print(entry)
     raise SystemExit(1)
 
-
+# Waits until Flask is responding before starting frontend-dependent checks.
 def wait_for_health(timeout_seconds: int = 90) -> None:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
@@ -47,7 +49,7 @@ def wait_for_health(timeout_seconds: int = 90) -> None:
             time.sleep(1)
     raise SystemExit('backend health endpoint did not become ready in time')
 
-
+# Confirms the seeded demo account works before launching the UI.
 def verify_seeded_login() -> None:
     request = urllib.request.Request(
         LOGIN_URL,
@@ -65,6 +67,7 @@ def main() -> int:
     require_file(BACKEND_MANAGE)
     require_file(FRONTEND_PACKAGE)
 
+    # Launch backend without blocking so the rest of the startup can proceed
     backend = subprocess.Popen(
         ['python3', str(BACKEND_MANAGE), '--init-db', '--host', '0.0.0.0', '--port', '5000'],
     )
@@ -80,6 +83,8 @@ def main() -> int:
     verify_seeded_login()
 
     log('starting frontend dev server')
+
+    # Launch the Vue frontend server after backend startup has been verified.
     frontend = subprocess.run(
         ['npm', '--prefix', '/app/AccessAppFront', 'run', 'dev', '--', '--host', '0.0.0.0', '--port', '5173', '--strictPort'],
         check=False,
