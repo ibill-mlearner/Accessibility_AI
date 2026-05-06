@@ -1,45 +1,60 @@
 # Frontend Store Ownership & Bootstrap Flow
 
-This document captures store boundaries and startup orchestration for handoff workstream step 6.
+Current store and startup behavior lives under `src/stores`, with network calls using `src/services/api.js`.
 
-## API client base URL (`src/services/api.js`)
+## API client base URL
+- `src/services/api.js` exports one shared Axios instance named `api`.
+- `baseURL` is `import.meta.env.VITE_API_BASE_URL || ''`.
+- When `VITE_API_BASE_URL` is set, relative `/api/v1/...` calls go to that backend host.
+- When it is empty, requests are same-origin.
+- The client does not set `withCredentials`; same-origin browser defaults are used.
 
-- The app uses one shared Axios instance (`api`) for all network calls.
-- `baseURL` is read from `VITE_API_BASE_URL`; if set, all relative routes like `/api/v1/chats` resolve against that backend host automatically.
-- If `VITE_API_BASE_URL` is empty, requests stay same-origin, which is useful when frontend/backend are served from one domain in development.
+## Store ownership
+- `authStore`
+  - Owns auth/session identity: `role`, `user`, `currentUser`, `isAuthenticated`, `authError`, `session`, `allowedActions`, `sessionChecked`.
+  - Actions: `login`, `register`, `me`, `logout`, `initFromSession`, `clearAuthState`, `applyAuthenticatedUser`, `setRole`.
+  - `clearAuthState()` also resets chat, class, and feature stores and removes root font styles.
+- `chatStore`
+  - Owns chat list/selection, model catalog, selected model, optimistic new-chat intent, and chat/message/AI action status.
+  - Handles `/api/v1/ai/catalog`, `/api/v1/ai/selection`, chat CRUD, messages, and AI interaction calls.
+- `classStore`
+  - Owns class list/selection, instructor options, class CRUD, and class action status.
+- `featureStore`
+  - Owns accessibility feature inventory, selected enabled feature ids, and preference updates/replacement.
+- `appBootstrapStore`
+  - Owns top-level startup loading state plus aggregate bootstrap `error` and `authError`.
 
-## Store ownership map
+## Startup sequence
+- `main.js` creates Pinia, registers it with Vue, instantiates `useAppBootstrapStore(pinia)`, installs the router, and mounts the app.
+- `App.vue` `onMounted`:
+  1. Calls `auth.me()` if `auth.sessionChecked` is false.
+  2. Calls `bootstrap.bootstrap()` only when `auth.isAuthenticated` is true.
+- `appBootstrapStore.bootstrap()`:
+  1. Sets `loading`, clears bootstrap errors.
+  2. Calls `auth.me()` if the session has not been checked.
+  3. Stops early when unauthenticated.
+  4. For authenticated users, runs these loaders with `Promise.allSettled`:
+     - `chatStore.ensureModelCatalogFreshForSession()`
+     - `chatStore.fetchChats()`
+     - `classStore.fetchClasses()`
+     - `featureStore.fetchFeatures()`
+  5. If any loader fails with `kind: 'auth'`, sets a session-expired message and calls `auth.logout()`.
+  6. If any non-auth typed resource failure occurs, sets a generic bootstrap resource error.
+  7. Clears `loading`.
 
-### `authStore`
-- Owns authentication/session identity state (`isAuthenticated`, `role`, `currentUser`, `session`, `allowedActions`, `authError`, `sessionChecked`).
-- Owns auth lifecycle actions (`login`, `register`, `me`, `logout`, `clearAuthState`).
+## Session lifecycle details
+- `auth.login()` and `auth.register()`:
+  - POST credentials/account data.
+  - Apply the returned user, reset chat state, refresh session with `me()`, then ensure model selection is ready.
+- `auth.me()`:
+  - GETs `/api/v1/auth/session`.
+  - On success, applies the user, stores session metadata, mirrors `session.allowed_actions`, sets `sessionChecked = true`, and returns `true`.
+  - On failure, clears auth and dependent stores, sets `authError`, and returns `false`.
+- `auth.logout()`:
+  - POSTs `/api/v1/auth/logout` and clears local auth/dependent store state in `finally`.
+- `ProfileView` also hydrates chats, classes, and features on direct open when authenticated and those stores are empty.
 
-### `chatStore`
-- Owns chat list/selection, model catalog + selected model, chat action status, message/interaction fetch + mutation methods.
-
-### `classStore`
-- Owns class inventory, selected class, instructor options, and class CRUD action status.
-
-### `featureStore`
-- Owns accessibility feature inventory, selection, and profile preference mutations.
-
-### `appBootstrapStore`
-- Owns application startup orchestration (`bootstrap`) and top-level startup errors.
-
-## Bootstrap sequence (`appBootstrapStore.bootstrap`)
-1. Clear bootstrap-local loading/error flags.
-2. Ensure auth session is checked (`auth.me()` when needed).
-3. Stop early if user is unauthenticated.
-4. In parallel (`Promise.allSettled`), load:
-   - model catalog freshness (`chatStore.ensureModelCatalogFreshForSession`)
-   - chats (`chatStore.fetchChats`)
-   - classes (`classStore.fetchClasses`)
-   - accessibility features (`featureStore.fetchFeatures`)
-5. Convert rejected promises into:
-   - `authError` + forced logout for auth failures
-   - generic bootstrap `error` for non-auth resource failures
-
-## Ownership rules for maintainers
-- Keep network calls inside stores/composables; avoid direct API calls in view templates.
-- Keep role/capability derivation in one place per domain (`authStore` + dedicated composables).
-- Keep route guard auth checks in router and avoid duplicating route-level auth decisions inside components.
+## Validation commands
+- `npm test`
+- `npm run build`
+- `npm run check`
