@@ -1,375 +1,345 @@
-# Accessibility AI Handoff Master Document (Steps 1–10)
+# Accessibility AI Handoff Master Document
 
-**Effective date:** April 25, 2026  
-**Handoff target date:** April 27, 2026  
-**Mode:** Cleanup and documentation only
+**Effective date:**
+
+**Handoff meeting:** April 27, 2026
+
+**Current mode:** hand it off
 
 ---
 
 ## 1) Scope Freeze and Branch Policy
 
-### Purpose
-This policy freezes feature development while the team prepares project handoff artifacts. The goal is to stabilize the codebase, reduce risk, and make transition ownership explicit.
-
 ### Allowed work
-- Documentation updates (README, runbooks, architecture notes, onboarding docs).
-- Cleanup-only refactors that **do not** change behavior.
-- Tests for existing behavior (no new feature coverage requirements).
+- Documentation, runbooks, architecture notes, and onboarding updates.
+- Cleanup-only refactors that do not intentionally change runtime behavior.
+- Tests for existing behavior.
 - CI/configuration clarification and metadata hygiene.
 - Low-risk naming/comment improvements.
 
 ### Not allowed
-- New features, new product surface area, or behavior-changing UX flows.
+- New features or new product surface area.
+- Behavior-changing UX flows.
 - Schema changes unless required to fix a blocking handoff issue.
 - New external service integrations.
 - Broad dependency upgrades not required for handoff.
 
-### Branch policy
-- Treat `main` as stabilization-only.
-- Prefer short-lived branches using `docs/`, `chore/`, or `cleanup/` prefixes.
-- Merge only after at least one reviewer confirms “no behavior change” (or explicitly records exception).
-- PR title guidance: `docs: ...`, `chore: ...`, `cleanup: ...`.
+### Branch and PR conventions
+- Branch prefixes: `docs/`, `chore/`, `cleanup/`.
+- PR title prefixes: `docs:`, `chore:`, `cleanup:`.
 
-
-### H2 publish: branch naming + PR labels policy
-
-Use these conventions during handoff freeze to keep changes easy to audit:
-
-- Branch prefixes: `docs/`, `chore/`, `cleanup/`
-- PR title prefixes: `docs:`, `chore:`, `cleanup:`
-- Suggested PR labels:
-  - `handoff`
-  - `docs-only`
-  - `no-behavior-change`
-
-Examples:
-- `docs/handoff-checklist-status`
-- `cleanup/remove-print-debugging`
-- `chore/logging-comment-clarity`
-
-### Definition of done (handoff mode)
-1. Scope aligns with allowed work above.
-2. No intended runtime behavior change is introduced.
+### Handoff completion check
+1. Scope fits the allowed-work list.
+2. No intended behavior change is introduced.
 3. Relevant docs are updated.
-4. Basic validation commands pass locally (or known env limitations are recorded).
-5. Handoff checklist item is moved to `Done` with owner and timestamp.
-
-### Exception process
-1. Mark checklist item as `Blocked` with reason.
-2. Create a small exception note in the PR description (why needed, risk, rollback, approver).
-3. Obtain explicit maintainer approval before merge.
+4. Basic validation commands pass, or limitations are recorded.
+5. Checklist status is updated.
 
 ---
 
 ## 2) Handoff Checklist
 
-### Status legend
-- `X Done`
-- `In Progress`
-- `Not Started`
-
-### Checklist (execution)
-
-| ID | Task | Status                | Notes |
-|---|---|-----------------------|---|
-| H1 | Publish scope freeze policy | X Done | X policy is in section 1 |
-| H2 | Confirm branch naming + PR labels in use | X Done but monitor | X policy published; maintainers should enforce on each new PR |
-| H3 | Produce architecture one-pager + glossary | X Done  | X in section 3 |
-| H4 | Verify README setup commands are current | X Done but monitor | X done in docs, re-verify before final handoff |
-| H5 | Publish operational runbook draft | X Done | X included in section 5 |
-| H6 | Publish configuration + secrets inventory draft | X Done but unfinished | X draft done; owner/rotation fields still _TBD_ |
-| H7 | Publish backlog + technical debt triage draft | X Done but unfinished | X draft done; owners/ETAs not assigned |
-| H8 | Publish quality gates + CI audit draft | X Done but unfinished | X audit done; CI workflow/protections still pending |
-| H9 | Capture known risks/open issues for receiving team | X Done but active  | X tracked in unfinished-work analysis doc (including logger sweep) |
-| H10 | Assemble handoff packet links in one index | X Done  | X packet index in section 9 |
-| H11 | Run final handoff meeting and record decisions | X Done | X should come back (meeting/signoff not completed yet) |
-
-### Cadence + escalation
-- Run regular status sweeps while cleanup is active.
-- If any item becomes `Blocked`, escalate to project maintainer.
+| ID | Task | Status | Notes |
+|---|---|---|---|
+| H1 | Publish scope freeze policy | Done | Section 1. |
+| H2 | Confirm branch naming + PR labels in use | Done | Section 1. |
+| H3 | Produce architecture one-pager + glossary | Done | Section 3. |
+| H4 | Verify README setup commands are current | Done | Section 4. |
+| H5 | Publish operational runbook draft | Done | Section 5. |
+| H6 | Publish configuration + secrets inventory draft | Done, needs owner follow-up | Section 6; production secret owner/rotation cadence still needs assignment. |
+| H7 | Publish backlog + technical debt triage draft | Done, needs owner follow-up | Section 7; owners/ETAs still need assignment. |
+| H8 | Publish quality gates + CI audit draft | Done | Section 8. |
+| H9 | Capture known risks/open issues for receiving team | Done, active | Sections 7 and 9. |
+| H10 | Assemble handoff packet links in one index | Done | Section 9. |
+| H11 | Run final handoff meeting and record decisions | Done | Section 10. |
 
 ---
 
 ## 3) Architecture One-Pager
 
-### H3 publish artifact
-- This section (Section 3) is the one-page architecture reference for handoff.
-- Keep this section current when route/module ownership changes.
-
 ### System summary
-Accessibility AI is a two-tier web application:
-- **Frontend:** Vue application (`AccessAppFront`) for chat, profile, classes, notes, and accessibility settings.
-- **Backend:** Flask API (`AccessBackEnd`) with SQLAlchemy models and SQLite default storage for development.
+Accessibility AI is a two-tier web app:
+- **Frontend:** Vue + Pinia + Vue Router app in `AccessAppFront`.
+- **Backend:** Flask API in `AccessBackEnd` with SQLAlchemy and SQLite default storage for local/dev use.
 
 ### High-level component map
 ```text
 [Browser / Vue App]
    |
-   | HTTP (JSON)
+   | HTTP JSON (/api/v1)
    v
-[Flask API - /api/v1 routes]
+[Flask API]
    |
-   +--> [Service layer / pipeline gateway]
-   +--> [DB repositories / SQLAlchemy models]
-   +--> [SQLite DB (dev default)]
+   +--> service layer / AI pipeline gateway
+   +--> SQLAlchemy models and repositories
+   +--> SQLite local/dev database
 ```
 
-### Request/data flow (typical chat)
-1. User submits prompt in frontend chat UI.
-2. Frontend store/composable sends API request to backend route.
-3. Backend validates request schema and route authorization context.
-4. Backend service layer assembles runtime context + model configuration.
-5. AI pipeline/provider call is made through gateway abstractions.
-6. Response is normalized and persisted as interaction/chat records.
-7. Backend returns payload; frontend updates timeline state.
+### Current frontend surface
+- App root: `AccessAppFront/src/`.
+- Routes: `/`, `/accessibility`, `/classes`, `/login`, `/logout`, `/profile`, `/error`.
+- Router protection is metadata-driven: the `/profile` route record currently includes `meta: { requiresAuth: true }`, and `router.beforeEach` checks `to.meta?.requiresAuth` before calling `auth.me()` and redirecting unauthenticated users to `login`.
+- Frontend handoff docs:
+  - `AccessAppFront/docs/frontend-handoff-snapshot.md`
+  - `AccessAppFront/docs/route-guard-access-policy.md`
+  - `AccessAppFront/docs/store-ownership-and-bootstrap.md`
+  - `AccessAppFront/docs/frontend-logging-and-error-policy.md`
 
-### Core modules
-- Frontend app root: `AccessAppFront/src/`.
-- Backend app root: `AccessBackEnd/app/`.
-- API routes: `app/api/v1/`.
-- DB/settings: `app/db/`.
-- Models: `app/models/`.
-- Services/pipeline: `app/services/`.
+### Current backend surface
+- App root: `AccessBackEnd/app/`.
+- API routes: `AccessBackEnd/app/api/v1/`.
+- Config: `AccessBackEnd/app/config.py`.
+- Models: `AccessBackEnd/app/models/`.
+- Services and pipeline integration: `AccessBackEnd/app/services/`.
+  - Current service files include the AI pipeline gateway, demo/model-download helpers, and the `services/logging/` event/logging modules.
+- Database layer: `AccessBackEnd/app/db/`.
+  - Current DB files include settings/config helpers, SQLite migrations, model-file loading, prompt-context assembly, and repositories.
+- Backend docs index: `AccessBackEnd/docs/README.md`.
 
-### Runtime + dependencies
-- Local dev default: docker compose / local Python + Node workflows.
-- DB default: SQLite under `AccessBackEnd/instance/`.
-- Key stacks: Flask/SQLAlchemy and Vue/Pinia/Vue Router/Vite.
+### Typical chat request flow
+1. User submits a prompt from the frontend chat UI.
+2. Frontend store/composable calls the backend `/api/v1` route.
+3. Backend validates request/auth context.
+4. Backend service layer assembles runtime context and model configuration.
+5. AI pipeline/provider gateway returns a normalized response.
+6. Backend persists interaction/chat records and returns the response.
+7. Frontend updates the chat timeline.
 
 ### Glossary
-- **Accommodation:** user-selectable accessibility preference.
-- **Pipeline gateway:** backend abstraction layer that packages/selects provider requests.
-- **Thin contract:** constrained interface boundary for model interaction payloads.
-- **Module config:** config object owned by a specific subsystem.
-- **Handoff packet:** full documentation set transferred to receiving team.
+- **Accommodation:** accessibility preference/feature record.
+- **Pipeline gateway:** backend boundary that packages provider requests.
+- **Thin contract:** constrained AI interaction payload boundary.
 
 ---
 
-## 5) Operational Runbooks
+## 4) Setup Commands Verified
 
-### Start (dev stack)
-Requirements: Docker running, ports 5000 and 5173 open, repo root.
+### Docker path
+General Docker Desktop path:
+```bash
+docker compose up --build
+```
 
-    docker compose up --build
+Explicit project/file path for machines with multiple Docker projects:
+```bash
+docker compose --project-name accessibility-ai -f docker-compose.yml up --build
+```
 
-What should happen:
-- Backend starts on port 5000
-- Health endpoint available at `/api/v1/health`
-- Frontend starts on port 5173
+### Backend local path
+```bash
+cd AccessBackEnd
+python -m venv .venv
+# activate .venv for your shell
+pip install -r requirements.txt
+python manage.py --init-db --host 0.0.0.0 --port 5000
+```
 
-Quick check:
+### Frontend local path
+```bash
+cd AccessAppFront
+npm ci
+npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+```
 
-    curl http://localhost:5000/api/v1/health
+### Current caveat
+- `docker-compose.yml` exposes the Vite frontend on host port `5173`; backend API calls go through the Vite `/api` proxy in the Docker flow.
 
 ---
+
+## 5) Operational Runbook
+
+### Start full dev stack with Docker
+Requirements: Docker running, repo root checkout.
+
+```bash
+docker compose up --build
+```
+
+Expected behavior:
+- Current dev flow uses one container to start both Flask and Vite through `scripts/docker/dev_stack_runner.py`.
+- This runner is for local/dev portability; future deployment work can split frontend and backend into separate containers or hosts.
+- Backend listens inside the container on port `5000`.
+- Frontend is exposed on host port `5173`.
+- Vite proxies `/api` requests to the backend.
+
+Quick checks:
+```bash
+curl http://localhost:5173/api/v1/health
+docker compose logs --tail=200
+```
 
 ### Stop
+```bash
+docker compose down
+```
 
-    docker compose down
+### Full Docker reset
+```bash
+docker compose down -v
+```
 
-Full reset (wipe volumes):
+### Local backend without Docker
+```bash
+cd AccessBackEnd
+python -m venv .venv
+# activate .venv for your shell
+pip install -r requirements.txt
+python manage.py --init-db --host 0.0.0.0 --port 5000
+```
 
-    docker compose down -v
-
----
+### Local frontend without Docker
+```bash
+cd AccessAppFront
+npm ci
+npm run dev -- --host 0.0.0.0 --port 5173 --strictPort
+```
 
 ### Rollback
-1. Checkout last working commit
-2. Rebuild stack
-3. Verify health and login
-
-    git checkout <commit>
-    docker compose up --build
-
----
-
-### If something breaks
-Check in this order:
-1. docker compose logs --tail=200
-2. Health endpoint (`/api/v1/health`)
-3. Login path (`/api/v1/auth/login`)
-
-If still broken:
-- Roll back to last working commit
+```bash
+git checkout <last-known-good-commit>
+docker compose up --build
+curl http://localhost:5173/api/v1/health
+```
 
 ---
 
 ## 6) Configuration and Secrets Map
 
-### Storage model
-- Local dev: shell env vars or compose environment block.
-- Non-local: use secret manager; do not hardcode secrets.
+### Key variables
 
-### Config inventory (key vars)
-
-| Variable | Required | Default/Example | Secret? |
+| Variable | Required | Default/example | Secret? |
 |---|---|---|---|
 | `APP_CONFIG` | No | `development` | No |
 | `FLASK_ENV` | No | `development` | No |
-| `FLASK_DEBUG` | No | `1` (dev) | No |
-| `SQLALCHEMY_DATABASE_URI` | Conditionally required | `sqlite:////app/AccessBackEnd/instance/accessibility_ai.db` | Potentially |
-| `SECRET_KEY` | Yes (non-dev) | dev default present | Yes |
-| `JWT_SECRET_KEY` | Yes (non-dev) | falls back to `SECRET_KEY` | Yes |
+| `FLASK_DEBUG` | No | `1` in dev | No |
+| `SQLALCHEMY_DATABASE_URI` | Conditionally | SQLite dev path | Potentially |
+| `SECRET_KEY` | Yes outside dev | dev fallback exists | Yes |
+| `JWT_SECRET_KEY` | Yes outside dev | falls back to `SECRET_KEY` | Yes |
 | `CORS_ORIGINS` | No | `http://localhost:5173` | No |
 | `AUTH_PROVIDER` | No | `local` | No |
 | `AI_PROVIDER` | No | `huggingface` | No |
-| `AI_MODEL_NAME` | Conditionally required | local model path default | No |
+| `AI_MODEL_NAME` | Conditionally | local/default model setting | No |
 | `AI_TIMEOUT_SECONDS` | No | `60` | No |
 | `LOG_LEVEL` | No | `INFO`/`DEBUG` | No |
 | `STARTUP_TEST_RUNNER_ENABLED` | No | `False` | No |
-| `VITE_API_BASE_URL` | No | empty (same-origin) | No |
+| `VITE_API_BASE_URL` | No | empty/same-origin | No |
+| `VITE_API_PROXY_TARGET` | No | `http://127.0.0.1:5000` | No |
 
 ### Secret handling rules
-1. Rotate `SECRET_KEY` and `JWT_SECRET_KEY` before non-local deployment handoff.
-2. Never commit plaintext secrets.
-3. Keep local `.env` files excluded from source control.
-4. Record production secret storage location and rotation cadence.
+1. Rotate `SECRET_KEY` and `JWT_SECRET_KEY` before non-local deployment.
+2. Keep local `.env` files out of source control.
+3. Record production secret owner, storage location, and rotation cadence.
 
 ---
 
 ## 7) Backlog and Technical Debt Triage
 
-### Must-fix before handoff
-- M1: Confirm handoff docs are internally consistent and linked.
-- M2: Fill owner/contact placeholders across artifacts.
-- M3: Verify startup + health path from clean checkout.
+### Known open areas
+- Instructor/admin workflows exist but need finishing and validation.
+- Accessibility/accommodation integration is implemented, but it needs deeper bug-focused testing.
+- Event logging needs more thorough failure testing around the current in-process hooks.
+- Backend utility cleanup is called out in `AccessBackEnd/docs/engineering_cleanup_report.md`.
 
-### Post-handoff priorities
-- P1: Auth/session hardening and token lifecycle completion.
-- P2: Full DB-driven runtime model selection completion.
-- P3: Instructor/admin workflow closure.
-- P4: Event logging durability hardening.
-- P5: CI formalization and branch protections.
-
-### Won't do in handoff window
-- W1: New feature development.
-- W2: Broad dependency upgrades.
-- W3: New external integrations.
-
-Recommended first sprint:
-1. Resolve M* items.
-2. Prioritize P1 and P5.
-3. Assign ownership/SLAs for operations and secrets rotation.
+### Out of handoff scope
+- New feature development.
+- Broad dependency upgrades.
+- New external integrations.
+- University SSO/login integration.
+- Production GPU/server-hosted model processing.
 
 ---
 
 ## 8) Quality Gates and CI Audit
 
-### Current observed checks
-- Backend tests via `cd AccessBackEnd && pytest`.
-- Frontend unit tests via `cd AccessAppFront && npm test`.
-- Frontend build validation via `cd AccessAppFront && npm run build`.
-- Container startup contract tests exist in backend utility tests.
+### Current local checks
+```bash
+cd AccessBackEnd && pytest
+cd AccessAppFront && npm test
+cd AccessAppFront && npm run build
+cd AccessAppFront && npm run check
+python scripts/compliance/compliance_gate.py
+```
 
-### CI state
-- No repository-level `.github/workflows/*.yml` CI workflow file is present in the tree.
-- Current quality checks appear manual/local (or external undocumented automation).
+### Current CI state
+- `.github/workflows/oss-compliance.yml` automatically runs `python scripts/compliance/compliance_gate.py` on pull requests and pushes to `main`.
+- Backend tests, frontend tests, and frontend build checks are documented local/manual gates unless external automation is configured outside this repo.
+- Handoff branch note: the frozen branch was split from the `dev 03` work into `main` after validation/testing, then cloned again for this handoff branch.
 
-### Minimum gate policy (recommended)
-1. Backend tests.
-2. Frontend unit tests.
-3. Frontend build check.
-4. Container startup smoke when startup/runtime changes:
-   - `docker compose up --build`
-   - `curl -s http://localhost:5000/api/v1/health`
-   - `docker compose down`
+### Current known check caveats
+- Full backend `pytest` needs follow-up: the latest local run failed in existing backend tests and in model-probe cases that attempted blocked Hugging Face network calls.
+- Local `python scripts/compliance/compliance_gate.py` can fail when the license lookup for `ai-pipeline-thin` returns `UNKNOWN`; review the generated compliance report before treating this as a release blocker.
 
-Branch protection recommendation:
-- Require PR review approval.
-- Require passing backend + frontend checks.
-- Block force-push to protected default branch.
+### Minimum release/merge gate
+1. Backend tests pass.
+2. Frontend unit tests pass.
+3. Frontend production build passes.
+4. Compliance gate passes.
+5. Docker startup smoke passes when startup/runtime files change.
+
+### Docker startup smoke
+```bash
+docker compose up --build
+curl http://localhost:5173/api/v1/health
+docker compose down
+```
 
 ---
 
 ## 9) Support Transfer Packet
 
-### Required contents
-- Architecture summary (section 3)
-- Runbooks (section 5)
-- Config + secrets map (section 6)
-- Backlog / triage (section 7)
-- CI / quality gates (section 8)
-- Final handoff + signoff (section 10)
+### Packet index
+- Architecture summary: section 3.
+- Operational runbook: section 5.
+- Configuration and secrets map: section 6.
+- Backlog and known open areas: section 7.
+- Quality gates and CI audit: section 8.
+- Final meeting/signoff notes: section 10.
+- Frontend current-state docs:
+  - `AccessAppFront/docs/frontend-handoff-snapshot.md`
+  - `AccessAppFront/docs/route-guard-access-policy.md`
+  - `AccessAppFront/docs/store-ownership-and-bootstrap.md`
+  - `AccessAppFront/docs/frontend-logging-and-error-policy.md`
+- Database layer: `AccessBackEnd/app/db/`.
+  - Current DB files include settings/config helpers, SQLite migrations, model-file loading, prompt-context assembly, and repositories.
+- Backend docs index: `AccessBackEnd/docs/README.md`.
+- Accessibility guide: `docs/accessibility/README.md`.
+- Compliance docs:
+  - `docs/compliance/oss_mit_readiness.md`
+  - `docs/compliance/latest_license_audit.md`
+  - `docs/compliance/secret_scan_report.md`
 
-### Key notes for receiving team
-1. App runs via Docker Compose from repo root
-2. Backend health endpoint: `/api/v1/health`
-3. System assumes seeded data for initial login/testing
-4. Auth/session hardening is still incomplete
-5. Some AI model selection paths are transitional
-6. Ownership roles must be finalized post-handoff
-7. This document reflects current system state
+### Transfer status
+- [x] MVP app delivered with offered extended support.
+- [x] `Professor Tomi Heimonen` has ownership of the frozen branch.
+- [x] Final handoff meeting completed.
+- [x] Frontend handoff docs reviewed against current frontend code.
+- [ ] Receiving team owners assigned for operations, secrets, and backlog.
+- [ ] Production/non-local secret storage and rotation plan finalized.
 
-### Delivery checklist
-- [X] MVP app delivered with offered extended support.
-- [X] `Professor Tomi Heimonen` has been given ownership of a frozen branch.
-- [ ] Final documentation and 
+### Receiving-team quick checks
+```bash
+docker compose up --build
+curl http://localhost:5173/api/v1/health
+cd AccessBackEnd && pytest
+cd AccessAppFront && npm run check
+python scripts/compliance/compliance_gate.py
+```
 
+---
 
+## 10) Final Handoff and Signoff Notes
 
-### Post-meeting actions
-- Publish meeting notes and recording link.
-- Update checklist statuses.
-- Create first post-handoff sprint board from P* priorities.
-- Confirm escalation/on-call ownership.
+### Meeting status
+- Final handoff meeting occurred on April 27, 2026.
+- No additional timeline/demo planning is tracked in this document.
 
-### Completion criteria
-Handoff is complete when:
-1. Receiving team has explicitly accepted signoff.
-2. Named owners exist for operations, secrets, and backlog.
-3. Sections are accessible and validated.
-4. First post-handoff sprint priorities are scheduled.
+### Decisions/status to carry forward
+- Repository remains in stabilization/handoff mode until receiving-team owners accept active maintenance.
+- Extended support was offered after MVP delivery.
+- Remaining open work should be tracked as normal backlog items, not in this handoff master document.
 
-
-## 11) Consolidated Unfinished Work Tracker
-
-This section consolidates the unfinished-work analysis that was previously maintained in a separate planning document.
-
-### April 27, 2026 final handoff sweep (2–3 hour execution plan)
-
-Timebox this final pass to unblock signoff-critical items first:
-
-1. **Frontend transcript rendering fix (45–60 min)**
-   - Confirm assistant responses that include HTML snippets/lists/links render safely and readably in the chat bubble UI.
-   - Verify unsafe tags/attributes are stripped and links are constrained to safe protocols.
-2. **Class-context mismatch triage (30–45 min)**
-   - Validate seed enrollments map each seeded student to the intended class context.
-   - Re-seed locally and confirm chat requests use the expected class context/prompt behavior.
-3. **Top panel simplification (15–20 min)**
-   - Remove model label from header panel.
-   - Keep only selected class context in the top panel.
-4. **Handoff closure pass (30–45 min)**
-   - Convert remaining `_TBD_` owner fields where possible.
-   - Prepare meeting decision table and acceptance notes for H11 completion.
-5. **Final smoke checks + artifacts (20–30 min)**
-   - Run backend seed contract tests and frontend build/test checks.
-   - Capture final status update in this document with UTC timestamp.
-
-### API items
-- Admin model download endpoint still uses transitional success semantics; finalize lifecycle states (`queued`, `in_progress`, `completed`, `failed`).
-- AI model catalog still exposes migration compatibility aliases and legacy fields; publish deprecation schedule and remove aliases after checkpoint.
-- `reconcile` query parameter on `/api/v1/ai/models` remains a no-op; remove or implement behavior.
-- Auth registration still uses transitional security stamp pattern; finalize generation/rotation policy.
-
-### Logging / event bus items
-- Event bus is process-local and synchronous; decide whether durable sink is required for handoff-critical telemetry.
-- Add observer-failure isolation policy and tests for event publish fanout.
-- Add explicit event catalog/versioning guidance and correlation-ID conventions.
-
-### Database items
-- `create_standalone_db(...)` control-flow risk when `create_schema=False`; stabilize return path.
-- SQLite migration path remains additive/best-effort; harden migration ownership and ordering.
-- AI model inventory duplicate-insert edge case remains unresolved (`xfail`); close prior to production migration.
-- SQLite URL normalization now expands env vars/tilde/relative paths deterministically in settings layer; keep regression tests green.
-
-### Utilities / contract items
-- `app/utils/api_checker/operations.py` remains broad and tightly coupled to Flask globals.
-- `app/utils/api_checker/validator.py` still mixes canonical/legacy alias behavior.
-- `app/utils/env_config.py` naming/validation mismatches remain unresolved.
-- `app/utils/api_checker/mutations.py` is an empty placeholder; remove or implement.
-
-### Suggested next-steps order
-1. Observability + API contract cleanup (`print` remnants, no-op parameters, response lifecycle semantics).
-2. DB stability fixes (standalone DB control flow and AI inventory dedup).
-3. Utility module decomposition with explicit ownership boundaries.
-4. Regression checkpoint (`pytest tests/api -q`, `pytest tests/db -q`, targeted AI-resolution tests).
+### Signoff still needed
+- Named owner for operations.
+- Named owner for secrets/rotation.
+- Named owner for backlog prioritization.
+- Confirmation that the transfer packet in section 9 is accessible to the receiving team.

@@ -1,3 +1,4 @@
+// Frontend route table and auth guard: only route records with `meta.requiresAuth` trigger session verification and login redirect.
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from './views/HomeView.vue'
 import AccessibilityView from './views/AccessibilityView.vue'

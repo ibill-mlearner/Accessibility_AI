@@ -1,23 +1,36 @@
 # Frontend Route Guard & Access Policy
 
-This document captures current route-access behavior for frontend handoff workstream step 5.
+Current route-access behavior is defined in `src/router.js`.
 
-## Source of truth
-- Route definitions and guard logic live in `src/router.js`.
-- Auth/session status comes from `useAuthStore()`.
+## Route table
+- Public routes:
+  - `/` -> `HomeView`
+  - `/accessibility` -> `AccessibilityView`
+  - `/classes` -> `ClassesView`
+  - `/login` -> `LoginView`
+  - `/logout` -> `LogoutView`
+  - `/error` -> `ErrorView`
+- Protected route:
+  - `/profile` -> `ProfileView`, with route metadata `meta: { requiresAuth: true }`
+- Redirects:
+  - `/classes/:role` redirects to `/classes`.
+  - Unknown paths (`/:pathMatch(.*)*`) redirect to `/error`.
 
-## Current route policy
-- Public routes (no auth guard): `/`, `/accessibility`, `/classes`, `/login`, `/logout`, `/error`.
-- Protected route: `/profile` (`meta.requiresAuth: true`).
-- Catch-all route redirects unknown paths to `/error`.
+## Guard behavior
+`router.beforeEach` only applies auth checks when the destination route metadata exposes `to.meta?.requiresAuth`.
 
-## Guard behavior (`beforeEach`)
-1. If route does **not** require auth, navigation continues.
-2. If route requires auth and `auth.sessionChecked` is false, guard runs `auth.me()`.
-3. If user is still not authenticated, redirect to `{ name: 'login' }`.
-4. Otherwise allow navigation.
+1. If the destination route does not require auth, navigation is allowed.
+2. If the destination requires auth, the guard reads `useAuthStore()`.
+3. If `auth.sessionChecked` is false, the guard awaits `auth.me()`.
+4. If `auth.isAuthenticated` is still false, navigation redirects to `{ name: 'login' }`.
+5. Otherwise navigation is allowed.
 
-## Notes for future hardening
-- Expand `meta.requiresAuth` to other routes if product policy requires it.
-- Keep guard behavior store-driven (`auth.me()` + `isAuthenticated`) to avoid duplicating auth logic in views.
-- Prefer route-meta role checks over ad-hoc component checks if role-level route restrictions are added.
+## Auth source of truth
+- The router does not parse tokens, cookies, roles, or permissions directly.
+- Session verification is delegated to `auth.me()`, which calls `/api/v1/auth/session` through the shared API client.
+- Current route access is authentication-only. Role/capability checks are handled in views/components, not by route meta.
+
+## Practical notes
+- Adding route protection means adding `meta: { requiresAuth: true }` to that route record in `src/router.js`.
+- Adding role-level route restrictions would require new guard logic; none exists today.
+- `/profile` also performs direct-load hydration in `ProfileView`, so the route guard and view both rely on the same auth store state.
